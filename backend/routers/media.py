@@ -49,6 +49,7 @@ async def _save_uploaded_file_chunked(file: UploadFile, save_path: Path, max_byt
     total_written = 0
     chunk_size = 1024 * 1024  # 1 MB
     try:
+        save_path.parent.mkdir(parents=True, exist_ok=True)
         with open(save_path, "wb") as f:
             while chunk := await file.read(chunk_size):
                 total_written += len(chunk)
@@ -337,6 +338,7 @@ async def upload_watermark(file: UploadFile = File(...)):
     
     clean_name = re.sub(r'[^a-zA-Z0-9_.-]', '_', file.filename)
     unique_name = f"wm_{uuid.uuid4().hex[:8]}_{clean_name}"
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     save_path = UPLOADS_DIR / unique_name
     
     try:
@@ -362,7 +364,12 @@ def get_watermark_file(file_name: str):
     file_path = UPLOADS_DIR / clean_name
     if not file_path.exists() or not _is_safe_path(file_path):
         raise HTTPException(status_code=404, detail="Watermark file not found")
-    media_type = "image/png" if clean_name.endswith(".png") else "image/jpeg" if (clean_name.endswith(".jpg") or clean_name.endswith(".jpeg")) else "image/webp"
+    media_type = (
+        "image/svg+xml" if clean_name.endswith(".svg")
+        else "image/png" if clean_name.endswith(".png")
+        else "image/jpeg" if (clean_name.endswith(".jpg") or clean_name.endswith(".jpeg"))
+        else "image/webp"
+    )
     return FileResponse(file_path, media_type=media_type, filename=clean_name)
 
 
