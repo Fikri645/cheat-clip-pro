@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from backend.config import COOKIES_PATH, ROOT_COOKIES_PATH, TEMP_DIR, _base_dir, logger
+from backend.config import COOKIES_PATH, ROOT_COOKIES_PATH, TEMP_DIR, UPLOADS_DIR, _base_dir, logger
 
 
 def get_dir_size_and_count(dir_path) -> Tuple[int, int]:
@@ -71,6 +71,8 @@ def clear_temp_files() -> dict:
                     if is_protected_cookie(item):
                         logger.info(f"Preserving protected cookie file: {item}")
                         continue
+                    if item.name == "uploads":
+                        continue
 
                     if item.is_file() or item.is_symlink():
                         sz = item.stat().st_size
@@ -97,8 +99,9 @@ def clear_temp_files() -> dict:
                     logger.warning(f"Could not delete temp item {item}: {e}")
         d.mkdir(parents=True, exist_ok=True)
 
-    # Ensure frames directory inside TEMP_DIR exists
+    # Ensure frames and uploads directories inside TEMP_DIR exist
     (TEMP_DIR / "frames").mkdir(parents=True, exist_ok=True)
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
     cleared_mb = round(cleared_bytes / (1024 * 1024), 2)
     formatted = f"{cleared_mb} MB" if cleared_mb < 1024 else f"{round(cleared_mb / 1024, 2)} GB"

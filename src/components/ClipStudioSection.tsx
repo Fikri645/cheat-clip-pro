@@ -1018,8 +1018,9 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
   const uploadWatermarkFile = async (file: File) => {
     if (!file) return;
     setIsUploadingWatermark(true);
+    let localUrl = '';
     try {
-      const localUrl = URL.createObjectURL(file);
+      localUrl = URL.createObjectURL(file);
       setWatermarkImageUrl(localUrl);
       setWatermarkImageFileName(file.name);
 
@@ -1040,7 +1041,14 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
       setWatermarkEnabled(true);
     } catch (err) {
       console.error('Watermark upload error:', err);
-      alert('Failed to upload watermark image.');
+      const msg = err instanceof Error ? err.message : 'Failed to upload watermark image.';
+      alert(msg);
+      if (localUrl) {
+        try { URL.revokeObjectURL(localUrl); } catch { /* ignore */ }
+      }
+      setWatermarkImageFilePath('');
+      setWatermarkImageUrl('');
+      setWatermarkImageFileName('');
     } finally {
       setIsUploadingWatermark(false);
     }
