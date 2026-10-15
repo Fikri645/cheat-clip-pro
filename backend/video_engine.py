@@ -28,7 +28,7 @@ ROOT_COOKIES_PATH = BASE_DIR.parent / "cookies.txt"
 
 def normalize_to_netscape(raw_content: str) -> str:
     """Cleans raw cookie input, strips UTF BOMs and null bytes, and auto-converts
-    JSON cookies (from Cookie-Editor, EditThisCookie, etc.) to valid Netscape format for yt-dlp.
+    JSON cookies, HTTP Cookie headers, or misaligned columns to valid Netscape format for yt-dlp.
     """
     if not raw_content:
         return ""
@@ -45,10 +45,13 @@ def normalize_to_netscape(raw_content: str) -> str:
     if not text:
         return ""
 
+    # 1. Check for JSON format (Cookie-Editor, EditThisCookie, etc.)
     if text.startswith("[") or text.startswith("{"):
         try:
             parsed = json.loads(text)
-            if isinstance(parsed, dict):
+            if isinstance(parsed, dict) and "cookies" in parsed and isinstance(parsed["cookies"], list):
+                parsed = parsed["cookies"]
+            elif isinstance(parsed, dict):
                 parsed = [parsed]
             if isinstance(parsed, list) and len(parsed) > 0 and isinstance(parsed[0], dict):
                 lines = [
@@ -61,7 +64,7 @@ def normalize_to_netscape(raw_content: str) -> str:
                 for item in parsed:
                     domain = str(item.get("domain") or item.get("host") or "").strip()
                     if not domain:
-                        continue
+                        domain = ".youtube.com"
                     flag = "TRUE" if domain.startswith(".") else "FALSE"
                     path = str(item.get("path") or "/").strip()
                     secure = "TRUE" if item.get("secure") else "FALSE"
@@ -84,6 +87,33 @@ def normalize_to_netscape(raw_content: str) -> str:
         except Exception:
             pass
 
+    # 2. Check for HTTP Cookie header format (e.g. from browser DevTools Network tab or curl: "Cookie: SID=...; HSID=...")
+    clean_header = text
+    if clean_header.lower().startswith("cookie:"):
+        clean_header = clean_header[7:].strip()
+    if ";" in clean_header and "=" in clean_header and "\t" not in clean_header:
+        pairs = clean_header.split(";")
+        header_lines = [
+            "# Netscape HTTP Cookie File",
+            "# http://curl.haxx.se/rfc/cookie_spec.html",
+            "# Converted automatically from HTTP Cookie header by CheatClip Pro",
+            "",
+        ]
+        cookie_count = 0
+        for pair in pairs:
+            pair = pair.strip()
+            if not pair or "=" not in pair:
+                continue
+            k, v = pair.split("=", 1)
+            name = k.strip()
+            val = v.strip()
+            if name:
+                header_lines.append(f".youtube.com\tTRUE\t/\tTRUE\t2147483647\t{name}\t{val}")
+                cookie_count += 1
+        if cookie_count > 0:
+            return "\n".join(header_lines) + "\n"
+
+    # 3. Handle standard Netscape text and space-to-tab repair
     lines = text.split("\n")
     cleaned_lines = []
     has_header = False
@@ -94,6 +124,18 @@ def normalize_to_netscape(raw_content: str) -> str:
             continue
         if "# Netscape HTTP Cookie File" in stripped:
             has_header = True
+            cleaned_lines.append(stripped)
+            continue
+        if stripped.startswith("#") and not stripped.startswith("#HttpOnly_"):
+            cleaned_lines.append(stripped)
+            continue
+
+        # If line has spaces instead of tabs, convert 2+ spaces to tabs
+        if "\t" not in stripped:
+            parts = re.split(r'\s{2,}|\t', stripped)
+            if len(parts) >= 6:
+                stripped = "\t".join(parts)
+
         cleaned_lines.append(stripped)
 
     if not has_header:
@@ -116,6 +158,7 @@ def ephemeral_cookies_file(cookies_content: Optional[str]):
         yield None
         return
 
+    TEMP_DIR.mkdir(parents=True, exist_ok=True)
     temp_file = tempfile.NamedTemporaryFile(
         mode="w",
         prefix="yt_cookie_",
@@ -411,21 +454,30 @@ def get_yt_dlp_base_cmd(
     elif shutil.which("node"):
         cmd.extend(["--js-runtimes", "node"])
 
-    # Prevent 'Sign in to confirm you are not a bot' and 'The page needs to be reloaded'
-    # by allowing yt-dlp to fall back to android, ios, web_embedded, and mweb client APIs.
-    cmd.extend([
-        "--extractor-args", "youtube:player_client=android,ios,web_embedded,mweb,web",
-        "--force-ipv4"
-    ])
-
+    has_active_cookies = False
     if cookies_path and Path(cookies_path).exists() and Path(cookies_path).stat().st_size > 0:
+        has_active_cookies = True
         logger.info(f"Using ephemeral YouTube cookies from: {cookies_path}")
         cmd.extend(["--cookies", str(cookies_path)])
     elif include_cookies:
         eff = get_effective_cookies_path()
         if eff:
+            has_active_cookies = True
             logger.info(f"Using YouTube cookies from: {eff}")
             cmd.extend(["--cookies", str(eff)])
+
+    if has_active_cookies:
+        # Prioritize web,mweb so authenticated YouTube sessions are used for highest 1080p/HD formats
+        cmd.extend([
+            "--extractor-args", "youtube:player_client=web,mweb,android,ios",
+            "--force-ipv4"
+        ])
+    else:
+        # In guest mode without cookies, android/ios/web_embedded helps bypass bot verification
+        cmd.extend([
+            "--extractor-args", "youtube:player_client=android,ios,web_embedded,mweb,web",
+            "--force-ipv4"
+        ])
     return cmd
 
 
@@ -808,203 +860,203 @@ def download_clip_segment(
         for use_cookies in attempts:
             mode_label = "with cookies" if use_cookies else "guest mode (without cookies)"
             base_cmd = get_yt_dlp_base_cmd(include_cookies=use_cookies, cookies_path=temp_cookies if use_cookies else None)
-        logger.info(f"Downloading HD section ({clip_duration:.1f}s) {t_start_fmt} -> {t_end_fmt} for {clean_url} ({mode_label}, timeout: {timeout_sec}s)")
+            logger.info(f"Downloading HD section ({clip_duration:.1f}s) {t_start_fmt} -> {t_end_fmt} for {clean_url} ({mode_label}, timeout: {timeout_sec}s)")
 
-        # Method 1: yt-dlp --download-sections with multi-fragment acceleration, socket timeout, & retries
-        cmd = [
-            *base_cmd,
-            "--download-sections", f"*{t_start_fmt}-{t_end_fmt}",
-            "--force-keyframes-at-cuts",
-            "-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best",
-            "-N", "4",
-            "--socket-timeout", "20",
-            "--fragment-retries", "5",
-            "--retries", "5",
-            "--file-access-retries", "3",
-            "-o", str(output_path),
-            "--merge-output-format", "mp4",
-            "--no-warnings",
-            clean_url
-        ]
-        try:
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_sec)
-            if res.returncode == 0 and is_valid_mp4(output_path):
-                logger.info(f"Successfully downloaded section ({mode_label}): {output_path} ({output_path.stat().st_size} bytes)")
-                return str(output_path)
-            # If not valid or returncode != 0, clean up any incomplete/corrupt partial file immediately
-            if output_path.exists():
-                try:
-                    output_path.unlink()
-                except Exception:
-                    pass
-            last_err_snippet = res.stderr[:300] if (res and res.stderr) else "empty output or invalid file (moov atom missing)"
-        except subprocess.TimeoutExpired:
-            logger.warning(f"yt-dlp download-sections timed out after {timeout_sec}s for {clean_url} ({mode_label}).")
-            if output_path.exists():
-                try:
-                    output_path.unlink()
-                except Exception:
-                    pass
-            last_err_snippet = f"download-sections timed out after {timeout_sec}s due to network lag"
-        except Exception as e:
-            logger.warning(f"yt-dlp download-sections failed ({e}) ({mode_label}).")
-            if output_path.exists():
-                try:
-                    output_path.unlink()
-                except Exception:
-                    pass
-            last_err_snippet = str(e)
-
-        # Method 2: Fallback - Extract direct stream URLs with yt-dlp and slice using FFmpeg with network reconnect
-        logger.info(f"Direct section download fallback ({last_err_snippet}), trying stream URL trimming with auto-reconnect ({mode_label})...")
-        try:
-            if output_path.exists():
-                try:
-                    output_path.unlink()
-                except Exception:
-                    pass
-            url_cmd = [
-                *base_cmd,
-                "--socket-timeout", "20",
-                "-g",
-                "-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best",
-                clean_url
-            ]
-            url_res = subprocess.run(url_cmd, capture_output=True, text=True, timeout=30)
-            if url_res.returncode == 0 and url_res.stdout.strip():
-                urls = url_res.stdout.strip().split("\n")
-                video_stream = urls[0]
-                audio_stream = urls[1] if len(urls) > 1 else urls[0]
-
-                trim_timeout = max(240, min(900, int(clip_duration * 4.5) + 60))
-                trim_cmd = [
-                    "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-                    "-reconnect", "1",
-                    "-reconnect_at_eof", "1",
-                    "-reconnect_streamed", "1",
-                    "-reconnect_delay_max", "5",
-                    "-ss", str(start_time),
-                    "-i", video_stream,
-                    "-ss", str(start_time),
-                    "-i", audio_stream,
-                    "-t", str(clip_duration),
-                    "-map", "0:v:0", "-map", "1:a:0?",
-                    *ACTIVE_ENCODER_ARGS,
-                    "-c:a", "aac",
-                    "-b:a", "192k",
-                    "-avoid_negative_ts", "make_zero",
-                    "-movflags", "+faststart",
-                    str(output_path)
-                ]
-                trim_res = subprocess.run(trim_cmd, capture_output=True, text=True, timeout=trim_timeout)
-                if trim_res.returncode == 0 and is_valid_mp4(output_path):
-                    logger.info(f"Successfully trimmed stream URLs with FFmpeg ({mode_label}): {output_path} ({output_path.stat().st_size} bytes)")
-                    return str(output_path)
-                else:
-                    if output_path.exists():
-                        try:
-                            output_path.unlink()
-                        except Exception:
-                            pass
-                    last_err_snippet = trim_res.stderr[:300] if (trim_res and trim_res.stderr) else "stream trimming failed"
-        except Exception as e:
-            logger.error(f"Fallback stream trimming failed ({mode_label}): {e}")
-            if output_path.exists():
-                try:
-                    output_path.unlink()
-                except Exception:
-                    pass
-            last_err_snippet = str(e)
-
-        # Method 3: Fallback - Download at 720p (vastly lower bandwidth, skips SABR/1080p throttling)
-        logger.info(f"Method 3: Attempting fast 720p fallback section download for {clean_url} ({mode_label})...")
-        try:
-            if output_path.exists():
-                try:
-                    output_path.unlink()
-                except Exception:
-                    pass
-            cmd_720p = [
+            # Method 1: yt-dlp --download-sections with multi-fragment acceleration, socket timeout, & retries
+            cmd = [
                 *base_cmd,
                 "--download-sections", f"*{t_start_fmt}-{t_end_fmt}",
                 "--force-keyframes-at-cuts",
-                "-f", "bestvideo[height<=720]+bestaudio/best[height<=720]/best",
+                "-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best",
                 "-N", "4",
                 "--socket-timeout", "20",
                 "--fragment-retries", "5",
                 "--retries", "5",
+                "--file-access-retries", "3",
                 "-o", str(output_path),
                 "--merge-output-format", "mp4",
                 "--no-warnings",
                 clean_url
             ]
-            timeout_720p = max(200, min(600, int(clip_duration * 4) + 60))
-            res_720p = subprocess.run(cmd_720p, capture_output=True, text=True, timeout=timeout_720p)
-            if res_720p.returncode == 0 and is_valid_mp4(output_path):
-                logger.info(f"Successfully downloaded 720p fallback section ({mode_label}): {output_path} ({output_path.stat().st_size} bytes)")
-                return str(output_path)
-            if output_path.exists():
-                try:
-                    output_path.unlink()
-                except Exception:
-                    pass
-            if res_720p and res_720p.stderr:
-                last_err_snippet = res_720p.stderr[:300]
-        except Exception as e:
-            logger.warning(f"720p fallback failed ({mode_label}): {e}")
-            if output_path.exists():
-                try:
-                    output_path.unlink()
-                except Exception:
-                    pass
-            last_err_snippet = str(e)
+            try:
+                res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_sec)
+                if res.returncode == 0 and is_valid_mp4(output_path):
+                    logger.info(f"Successfully downloaded section ({mode_label}): {output_path} ({output_path.stat().st_size} bytes)")
+                    return str(output_path)
+                # If not valid or returncode != 0, clean up any incomplete/corrupt partial file immediately
+                if output_path.exists():
+                    try:
+                        output_path.unlink()
+                    except Exception:
+                        pass
+                last_err_snippet = res.stderr[:300] if (res and res.stderr) else "empty output or invalid file (moov atom missing)"
+            except subprocess.TimeoutExpired:
+                logger.warning(f"yt-dlp download-sections timed out after {timeout_sec}s for {clean_url} ({mode_label}).")
+                if output_path.exists():
+                    try:
+                        output_path.unlink()
+                    except Exception:
+                        pass
+                last_err_snippet = f"download-sections timed out after {timeout_sec}s due to network lag"
+            except Exception as e:
+                logger.warning(f"yt-dlp download-sections failed ({e}) ({mode_label}).")
+                if output_path.exists():
+                    try:
+                        output_path.unlink()
+                    except Exception:
+                        pass
+                last_err_snippet = str(e)
 
-        # Method 4: Fallback - Download at 480p / lowest bandwidth (guaranteed to succeed on high lag)
-        logger.info(f"Method 4: Attempting low-bandwidth 480p fallback section download for {clean_url} ({mode_label})...")
-        try:
-            if output_path.exists():
-                try:
-                    output_path.unlink()
-                except Exception:
-                    pass
-            cmd_480p = [
-                *base_cmd,
-                "--download-sections", f"*{t_start_fmt}-{t_end_fmt}",
-                "--force-keyframes-at-cuts",
-                "-f", "bestvideo[height<=480]+bestaudio/best[height<=480]/18/best",
-                "-N", "2",
-                "--socket-timeout", "20",
-                "--fragment-retries", "3",
-                "--retries", "3",
-                "-o", str(output_path),
-                "--merge-output-format", "mp4",
-                "--no-warnings",
-                clean_url
-            ]
-            timeout_480p = max(150, min(450, int(clip_duration * 3) + 45))
-            res_480p = subprocess.run(cmd_480p, capture_output=True, text=True, timeout=timeout_480p)
-            if res_480p.returncode == 0 and is_valid_mp4(output_path):
-                logger.info(f"Successfully downloaded 480p fallback section ({mode_label}): {output_path} ({output_path.stat().st_size} bytes)")
-                return str(output_path)
-            if output_path.exists():
-                try:
-                    output_path.unlink()
-                except Exception:
-                    pass
-            if res_480p and res_480p.stderr:
-                last_err_snippet = res_480p.stderr[:300]
-        except Exception as e:
-            logger.warning(f"480p fallback failed ({mode_label}): {e}")
-            if output_path.exists():
-                try:
-                    output_path.unlink()
-                except Exception:
-                    pass
-            last_err_snippet = str(e)
+            # Method 2: Fallback - Extract direct stream URLs with yt-dlp and slice using FFmpeg with network reconnect
+            logger.info(f"Direct section download fallback ({last_err_snippet}), trying stream URL trimming with auto-reconnect ({mode_label})...")
+            try:
+                if output_path.exists():
+                    try:
+                        output_path.unlink()
+                    except Exception:
+                        pass
+                url_cmd = [
+                    *base_cmd,
+                    "--socket-timeout", "20",
+                    "-g",
+                    "-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best",
+                    clean_url
+                ]
+                url_res = subprocess.run(url_cmd, capture_output=True, text=True, timeout=30)
+                if url_res.returncode == 0 and url_res.stdout.strip():
+                    urls = url_res.stdout.strip().split("\n")
+                    video_stream = urls[0]
+                    audio_stream = urls[1] if len(urls) > 1 else urls[0]
 
-        # If cookies were used and failed due to reload / session error or bot block, log and proceed to guest mode
-        if use_cookies:
-            logger.warning(f"Download with cookies failed ({last_err_snippet}). Automatically attempting guest mode fallback...")
+                    trim_timeout = max(240, min(900, int(clip_duration * 4.5) + 60))
+                    trim_cmd = [
+                        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                        "-reconnect", "1",
+                        "-reconnect_at_eof", "1",
+                        "-reconnect_streamed", "1",
+                        "-reconnect_delay_max", "5",
+                        "-ss", str(start_time),
+                        "-i", video_stream,
+                        "-ss", str(start_time),
+                        "-i", audio_stream,
+                        "-t", str(clip_duration),
+                        "-map", "0:v:0", "-map", "1:a:0?",
+                        *ACTIVE_ENCODER_ARGS,
+                        "-c:a", "aac",
+                        "-b:a", "192k",
+                        "-avoid_negative_ts", "make_zero",
+                        "-movflags", "+faststart",
+                        str(output_path)
+                    ]
+                    trim_res = subprocess.run(trim_cmd, capture_output=True, text=True, timeout=trim_timeout)
+                    if trim_res.returncode == 0 and is_valid_mp4(output_path):
+                        logger.info(f"Successfully trimmed stream URLs with FFmpeg ({mode_label}): {output_path} ({output_path.stat().st_size} bytes)")
+                        return str(output_path)
+                    else:
+                        if output_path.exists():
+                            try:
+                                output_path.unlink()
+                            except Exception:
+                                pass
+                        last_err_snippet = trim_res.stderr[:300] if (trim_res and trim_res.stderr) else "stream trimming failed"
+            except Exception as e:
+                logger.error(f"Fallback stream trimming failed ({mode_label}): {e}")
+                if output_path.exists():
+                    try:
+                        output_path.unlink()
+                    except Exception:
+                        pass
+                last_err_snippet = str(e)
+
+            # Method 3: Fallback - Download at 720p (vastly lower bandwidth, skips SABR/1080p throttling)
+            logger.info(f"Method 3: Attempting fast 720p fallback section download for {clean_url} ({mode_label})...")
+            try:
+                if output_path.exists():
+                    try:
+                        output_path.unlink()
+                    except Exception:
+                        pass
+                cmd_720p = [
+                    *base_cmd,
+                    "--download-sections", f"*{t_start_fmt}-{t_end_fmt}",
+                    "--force-keyframes-at-cuts",
+                    "-f", "bestvideo[height<=720]+bestaudio/best[height<=720]/best",
+                    "-N", "4",
+                    "--socket-timeout", "20",
+                    "--fragment-retries", "5",
+                    "--retries", "5",
+                    "-o", str(output_path),
+                    "--merge-output-format", "mp4",
+                    "--no-warnings",
+                    clean_url
+                ]
+                timeout_720p = max(200, min(600, int(clip_duration * 4) + 60))
+                res_720p = subprocess.run(cmd_720p, capture_output=True, text=True, timeout=timeout_720p)
+                if res_720p.returncode == 0 and is_valid_mp4(output_path):
+                    logger.info(f"Successfully downloaded 720p fallback section ({mode_label}): {output_path} ({output_path.stat().st_size} bytes)")
+                    return str(output_path)
+                if output_path.exists():
+                    try:
+                        output_path.unlink()
+                    except Exception:
+                        pass
+                if res_720p and res_720p.stderr:
+                    last_err_snippet = res_720p.stderr[:300]
+            except Exception as e:
+                logger.warning(f"720p fallback failed ({mode_label}): {e}")
+                if output_path.exists():
+                    try:
+                        output_path.unlink()
+                    except Exception:
+                        pass
+                last_err_snippet = str(e)
+
+            # Method 4: Fallback - Download at 480p / lowest bandwidth (guaranteed to succeed on high lag)
+            logger.info(f"Method 4: Attempting low-bandwidth 480p fallback section download for {clean_url} ({mode_label})...")
+            try:
+                if output_path.exists():
+                    try:
+                        output_path.unlink()
+                    except Exception:
+                        pass
+                cmd_480p = [
+                    *base_cmd,
+                    "--download-sections", f"*{t_start_fmt}-{t_end_fmt}",
+                    "--force-keyframes-at-cuts",
+                    "-f", "bestvideo[height<=480]+bestaudio/best[height<=480]/18/best",
+                    "-N", "2",
+                    "--socket-timeout", "20",
+                    "--fragment-retries", "3",
+                    "--retries", "3",
+                    "-o", str(output_path),
+                    "--merge-output-format", "mp4",
+                    "--no-warnings",
+                    clean_url
+                ]
+                timeout_480p = max(150, min(450, int(clip_duration * 3) + 45))
+                res_480p = subprocess.run(cmd_480p, capture_output=True, text=True, timeout=timeout_480p)
+                if res_480p.returncode == 0 and is_valid_mp4(output_path):
+                    logger.info(f"Successfully downloaded 480p fallback section ({mode_label}): {output_path} ({output_path.stat().st_size} bytes)")
+                    return str(output_path)
+                if output_path.exists():
+                    try:
+                        output_path.unlink()
+                    except Exception:
+                        pass
+                if res_480p and res_480p.stderr:
+                    last_err_snippet = res_480p.stderr[:300]
+            except Exception as e:
+                logger.warning(f"480p fallback failed ({mode_label}): {e}")
+                if output_path.exists():
+                    try:
+                        output_path.unlink()
+                    except Exception:
+                        pass
+                last_err_snippet = str(e)
+
+            # If cookies were used and failed due to reload / session error or bot block, log and proceed to guest mode
+            if use_cookies:
+                logger.warning(f"Download with cookies failed ({last_err_snippet}). Automatically attempting guest mode fallback...")
 
     # Ensure any corrupt partial file is unlinked
     if output_path.exists():
@@ -1061,68 +1113,68 @@ def download_full_raw_video(
         for use_cookies in attempts:
             base_cmd = get_yt_dlp_base_cmd(include_cookies=use_cookies, cookies_path=temp_cookies if use_cookies else None)
             mode_label = "with cookies" if use_cookies else "guest mode (without cookies)"
-        cmd = [
-            *base_cmd,
-            "--no-colors",
-            "-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best",
-            "-o", str(output_path),
-            "--merge-output-format", "mp4",
-            "--newline",
-            "--progress-template", "download:%(progress._percent_str)s|%(progress._downloaded_bytes_str)s|%(progress._total_bytes_str)s|%(progress._speed_str)s|%(progress._eta_str)s",
-            clean_url
-        ]
-        logger.info(f"Downloading full raw video ({mode_label}) from {clean_url} to {output_path}...")
+            cmd = [
+                *base_cmd,
+                "--no-colors",
+                "-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best",
+                "-o", str(output_path),
+                "--merge-output-format", "mp4",
+                "--newline",
+                "--progress-template", "download:%(progress._percent_str)s|%(progress._downloaded_bytes_str)s|%(progress._total_bytes_str)s|%(progress._speed_str)s|%(progress._eta_str)s",
+                clean_url
+            ]
+            logger.info(f"Downloading full raw video ({mode_label}) from {clean_url} to {output_path}...")
 
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
-        for line in iter(process.stdout.readline, ''):
-            raw_line = line.strip()
-            if not raw_line:
-                continue
-            clean_line = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', raw_line).strip()
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+            for line in iter(process.stdout.readline, ''):
+                raw_line = line.strip()
+                if not raw_line:
+                    continue
+                clean_line = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', raw_line).strip()
 
-            if clean_line.startswith("download:") and progress_callback:
-                raw_data = clean_line[len("download:"):].strip()
-                parts = raw_data.split("|")
-                if len(parts) >= 5:
-                    pct_str, dl_str, tot_str, spd_str, eta_str = parts[0], parts[1], parts[2], parts[3], parts[4]
-                    try:
-                        clean_pct = re.sub(r'[^0-9.]', '', pct_str)
-                        pct_val = float(clean_pct) if clean_pct else 0.0
-                    except Exception:
-                        pct_val = 0.0
-                    progress_callback({
-                        "percent": pct_val,
-                        "downloaded": dl_str.strip() if dl_str and dl_str != "NA" else f"{pct_val:.1f}%",
-                        "total": tot_str.strip() if tot_str and tot_str != "NA" else "",
-                        "speed": spd_str.strip() if spd_str and spd_str != "NA" else "",
-                        "eta": eta_str.strip() if eta_str and eta_str != "NA" else ""
-                    })
-            elif "[download]" in clean_line and progress_callback:
-                match = re.search(r'([0-9]+(?:\.[0-9]+)?)\s*%', clean_line)
-                if match:
-                    try:
-                        pct_val = float(match.group(1))
-                    except Exception:
-                        pct_val = 0.0
-                    spd_match = re.search(r'at\s+([0-9.]+\s*[a-zA-Z]+/s)', clean_line)
-                    eta_match = re.search(r'ETA\s+([0-9:]+)', clean_line)
-                    tot_match = re.search(r'of\s+~?([0-9.]+\s*[a-zA-Z]+)', clean_line)
-                    progress_callback({
-                        "percent": pct_val,
-                        "downloaded": f"{pct_val:.1f}%",
-                        "total": tot_match.group(1) if tot_match else "",
-                        "speed": spd_match.group(1) if spd_match else "",
-                        "eta": eta_match.group(1) if eta_match else ""
-                    })
-        process.stdout.close()
-        returncode = process.wait()
+                if clean_line.startswith("download:") and progress_callback:
+                    raw_data = clean_line[len("download:"):].strip()
+                    parts = raw_data.split("|")
+                    if len(parts) >= 5:
+                        pct_str, dl_str, tot_str, spd_str, eta_str = parts[0], parts[1], parts[2], parts[3], parts[4]
+                        try:
+                            clean_pct = re.sub(r'[^0-9.]', '', pct_str)
+                            pct_val = float(clean_pct) if clean_pct else 0.0
+                        except Exception:
+                            pct_val = 0.0
+                        progress_callback({
+                            "percent": pct_val,
+                            "downloaded": dl_str.strip() if dl_str and dl_str != "NA" else f"{pct_val:.1f}%",
+                            "total": tot_str.strip() if tot_str and tot_str != "NA" else "",
+                            "speed": spd_str.strip() if spd_str and spd_str != "NA" else "",
+                            "eta": eta_str.strip() if eta_str and eta_str != "NA" else ""
+                        })
+                elif "[download]" in clean_line and progress_callback:
+                    match = re.search(r'([0-9]+(?:\.[0-9]+)?)\s*%', clean_line)
+                    if match:
+                        try:
+                            pct_val = float(match.group(1))
+                        except Exception:
+                            pct_val = 0.0
+                        spd_match = re.search(r'at\s+([0-9.]+\s*[a-zA-Z]+/s)', clean_line)
+                        eta_match = re.search(r'ETA\s+([0-9:]+)', clean_line)
+                        tot_match = re.search(r'of\s+~?([0-9.]+\s*[a-zA-Z]+)', clean_line)
+                        progress_callback({
+                            "percent": pct_val,
+                            "downloaded": f"{pct_val:.1f}%",
+                            "total": tot_match.group(1) if tot_match else "",
+                            "speed": spd_match.group(1) if spd_match else "",
+                            "eta": eta_match.group(1) if eta_match else ""
+                        })
+            process.stdout.close()
+            returncode = process.wait()
 
-        if os.path.exists(output_path) and os.path.getsize(output_path) > 10000:
-            logger.info(f"Full raw video downloaded successfully ({mode_label}, {os.path.getsize(output_path)} bytes)")
-            return str(output_path)
+            if os.path.exists(output_path) and os.path.getsize(output_path) > 10000:
+                logger.info(f"Full raw video downloaded successfully ({mode_label}, {os.path.getsize(output_path)} bytes)")
+                return str(output_path)
 
-        if use_cookies:
-            logger.warning(f"Full raw video download with cookies exited with code {returncode}. Retrying in guest mode...")
+            if use_cookies:
+                logger.warning(f"Full raw video download with cookies exited with code {returncode}. Retrying in guest mode...")
 
     raise RuntimeError("Failed to download raw video. Please check your cookies or network connection.")
 

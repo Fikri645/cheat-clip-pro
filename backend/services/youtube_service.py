@@ -540,6 +540,7 @@ def fetch_transcript_ytdlp(
     """Attempts to extract captions using yt-dlp's player response directly (free, no quota used).
     Strictly limited to authentic Indonesian and English captions matching video dialogue."""
     with ephemeral_cookies_file(cookies_content) as temp_cookies:
+        eff_cookies = temp_cookies or get_effective_cookies_path()
         ydl_opts = {
             'skip_download': True,
             'quiet': True,
@@ -547,70 +548,73 @@ def fetch_transcript_ytdlp(
             'nocheckcertificate': True,
             'proxy': proxy,
             'socket_timeout': 10,
-            'extractor_args': {'youtube': {'player_client': ['android', 'ios', 'web_embedded', 'mweb', 'web']}}
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['web', 'mweb', 'android', 'ios'] if eff_cookies else ['android', 'ios', 'web_embedded', 'mweb', 'web']
+                }
+            }
         }
-        eff_cookies = temp_cookies or get_effective_cookies_path()
         if eff_cookies:
             ydl_opts['cookiefile'] = str(eff_cookies)
 
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
-            if not info:
-                return []
-            
-            subtitles = info.get('subtitles') or {}
-            auto_subtitles = info.get('automatic_captions') or {}
-            
-            # Identify the video's native audio language
-            raw_audio_lang = (info.get('audio_language') or info.get('language') or '').lower().split('-')[0]
-            audio_lang = 'id' if raw_audio_lang == 'in' else (raw_audio_lang if raw_audio_lang in ('id', 'en') else None)
-            target = expected_language if expected_language in ('id', 'en') else audio_lang
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+                if not info:
+                    return []
+                
+                subtitles = info.get('subtitles') or {}
+                auto_subtitles = info.get('automatic_captions') or {}
+                
+                # Identify the video's native audio language
+                raw_audio_lang = (info.get('audio_language') or info.get('language') or '').lower().split('-')[0]
+                audio_lang = 'id' if raw_audio_lang == 'in' else (raw_audio_lang if raw_audio_lang in ('id', 'en') else None)
+                target = expected_language if expected_language in ('id', 'en') else audio_lang
 
-            # Only allow ID or EN captions
-            if target == 'id':
-                langs_to_try = ['id', 'id-ID']
-            elif target == 'en':
-                langs_to_try = ['en', 'en-US', 'en-GB']
-            else:
-                langs_to_try = ['id', 'id-ID', 'en', 'en-US', 'en-GB']
+                # Only allow ID or EN captions
+                if target == 'id':
+                    langs_to_try = ['id', 'id-ID']
+                elif target == 'en':
+                    langs_to_try = ['en', 'en-US', 'en-GB']
+                else:
+                    langs_to_try = ['id', 'id-ID', 'en', 'en-US', 'en-GB']
 
-            # Manual subtitles first, then auto captions in matching language
-            for lang_dict, is_auto in [(subtitles, False), (auto_subtitles, True)]:
-                ordered_langs = [l for l in langs_to_try if l in lang_dict]
-                for lang in ordered_langs:
-                    base_l = lang.split('-')[0].lower()
-                    if base_l not in ('id', 'in', 'en'):
-                        continue
-                    formats = lang_dict.get(lang) or []
-                    json3_entry = next((f['url'] for f in formats if f.get('ext') == 'json3'), None)
-                    if json3_entry:
-                        proxies_dict = {'http': proxy, 'https': proxy} if proxy else None
-                        attempts = [proxies_dict, None] if proxy else [None]
-                        for p in attempts:
-                            try:
-                                r = requests.get(json3_entry, proxies=p, timeout=8)
-                                if r.status_code == 200:
-                                    events = r.json().get('events', [])
-                                    result = []
-                                    for ev in events:
-                                        segs = ev.get('segs', [])
-                                        text = ''.join(s.get('utf8', '') for s in segs).strip()
-                                        if text:
-                                            start = ev.get('tStartMs', 0) / 1000.0
-                                            dur = ev.get('dDurationMs', 0) / 1000.0
-                                            result.append({'text': text, 'start': start, 'duration': dur})
-                                    if result:
-                                        check = validate_transcript_language(result, expected_video_lang=expected_language)
-                                        if not check['is_supported'] or check['mismatch_detected']:
-                                            logger.warning(f"yt-dlp caption track ({lang}) failed language validation: {check['error_message']}. Discarding.")
-                                            continue
-                                        logger.info(f"Transcript fetched via yt-dlp (lang={lang}, auto={is_auto}, proxy={'yes' if p else 'no'})")
-                                        return result
-                            except Exception:
-                                continue
-    except Exception as e:
-        logger.warning(f"yt-dlp subtitle extraction failed (proxy={'yes' if proxy else 'no'}): {e}")
+                # Manual subtitles first, then auto captions in matching language
+                for lang_dict, is_auto in [(subtitles, False), (auto_subtitles, True)]:
+                    ordered_langs = [l for l in langs_to_try if l in lang_dict]
+                    for lang in ordered_langs:
+                        base_l = lang.split('-')[0].lower()
+                        if base_l not in ('id', 'in', 'en'):
+                            continue
+                        formats = lang_dict.get(lang) or []
+                        json3_entry = next((f['url'] for f in formats if f.get('ext') == 'json3'), None)
+                        if json3_entry:
+                            proxies_dict = {'http': proxy, 'https': proxy} if proxy else None
+                            attempts = [proxies_dict, None] if proxy else [None]
+                            for p in attempts:
+                                try:
+                                    r = requests.get(json3_entry, proxies=p, timeout=8)
+                                    if r.status_code == 200:
+                                        events = r.json().get('events', [])
+                                        result = []
+                                        for ev in events:
+                                            segs = ev.get('segs', [])
+                                            text = ''.join(s.get('utf8', '') for s in segs).strip()
+                                            if text:
+                                                start = ev.get('tStartMs', 0) / 1000.0
+                                                dur = ev.get('dDurationMs', 0) / 1000.0
+                                                result.append({'text': text, 'start': start, 'duration': dur})
+                                        if result:
+                                            check = validate_transcript_language(result, expected_video_lang=expected_language)
+                                            if not check['is_supported'] or check['mismatch_detected']:
+                                                logger.warning(f"yt-dlp caption track ({lang}) failed language validation: {check['error_message']}. Discarding.")
+                                                continue
+                                            logger.info(f"Transcript fetched via yt-dlp (lang={lang}, auto={is_auto}, proxy={'yes' if p else 'no'})")
+                                            return result
+                                except Exception:
+                                    continue
+        except Exception as e:
+            logger.warning(f"yt-dlp subtitle extraction failed (proxy={'yes' if proxy else 'no'}): {e}")
     return []
 
 

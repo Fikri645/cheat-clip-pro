@@ -55,7 +55,7 @@ export default function App() {
     }
     return false;
   });
-  const [hasCookies, setHasCookies] = useState(false);
+  const [hasCookies, setHasCookies] = useState<boolean>(() => hasStoredCookies());
   const [isDownloadingRaw, setIsDownloadingRaw] = useState(false);
   const [rawDownloadProgress, setRawDownloadProgress] = useState<{
     jobId: string;
@@ -166,11 +166,15 @@ export default function App() {
 
     checkCookies();
 
-    // Recheck when user returns to window (e.g., after modifying cookies in modal or storage)
+    // Recheck on window focus, cross-tab storage changes, or in-app cookie updates
     window.addEventListener('focus', checkCookies);
+    window.addEventListener('storage', checkCookies);
+    window.addEventListener('cheatclip_cookies_updated', checkCookies);
 
     return () => {
       window.removeEventListener('focus', checkCookies);
+      window.removeEventListener('storage', checkCookies);
+      window.removeEventListener('cheatclip_cookies_updated', checkCookies);
     };
   }, []);
 
@@ -2294,20 +2298,31 @@ Transcript:
               fontSize: '0.8rem',
               fontWeight: 600,
               borderRadius: '8px',
-              background: hasCookies ? 'rgba(34, 197, 94, 0.12)' : 'rgba(255, 255, 255, 0.05)',
-              border: hasCookies ? '1px solid rgba(34, 197, 94, 0.35)' : '1px solid rgba(255, 255, 255, 0.1)',
+              background: hasCookies ? 'rgba(34, 197, 94, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+              border: hasCookies ? '1px solid rgba(34, 197, 94, 0.45)' : '1px solid rgba(255, 255, 255, 0.1)',
               color: hasCookies ? '#4ade80' : 'var(--text-secondary)',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.4rem',
+              gap: '0.45rem',
               cursor: 'pointer',
-              transition: 'all 0.2s ease'
+              transition: 'all 0.2s ease',
+              boxShadow: hasCookies ? '0 0 10px rgba(34, 197, 94, 0.15)' : 'none'
             }}
             title={hasCookies ? t.header.cookiesTooltipActive : t.header.cookiesTooltipSetup}
           >
             <span>🍪 {t.header.cookiesBtn}</span>
-            <span style={{ fontSize: '0.7rem', opacity: 0.85 }}>
-              {hasCookies ? t.header.cookiesStatusActive : t.header.cookiesStatusSetup}
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+              {hasCookies ? (
+                <>
+                  <span style={{ color: '#22c55e', fontSize: '0.85rem' }}>✓</span>
+                  <span>{t.header.cookiesStatusActive}</span>
+                </>
+              ) : (
+                <>
+                  <span style={{ opacity: 0.5 }}>○</span>
+                  <span>{t.header.cookiesStatusSetup}</span>
+                </>
+              )}
             </span>
           </button>
           {allowAppUpdates && (
@@ -4748,7 +4763,10 @@ Transcript:
       {/* YouTube Cookies Modal */}
       <CookiesModal
         isOpen={isCookiesModalOpen}
-        onClose={() => setIsCookiesModalOpen(false)}
+        onClose={() => {
+          setIsCookiesModalOpen(false);
+          setHasCookies(hasStoredCookies());
+        }}
         onCookieStatusChange={setHasCookies}
       />
 

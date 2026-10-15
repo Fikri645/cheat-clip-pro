@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLanguage } from '../locales';
 import { resilientFetch } from '../utils/api';
+import { getStoredCookies } from '../utils/cookieUtils';
 import type {
   ViralClip,
   RenderSettings,
@@ -501,7 +502,9 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
     let isMounted = true;
     const fetchFace = async () => {
       try {
-        const res = await fetch(`/api/detect-face?video_id=${encodeURIComponent(videoId)}&timestamp=${clipStart}&video_url=${encodeURIComponent(videoUrl || '')}&facecam_position=${encodeURIComponent(facecamPosition)}&streamer_preset=${encodeURIComponent(streamerPreset)}`);
+        const userCookies = getStoredCookies();
+        const cookiesParam = userCookies ? `&cookies=${encodeURIComponent(userCookies)}` : '';
+        const res = await fetch(`/api/detect-face?video_id=${encodeURIComponent(videoId)}&timestamp=${clipStart}&video_url=${encodeURIComponent(videoUrl || '')}&facecam_position=${encodeURIComponent(facecamPosition)}&streamer_preset=${encodeURIComponent(streamerPreset)}${cookiesParam}`);
         if (res.ok && isMounted) {
           const data = await res.json();
           if (data && typeof data.cx === 'number') {

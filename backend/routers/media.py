@@ -375,13 +375,18 @@ def get_watermark_file(file_name: str):
 
 
 @router.get("/api/clip-frame")
-async def get_clip_frame(video_id: str, timestamp: float = 0.0, video_url: Optional[str] = None):
+async def get_clip_frame(
+    video_id: str,
+    timestamp: float = 0.0,
+    video_url: Optional[str] = None,
+    cookies: Optional[str] = None
+):
     """
     Returns an extracted real video frame at timestamp for the real video preview.
     Guarantees returning a real video frame, never a promotional thumbnail.
     """
     try:
-        frame_path = await asyncio.to_thread(extract_clip_frame, video_url or "", video_id, timestamp)
+        frame_path = await asyncio.to_thread(extract_clip_frame, video_url or "", video_id, timestamp, cookies)
         if frame_path and os.path.exists(frame_path):
             return FileResponse(frame_path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=86400"})
     except Exception as e:
@@ -396,7 +401,8 @@ async def detect_face(
     timestamp: float = 0.0,
     video_url: Optional[str] = None,
     facecam_position: Optional[str] = "auto",
-    streamer_preset: Optional[str] = "none"
+    streamer_preset: Optional[str] = "none",
+    cookies: Optional[str] = None
 ):
     """
     Detects speaker face coordinates (cx, cy, w, h) on the video at timestamp.
@@ -415,7 +421,7 @@ async def detect_face(
     }
     try:
         # First try to extract or get the cached frame
-        frame_path = await asyncio.to_thread(extract_clip_frame, video_url or "", video_id, timestamp)
+        frame_path = await asyncio.to_thread(extract_clip_frame, video_url or "", video_id, timestamp, cookies)
         if frame_path and os.path.exists(frame_path):
             box = await asyncio.to_thread(
                 detect_speaker_face_box,
