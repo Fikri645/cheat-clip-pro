@@ -171,18 +171,7 @@ export default function App() {
   // Check YouTube cookies configuration in browser localStorage
   useEffect(() => {
     const checkCookies = () => {
-      const active = hasStoredCookies();
-      setHasCookies(active);
-      if (active) {
-        const raw = getStoredCookies();
-        if (raw) {
-          fetch('/api/cookies', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cookies: raw }),
-          }).catch(() => {});
-        }
-      }
+      setHasCookies(hasStoredCookies());
     };
 
     checkCookies();
