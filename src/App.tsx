@@ -3,6 +3,7 @@ import { HeatmapTimeline } from './components/HeatmapTimeline';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { ClipStudioSection } from './components/ClipStudioSection';
 import { CookiesModal } from './components/CookiesModal';
+import { CookieWarningModal } from './components/CookieWarningModal';
 import { ClipTrimmerModal } from './components/ClipTrimmerModal';
 import { AppUpdateModal } from './components/AppUpdateModal';
 import { resilientFetch } from './utils/api';
@@ -56,6 +57,15 @@ export default function App() {
     return false;
   });
   const [hasCookies, setHasCookies] = useState<boolean>(() => hasStoredCookies());
+  const [cookieWarningState, setCookieWarningState] = useState<{
+    isOpen: boolean;
+    actionType: 'render' | 'download';
+    onProceed: () => void;
+  }>({
+    isOpen: false,
+    actionType: 'render',
+    onProceed: () => {},
+  });
   const [isDownloadingRaw, setIsDownloadingRaw] = useState(false);
   const [rawDownloadProgress, setRawDownloadProgress] = useState<{
     jobId: string;
@@ -286,8 +296,32 @@ export default function App() {
     return result.clips.filter(c => !!markedClips[`${c.start_time}_${c.end_time}`]);
   }, [result?.clips, markedClips]);
 
-  const handleStartBatchRender = async (settings: RenderSettings) => {
+  const isCurrentVideoYouTube = useCallback(() => {
+    if (sourceMode === 'upload' || sourceMode === 'gdrive') return false;
+    if (result?.source_type === 'upload' || result?.source_type === 'gdrive') return false;
+    if (result?.video_id?.startsWith('upload_') || result?.video_id?.startsWith('gdrive_')) return false;
+    if (result?.video_url?.includes('/api/video/')) return false;
+    return true;
+  }, [sourceMode, result?.source_type, result?.video_id, result?.video_url]);
+
+  const handleStartBatchRender = async (settings: RenderSettings, forceProceed = false) => {
     if (!result) return;
+
+    if (!forceProceed && isCurrentVideoYouTube() && !hasStoredCookies()) {
+      const skipped = sessionStorage.getItem('cheatclip_skip_cookie_warning') === 'true';
+      if (!skipped) {
+        setCookieWarningState({
+          isOpen: true,
+          actionType: 'render',
+          onProceed: () => {
+            setCookieWarningState(prev => ({ ...prev, isOpen: false }));
+            handleStartBatchRender(settings, true);
+          }
+        });
+        return;
+      }
+    }
+
     setIsLaunchingRender(true);
 
     const isClientMode = settings.hardwareAccel === 'browser_wasm' || settings.renderEngine === 'client';
@@ -1688,8 +1722,25 @@ export default function App() {
     }
   };
 
-  const handleDownloadRawVideo = async () => {
+  const handleDownloadRawVideo = async (forceProceed?: boolean | React.MouseEvent) => {
     if (!result || !result.video_id) return;
+    const isForced = forceProceed === true;
+
+    if (!isForced && isCurrentVideoYouTube() && !hasStoredCookies()) {
+      const skipped = sessionStorage.getItem('cheatclip_skip_cookie_warning') === 'true';
+      if (!skipped) {
+        setCookieWarningState({
+          isOpen: true,
+          actionType: 'download',
+          onProceed: () => {
+            setCookieWarningState(prev => ({ ...prev, isOpen: false }));
+            handleDownloadRawVideo(true);
+          }
+        });
+        return;
+      }
+    }
+
     const targetUrl = result.video_url || (url.trim() ? url.trim() : (result.video_id?.startsWith('gdrive_') || result.video_id?.startsWith('upload_') ? `/api/video/${result.video_id}` : `https://www.youtube.com/watch?v=${result.video_id}`));
     setIsDownloadingRaw(true);
     setRawDownloadProgress({
@@ -1804,9 +1855,25 @@ export default function App() {
     }
   };
 
-  const handleDownloadRawClip = async (clip: ViralClip, e?: React.MouseEvent) => {
+  const handleDownloadRawClip = async (clip: ViralClip, e?: React.MouseEvent, forceProceed = false) => {
     if (e) e.stopPropagation();
     if (!result || !result.video_id) return;
+
+    if (!forceProceed && isCurrentVideoYouTube() && !hasStoredCookies()) {
+      const skipped = sessionStorage.getItem('cheatclip_skip_cookie_warning') === 'true';
+      if (!skipped) {
+        setCookieWarningState({
+          isOpen: true,
+          actionType: 'download',
+          onProceed: () => {
+            setCookieWarningState(prev => ({ ...prev, isOpen: false }));
+            handleDownloadRawClip(clip, undefined, true);
+          }
+        });
+        return;
+      }
+    }
+
     const clipKey = `${clip.start_time}_${clip.end_time}`;
     if (clipDownloadStates[clipKey]?.status === 'downloading') return;
 
@@ -4757,8 +4824,21 @@ Transcript:
           }}
           onRetryClip={handleRetryBatchClip}
           allowAppUpdates={allowAppUpdates}
+          onOpenCookiesModal={() => setIsCookiesModalOpen(true)}
         />
       )}
+
+      {/* Cookie Pre-check Warning Modal */}
+      <CookieWarningModal
+        isOpen={cookieWarningState.isOpen}
+        actionType={cookieWarningState.actionType}
+        onClose={() => setCookieWarningState(prev => ({ ...prev, isOpen: false }))}
+        onProceedAnyway={cookieWarningState.onProceed}
+        onOpenCookiesModal={() => {
+          setCookieWarningState(prev => ({ ...prev, isOpen: false }));
+          setIsCookiesModalOpen(true);
+        }}
+      />
 
       {/* YouTube Cookies Modal */}
       <CookiesModal

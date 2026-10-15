@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLanguage } from '../locales';
 import { resilientFetch } from '../utils/api';
-import { getStoredCookies } from '../utils/cookieUtils';
+import { getStoredCookies, hasStoredCookies } from '../utils/cookieUtils';
 import type {
   ViralClip,
   RenderSettings,
@@ -36,6 +36,7 @@ interface ClipStudioSectionProps {
   onDismissProgress?: () => void;
   onRetryClip?: (clipIndex?: number) => void;
   allowAppUpdates?: boolean;
+  onOpenCookiesModal?: () => void;
 }
 
 function getFriendlyErrorMessage(rawMsg: string): string {
@@ -267,8 +268,22 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
   onDismissProgress,
   onRetryClip,
   allowAppUpdates = false,
+  onOpenCookiesModal,
 }) => {
   const { t } = useLanguage();
+  const isYouTube = !videoId?.startsWith('upload_') && !videoId?.startsWith('gdrive_') && !videoUrl?.includes('/api/video');
+  const [hasCookies, setHasCookies] = useState<boolean>(() => hasStoredCookies());
+
+  useEffect(() => {
+    const handleCookieChange = () => setHasCookies(hasStoredCookies());
+    window.addEventListener('storage', handleCookieChange);
+    window.addEventListener('cheatclip_cookies_updated', handleCookieChange);
+    return () => {
+      window.removeEventListener('storage', handleCookieChange);
+      window.removeEventListener('cheatclip_cookies_updated', handleCookieChange);
+    };
+  }, []);
+
   // Directly reflect marked clips (supports selecting 0 clips)
   const [selectedClips, setSelectedClips] = useState<ViralClip[]>(markedClips);
   const [previewClipIndex, setPreviewClipIndex] = useState<number>(0);
@@ -4713,6 +4728,51 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
             {t.studio.outputMetaSub}
           </span>
         </div>
+
+        {!hasCookies && isYouTube && (
+          <div
+            className="studio-cookie-warning-banner"
+            onClick={onOpenCookiesModal}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.75rem',
+              padding: '0.7rem 1.1rem',
+              borderRadius: '9px',
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(217, 119, 6, 0.06) 100%)',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              cursor: onOpenCookiesModal ? 'pointer' : 'default',
+              margin: '0.65rem 0',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', textAlign: 'left' }}>
+              <span style={{ fontSize: '1.15rem' }}>⚠️</span>
+              <span style={{ fontSize: '0.79rem', color: '#fbbf24', fontWeight: 500, lineHeight: 1.4 }}>
+                {t.cookieWarning.studioBannerWarning}
+              </span>
+            </div>
+            {onOpenCookiesModal && (
+              <span
+                style={{
+                  fontSize: '0.76rem',
+                  fontWeight: 700,
+                  color: '#34d399',
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  padding: '0.25rem 0.65rem',
+                  borderRadius: '6px',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+              >
+                {t.cookieWarning.studioBannerAction} →
+              </span>
+            )}
+          </div>
+        )}
 
         <button
           className="studio-btn-render glowing-btn big-render-cta"
