@@ -132,6 +132,19 @@ async def run_raw_clip_download_job(
             if candidate.exists() and candidate.is_file() and candidate.stat().st_size > 1024 * 1024 and is_valid_mp4(candidate):
                 # Avoid using a small trimmed clip segment as source
                 if "_clip_" not in candidate.name and candidate.name != seg_filename:
+                    # Guard: If user provided cookies, ensure candidate is actually HD (>= 720p)
+                    # and not an old blurry 360p guest-mode video!
+                    try:
+                        probe = subprocess.run(
+                            ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=height", "-of", "csv=p=0", str(candidate)],
+                            capture_output=True, text=True, timeout=5
+                        )
+                        cand_h = int(probe.stdout.strip()) if probe.stdout.strip().isdigit() else 0
+                        if cookies_content and cand_h > 0 and cand_h < 720:
+                            logger.info(f"Skipping cached candidate {candidate.name} (height={cand_h}p < 720p) because cookies are active; will download fresh 1080p stream")
+                            continue
+                    except Exception:
+                        pass
                     source_video = str(candidate)
                     break
 

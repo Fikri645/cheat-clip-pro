@@ -43,37 +43,47 @@ async def validate_youtube_cookies(request: Request):
             detail="Cookies content is empty or invalid. Please paste or upload valid cookies (Netscape .txt or JSON format).",
         )
 
-    # Clean up any legacy server cookie file on disk to guarantee zero server storage
-    for p in [COOKIES_PATH, ROOT_COOKIES_PATH]:
-        if p.exists():
-            try:
-                p.unlink()
-            except Exception:
-                pass
+    # Save to server cookies.txt as persistent fallback for yt-dlp
+    try:
+        COOKIES_PATH.parent.mkdir(parents=True, exist_ok=True)
+        COOKIES_PATH.write_text(normalized, encoding="utf-8")
+        logger.info(f"Saved {len(normalized)} bytes of YouTube cookies to {COOKIES_PATH}")
+    except Exception as e:
+        logger.warning(f"Failed to persist cookies to {COOKIES_PATH}: {e}")
 
     return {
         "success": True,
         "status": "valid",
-        "storage": "localStorage",
+        "storage": "both",
         "size": len(normalized),
-        "message": "Cookies validated successfully for client-side LocalStorage."
+        "message": "Cookies saved and verified successfully for 1080p downloads."
     }
 
 
 @router.get("/api/cookies")
 def get_youtube_cookies_status():
-    # Enforce zero persistent server storage
-    for p in [COOKIES_PATH, ROOT_COOKIES_PATH]:
-        if p.exists():
-            try:
-                p.unlink()
-            except Exception:
-                pass
+    eff = get_effective_cookies_path()
+    if eff and eff.exists() and eff.stat().st_size > 0:
+        try:
+            size = eff.stat().st_size
+            content = eff.read_text(encoding="utf-8", errors="ignore")
+            lines = [l.strip() for l in content.splitlines() if l.strip() and (not l.startswith("#") or l.startswith("#HttpOnly_"))]
+            domains = list(dict.fromkeys([l.split("\t")[0].replace("#HttpOnly_", "").strip() for l in lines if "\t" in l]))[:5]
+            return {
+                "exists": True,
+                "has_cookies": True,
+                "storage": "both",
+                "size": size,
+                "sample_lines": domains,
+                "cookies_content": content if size < 100000 else ""
+            }
+        except Exception as e:
+            logger.warning(f"Failed to read cookies status from disk: {e}")
 
     return {
         "exists": False,
         "has_cookies": False,
-        "storage": "localStorage",
+        "storage": "none",
         "size": 0,
         "sample_lines": [],
         "cookies_content": ""
@@ -82,11 +92,11 @@ def get_youtube_cookies_status():
 
 @router.delete("/api/cookies")
 def delete_youtube_cookies():
-    # Purge any legacy cookie file on server
+    # Purge cookie files on server
     for p in [COOKIES_PATH, ROOT_COOKIES_PATH]:
         if p.exists():
             try:
                 p.unlink()
             except Exception:
                 pass
-    return {"success": True, "status": "deleted", "exists": False, "has_cookies": False, "storage": "localStorage"}
+    return {"success": True, "status": "deleted", "exists": False, "has_cookies": False}

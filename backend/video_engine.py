@@ -454,30 +454,18 @@ def get_yt_dlp_base_cmd(
     elif shutil.which("node"):
         cmd.extend(["--js-runtimes", "node"])
 
-    has_active_cookies = False
     if cookies_path and Path(cookies_path).exists() and Path(cookies_path).stat().st_size > 0:
         has_active_cookies = True
         logger.info(f"Using ephemeral YouTube cookies from: {cookies_path}")
         cmd.extend(["--cookies", str(cookies_path)])
     elif include_cookies:
         eff = get_effective_cookies_path()
-        if eff:
+        if eff and eff.exists() and eff.stat().st_size > 0:
             has_active_cookies = True
             logger.info(f"Using YouTube cookies from: {eff}")
             cmd.extend(["--cookies", str(eff)])
 
-    if has_active_cookies:
-        # Prioritize web,mweb so authenticated YouTube sessions are used for highest 1080p/HD formats
-        cmd.extend([
-            "--extractor-args", "youtube:player_client=web,mweb,android,ios",
-            "--force-ipv4"
-        ])
-    else:
-        # In guest mode without cookies, android/ios/web_embedded helps bypass bot verification
-        cmd.extend([
-            "--extractor-args", "youtube:player_client=android,ios,web_embedded,mweb,web",
-            "--force-ipv4"
-        ])
+    cmd.append("--force-ipv4")
     return cmd
 
 
@@ -810,6 +798,22 @@ def download_clip_segment(
                         break
 
     clip_duration = max(1.0, end_time - start_time)
+
+    if local_source and local_source.exists():
+        # If user provided cookies and this local_source was a low-res guest-mode file (< 720p), skip it to download genuine 1080p
+        is_direct_upload = "upload_" in clean_raw.lower() or "gdrive_" in clean_raw.lower()
+        if not is_direct_upload and (cookies_content or get_effective_cookies_path()):
+            try:
+                probe = subprocess.run(
+                    ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=height", "-of", "csv=p=0", str(local_source)],
+                    capture_output=True, text=True, timeout=5
+                )
+                h = int(probe.stdout.strip()) if probe.stdout.strip().isdigit() else 0
+                if h > 0 and h < 720:
+                    logger.info(f"Local source {local_source.name} is low resolution ({h}p < 720p) and cookies are active. Skipping cache to download genuine 1080p.")
+                    local_source = None
+            except Exception:
+                pass
 
     if local_source and local_source.exists():
         logger.info(f"Slicing local/gdrive video: {local_source} [{start_time:.2f}s -> {end_time:.2f}s] to {output_path}")

@@ -85,6 +85,11 @@ export const CookiesModal: React.FC<CookiesModalProps> = ({
         const normalized = normalizeCookies(content);
         if (hasValidCookieLines(normalized)) {
           setStoredCookies(normalized);
+          fetch('/api/cookies', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cookies: normalized }),
+          }).catch(err => console.warn('Backend cookie sync error:', err));
           loadStatus();
           const validNum = countValidCookies(normalized);
           setMessage({
@@ -126,6 +131,11 @@ export const CookiesModal: React.FC<CookiesModalProps> = ({
       }
 
       setStoredCookies(normalized);
+      fetch('/api/cookies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cookies: normalized }),
+      }).catch(err => console.warn('Backend cookie sync error:', err));
       loadStatus();
       setMessage({ text: t.cookies.saveSuccess, type: 'success' });
     } catch (err: any) {
@@ -140,6 +150,7 @@ export const CookiesModal: React.FC<CookiesModalProps> = ({
     setMessage(null);
     try {
       removeStoredCookies();
+      fetch('/api/cookies', { method: 'DELETE' }).catch(() => {});
       loadStatus();
       setMessage({ text: t.cookies.deletedSuccess, type: 'info' });
     } catch (err: any) {
