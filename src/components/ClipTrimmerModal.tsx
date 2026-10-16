@@ -64,7 +64,8 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
     sourceType === 'upload' ||
     videoId?.startsWith('gdrive_') ||
     videoId?.startsWith('upload_') ||
-    videoUrl?.startsWith('/api/video/')
+    videoUrl?.startsWith('/api/video/') ||
+    videoUrl?.startsWith('blob:')
   );
   const directVideoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -706,6 +707,14 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
                     src={videoUrl ? encodeURI(videoUrl) : `/api/video/${encodeURIComponent(videoId)}`}
                     playsInline
                     preload="auto"
+                    onError={(e) => {
+                      const vid = e.currentTarget;
+                      const fallback = `/api/video/${encodeURIComponent(videoId)}`;
+                      if (vid.src !== fallback && !vid.src.endsWith(fallback)) {
+                        vid.src = fallback;
+                        vid.load();
+                      }
+                    }}
                     style={{
                       width: '100%',
                       height: '100%',

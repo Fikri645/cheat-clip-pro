@@ -3841,9 +3841,17 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                     {videoUrl && (videoUrl.endsWith('.mp4') || videoUrl.endsWith('.webm') || videoUrl.endsWith('.mov') || videoUrl.endsWith('.mkv') || videoUrl.includes('/api/video') || videoUrl.startsWith('blob:') || videoId?.startsWith('upload_') || videoId?.startsWith('gdrive_')) ? (
                       <video
                         ref={ambientVideoRef}
-                        src={videoUrl}
+                        src={videoUrl ? encodeURI(videoUrl) : `/api/video/${encodeURIComponent(videoId || '')}`}
                         playsInline
                         muted
+                        onError={(e) => {
+                          const vid = e.currentTarget;
+                          const fallback = `/api/video/${encodeURIComponent(videoId || '')}`;
+                          if (videoId && vid.src !== fallback && !vid.src.endsWith(fallback)) {
+                            vid.src = fallback;
+                            vid.load();
+                          }
+                        }}
                         style={{
                           width: '100%',
                           height: '100%',
@@ -3912,9 +3920,17 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                       {videoUrl && (videoUrl.endsWith('.mp4') || videoUrl.endsWith('.webm') || videoUrl.endsWith('.mov') || videoUrl.endsWith('.mkv') || videoUrl.includes('/api/video') || videoUrl.startsWith('blob:') || videoId?.startsWith('upload_') || videoId?.startsWith('gdrive_')) ? (
                         <video
                           ref={directVideoRef}
-                          src={videoUrl}
+                          src={videoUrl ? encodeURI(videoUrl) : `/api/video/${encodeURIComponent(videoId || '')}`}
                           playsInline
                           muted={isMuted}
+                          onError={(e) => {
+                            const vid = e.currentTarget;
+                            const fallback = `/api/video/${encodeURIComponent(videoId || '')}`;
+                            if (videoId && vid.src !== fallback && !vid.src.endsWith(fallback)) {
+                              vid.src = fallback;
+                              vid.load();
+                            }
+                          }}
                           style={{
                             width: '100%',
                             height: '100%',

@@ -284,25 +284,27 @@ async def analyze_video(request: AnalyzeRequest):
         elif (UPLOADS_DIR / os.path.basename(req_clean.split("?")[0])).exists():
             is_uploaded = True
         else:
-            matches = list(UPLOADS_DIR.glob(f"*{req_clean}*"))
-            if matches:
+            from backend.routers.media import _find_video_file_on_disk
+            found_candidate = _find_video_file_on_disk(req_clean)
+            if found_candidate and found_candidate.exists():
                 is_uploaded = True
+                uploaded_file_path = found_candidate
 
         if is_uploaded:
             if uploaded_file_path is None:
-                if os.path.exists(req_clean):
+                from backend.routers.media import _find_video_file_on_disk
+                found = _find_video_file_on_disk(req_clean)
+                if found and found.exists():
+                    uploaded_file_path = found
+                elif os.path.exists(req_clean):
                     uploaded_file_path = Path(req_clean)
                 elif (UPLOADS_DIR / os.path.basename(req_clean.split("?")[0])).exists():
                     uploaded_file_path = UPLOADS_DIR / os.path.basename(req_clean.split("?")[0])
                 elif (TEMP_DIR / os.path.basename(req_clean.split("?")[0])).exists():
                     uploaded_file_path = TEMP_DIR / os.path.basename(req_clean.split("?")[0])
                 else:
-                    matches = list(UPLOADS_DIR.glob(f"*{req_clean}*"))
-                    if matches:
-                        uploaded_file_path = matches[0]
-                    else:
-                        yield _sse({"error": "Uploaded video file not found on disk. Please upload again.", "status": 404})
-                        return
+                    yield _sse({"error": "Uploaded video file not found on disk. Please upload again.", "status": 404})
+                    return
 
             video_id = uploaded_file_path.stem
             canonical_url = req_clean if is_gdrive else f"/api/video/{uploaded_file_path.name}"

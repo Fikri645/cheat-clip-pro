@@ -8,7 +8,7 @@ import { ClipTrimmerModal } from './components/ClipTrimmerModal';
 import { AppUpdateModal } from './components/AppUpdateModal';
 import { resilientFetch } from './utils/api';
 import { getStoredCookies, hasStoredCookies } from './utils/cookieUtils';
-import { extractAudioFromVideoClient } from './utils/audioExtractor';
+import { extractVideoClientMetadata } from './utils/audioExtractor';
 import { renderClipClientSide, triggerBrowserDownload } from './services/clientRenderer';
 import { useLanguage } from './locales';
 import type { AnalyzeResponse, ViralClip, RenderSettings, BatchRenderProgress } from './types';
@@ -490,7 +490,11 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          video_url: url || `https://www.youtube.com/watch?v=${result.video_id}`,
+          video_url: (result.video_url && !result.video_url.startsWith('blob:'))
+            ? result.video_url
+            : (result.video_id?.startsWith('upload_') || result.video_id?.startsWith('gdrive_'))
+              ? `/api/video/${result.video_id}`
+              : url || `https://www.youtube.com/watch?v=${result.video_id}`,
           video_id: result.video_id,
           clips: settings.selectedClips,
           cookies: userCookies || undefined,
@@ -1198,9 +1202,20 @@ export default function App() {
 
   const handleSeek = (seconds: number) => {
     if (directVideoPlayerRef.current) {
-      directVideoPlayerRef.current.currentTime = seconds;
+      const vid = directVideoPlayerRef.current;
       setCurrentTime(seconds);
-      directVideoPlayerRef.current.play().catch(() => {});
+      if (vid.readyState >= 1) {
+        vid.currentTime = seconds;
+        vid.play().catch(() => {});
+      } else {
+        const onLoaded = () => {
+          vid.currentTime = seconds;
+          vid.play().catch(() => {});
+          vid.removeEventListener('loadedmetadata', onLoaded);
+        };
+        vid.addEventListener('loadedmetadata', onLoaded);
+        vid.load();
+      }
       return;
     }
     if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
@@ -1364,6 +1379,7 @@ export default function App() {
     // Determine target video identifier
     let targetAnalyzeUrl = sourceMode === 'gdrive' ? gdriveUrl.trim() : url.trim();
     let videoId = extractVideoId(targetAnalyzeUrl);
+    let currentVideoInfo = uploadedVideoInfo;
 
     if (sourceMode === 'upload') {
       setLoading(true);
@@ -1375,41 +1391,59 @@ export default function App() {
       setOverallProgress(5);
       setActiveProcessingModel(selectedModel);
 
-      let currentVideoInfo = uploadedVideoInfo;
       if (!currentVideoInfo && uploadedVideoFile) {
         setIsUploadingVideo(true);
         setLoadingDetails(t.form.uploadingVideo);
-        setAiStage('Extracting Audio in Browser');
-        setAiDetail(`Extracting audio stream from ${uploadedVideoFile.name} (${(uploadedVideoFile.size / (1024 * 1024)).toFixed(1)} MB)...`);
+        setAiStage('Inspecting Video File');
+        setAiDetail(`Reading video dimensions & duration from ${uploadedVideoFile.name}...`);
 
         try {
-          const { audioFile, metadata } = await extractAudioFromVideoClient(
-            uploadedVideoFile,
-            (stage) => {
-              setAiDetail(stage);
-              setLoadingDetails(stage);
-            }
-          );
+          const metadata = await extractVideoClientMetadata(uploadedVideoFile);
 
-          setAiStage('Uploading Speech Audio Track');
-          setAiDetail(`Uploading compressed audio track (${(audioFile.size / (1024 * 1024)).toFixed(1)} MB)...`);
+          setAiStage('Uploading Local Video');
+          setAiDetail(`Uploading ${uploadedVideoFile.name} (${(uploadedVideoFile.size / (1024 * 1024)).toFixed(1)} MB)...`);
 
-          const formData = new FormData();
-          formData.append('file', audioFile);
-          formData.append('client_duration', String(metadata.duration || 0));
-          formData.append('client_width', String(metadata.width || 1920));
-          formData.append('client_height', String(metadata.height || 1080));
-          formData.append('original_filename', uploadedVideoFile.name);
+          // Upload real video file to /api/upload-video with smooth upload progress tracking
+          const upData = await new Promise<any>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/upload-video');
+            xhr.upload.onprogress = (event) => {
+              if (event.lengthComputable && event.total > 0) {
+                const pct = Math.round((event.loaded / event.total) * 100);
+                const loadedMb = (event.loaded / (1024 * 1024)).toFixed(1);
+                const totalMb = (event.total / (1024 * 1024)).toFixed(1);
+                setAiDetail(`Uploading ${uploadedVideoFile.name} (${pct}% — ${loadedMb}/${totalMb} MB)...`);
+                setStepProgress(prev => ({ ...prev, 1: Math.min(95, pct) }));
+              }
+            };
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                  resolve(JSON.parse(xhr.responseText));
+                } catch {
+                  reject(new Error('Invalid JSON response from upload server'));
+                }
+              } else {
+                try {
+                  const errJson = JSON.parse(xhr.responseText);
+                  reject(new Error(errJson.detail || 'Failed to upload video file'));
+                } catch {
+                  reject(new Error(`Upload failed with status code ${xhr.status}`));
+                }
+              }
+            };
+            xhr.onerror = () => reject(new Error('Network error during video upload'));
+            xhr.onabort = () => reject(new Error('Video upload cancelled'));
 
-          const upRes = await fetch('/api/upload-video', {
-            method: 'POST',
-            body: formData,
+            const formData = new FormData();
+            formData.append('file', uploadedVideoFile);
+            formData.append('client_duration', String(metadata.duration || 0));
+            formData.append('client_width', String(metadata.width || 1920));
+            formData.append('client_height', String(metadata.height || 1080));
+            formData.append('original_filename', uploadedVideoFile.name);
+            xhr.send(formData);
           });
-          if (!upRes.ok) {
-            const errJson = await upRes.json().catch(() => ({}));
-            throw new Error(errJson.detail || 'Failed to upload video audio');
-          }
-          const upData = await upRes.json();
+
           currentVideoInfo = {
             videoId: upData.video_id,
             filename: upData.filename,
@@ -1631,11 +1665,28 @@ export default function App() {
           const clipsSuffix = clipCountMode === 'auto' ? '_clips_auto' : `_clips_${targetClipCount}`;
           const targetCacheKey = `cheat_clip_cache_${resultData.video_id}_${durationPref}${modelSuffix}${clipsSuffix}${promptSuffix}${rangeSuffix}${manualSuffix}`;
           const tsKey = `cheat_clip_ts_${resultData.video_id}_${durationPref}${modelSuffix}${clipsSuffix}${promptSuffix}${rangeSuffix}${manualSuffix}`;
-          localStorage.setItem(targetCacheKey, JSON.stringify(resultData));
+          
+          // Ensure persisted cache stores durable server URL, not temporary blob URL
+          const persistData = {
+            ...resultData,
+            video_url: resultData.video_url?.startsWith('blob:')
+              ? (currentVideoInfo?.savedName ? `/api/video/${currentVideoInfo.savedName}` : `/api/video/${resultData.video_id}`)
+              : resultData.video_url
+          };
+          localStorage.setItem(targetCacheKey, JSON.stringify(persistData));
           localStorage.setItem(tsKey, new Date().toISOString());
           refreshHistory();
         } catch (storageErr) {
           console.warn('Could not cache analysis to localStorage (likely quota limit on mobile device):', storageErr);
+        }
+      }
+
+      // For direct video preview on local upload, preserve the fast in-memory objectUrl
+      if (sourceMode === 'upload' && currentVideoInfo) {
+        if (!resultData.video_url || resultData.video_url.endsWith('.wav')) {
+          resultData.video_url = currentVideoInfo.videoUrl || (currentVideoInfo.savedName ? `/api/video/${currentVideoInfo.savedName}` : `/api/video/${currentVideoInfo.videoId}`);
+        } else if (currentVideoInfo.videoUrl && currentVideoInfo.videoUrl.startsWith('blob:')) {
+          resultData.video_url = currentVideoInfo.videoUrl;
         }
       }
 
@@ -1741,7 +1792,11 @@ export default function App() {
       }
     }
 
-    const targetUrl = result.video_url || (url.trim() ? url.trim() : (result.video_id?.startsWith('gdrive_') || result.video_id?.startsWith('upload_') ? `/api/video/${result.video_id}` : `https://www.youtube.com/watch?v=${result.video_id}`));
+    const targetUrl = (result.video_url && !result.video_url.startsWith('blob:'))
+      ? result.video_url
+      : (result.video_id?.startsWith('gdrive_') || result.video_id?.startsWith('upload_'))
+        ? `/api/video/${result.video_id}`
+        : (url.trim() ? url.trim() : `https://www.youtube.com/watch?v=${result.video_id}`);
     setIsDownloadingRaw(true);
     setRawDownloadProgress({
       jobId: '',
@@ -1883,7 +1938,11 @@ export default function App() {
     }));
     setToastMessage(`${t.results.downloadingRawClip} "${clip.title}"`);
 
-    const targetUrl = result.video_url || (url.trim() ? url.trim() : (result.video_id?.startsWith('gdrive_') || result.video_id?.startsWith('upload_') ? `/api/video/${result.video_id}` : `https://www.youtube.com/watch?v=${result.video_id}`));
+    const targetUrl = (result.video_url && !result.video_url.startsWith('blob:'))
+      ? result.video_url
+      : (result.video_id?.startsWith('gdrive_') || result.video_id?.startsWith('upload_'))
+        ? `/api/video/${result.video_id}`
+        : (url.trim() ? url.trim() : `https://www.youtube.com/watch?v=${result.video_id}`);
 
     try {
       const userCookies = getStoredCookies();
@@ -3997,6 +4056,15 @@ Transcript:
                     }}
                     onPlay={() => startTracking()}
                     onPause={() => stopTracking()}
+                    onError={(e) => {
+                      const vid = e.currentTarget;
+                      const fallback = `/api/video/${encodeURIComponent(result.video_id)}`;
+                      if (vid.src !== fallback && !vid.src.endsWith(fallback)) {
+                        console.warn('[Player] Direct video failed, attempting fallback to server stream:', fallback);
+                        vid.src = fallback;
+                        vid.load();
+                      }
+                    }}
                   />
                 ) : (
                   <div id="youtube-player-container" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>

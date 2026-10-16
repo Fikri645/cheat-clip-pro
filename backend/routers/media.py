@@ -113,7 +113,8 @@ async def upload_video(
         
         return {
             "success": True,
-            "video_id": unique_id,
+            "video_id": save_path.stem,
+            "unique_id": unique_id,
             "filename": display_filename,
             "saved_name": unique_name,
             "file_path": str(save_path),
@@ -146,6 +147,10 @@ def _find_video_file_on_disk(file_name: str) -> Optional[Path]:
     for d in [UPLOADS_DIR, TEMP_DIR, EXPORTS_DIR]:
         if d.exists():
             all_files.extend([f for f in d.iterdir() if f.is_file() and _is_safe_path(f)])
+
+    # Prioritize real video files over raw audio / temp clips
+    video_exts = {".mp4", ".webm", ".mov", ".mkv", ".avi", ".m4v"}
+    all_files.sort(key=lambda f: (0 if f.suffix.lower() in video_exts else 1, -f.stat().st_size if f.exists() else 0))
 
     clean_lower = clean_name.lower()
     
@@ -195,7 +200,22 @@ def get_video_file(file_name: str, request: Request):
 
     file_size = file_path.stat().st_size
     ext = os.path.splitext(file_path.name)[1].lower()
-    media_type = "video/webm" if ext == ".webm" else "video/quicktime" if ext == ".mov" else "video/x-matroska" if ext == ".mkv" else "video/mp4"
+    if ext == ".webm":
+        media_type = "video/webm"
+    elif ext == ".mov":
+        media_type = "video/quicktime"
+    elif ext == ".mkv":
+        media_type = "video/x-matroska"
+    elif ext == ".avi":
+        media_type = "video/x-msvideo"
+    elif ext == ".wav":
+        media_type = "audio/wav"
+    elif ext == ".mp3":
+        media_type = "audio/mpeg"
+    elif ext in [".m4a", ".aac", ".ogg", ".flac"]:
+        media_type = f"audio/{ext[1:]}"
+    else:
+        media_type = "video/mp4"
 
     range_header = request.headers.get("range")
     if not range_header:
@@ -212,6 +232,7 @@ def get_video_file(file_name: str, request: Request):
             headers={
                 "Content-Length": str(file_size),
                 "Accept-Ranges": "bytes",
+                "Content-Type": media_type,
                 "Content-Disposition": f'inline; filename="{file_path.name}"'
             }
         )
@@ -252,6 +273,7 @@ def get_video_file(file_name: str, request: Request):
             "Content-Range": f"bytes {start}-{end}/{file_size}",
             "Accept-Ranges": "bytes",
             "Content-Length": str(content_length),
+            "Content-Type": media_type,
             "Content-Disposition": f'inline; filename="{file_path.name}"'
         }
     )

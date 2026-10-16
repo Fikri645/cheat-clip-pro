@@ -1096,8 +1096,10 @@ def download_full_raw_video(
         candidate = UPLOADS_DIR / os.path.basename(video_url.split("?")[0])
         if candidate.exists():
             local_source = candidate
-    elif (UPLOADS_DIR / os.path.basename(video_url.split("?")[0])).exists():
-        local_source = UPLOADS_DIR / os.path.basename(video_url.split("?")[0])
+    if not local_source or not local_source.exists():
+        clean_name = os.path.basename(video_url.split("?")[0]).strip()
+        from backend.routers.media import _find_video_file_on_disk
+        local_source = _find_video_file_on_disk(clean_name)
 
     if local_source and local_source.exists():
         logger.info(f"Copying local source video to raw output: {local_source} -> {output_path}")
