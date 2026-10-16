@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLanguage } from '../locales';
 import { resilientFetch } from '../utils/api';
 import { getStoredCookies, hasStoredCookies } from '../utils/cookieUtils';
+import { detectFaceClientSide } from '../utils/clientFaceDetector';
 import type {
   ViralClip,
   RenderSettings,
@@ -517,6 +518,15 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
     let isMounted = true;
     const fetchFace = async () => {
       try {
+        // For local uploaded files (blob: URL or upload_ ID), run client-side detection directly
+        if (videoUrl?.startsWith('blob:') || videoId.startsWith('upload_')) {
+          const clientBox = await detectFaceClientSide(directVideoRef.current, facecamPosition, streamerPreset);
+          if (clientBox && isMounted) {
+            setFaceBox(clientBox);
+            return;
+          }
+        }
+
         const userCookies = getStoredCookies();
         const cookiesParam = userCookies ? `&cookies=${encodeURIComponent(userCookies)}` : '';
         const res = await fetch(`/api/detect-face?video_id=${encodeURIComponent(videoId)}&timestamp=${clipStart}&video_url=${encodeURIComponent(videoUrl || '')}&facecam_position=${encodeURIComponent(facecamPosition)}&streamer_preset=${encodeURIComponent(streamerPreset)}${cookiesParam}`);
@@ -3846,6 +3856,10 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                         muted
                         onError={(e) => {
                           const vid = e.currentTarget;
+                          if (videoUrl?.startsWith('blob:')) {
+                            console.warn('Ambient blob video playback error:', e);
+                            return;
+                          }
                           const fallback = `/api/video/${encodeURIComponent(videoId || '')}`;
                           if (videoId && vid.src !== fallback && !vid.src.endsWith(fallback)) {
                             vid.src = fallback;
@@ -3925,6 +3939,10 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                           muted={isMuted}
                           onError={(e) => {
                             const vid = e.currentTarget;
+                            if (videoUrl?.startsWith('blob:')) {
+                              console.warn('Direct blob video playback error:', e);
+                              return;
+                            }
                             const fallback = `/api/video/${encodeURIComponent(videoId || '')}`;
                             if (videoId && vid.src !== fallback && !vid.src.endsWith(fallback)) {
                               vid.src = fallback;

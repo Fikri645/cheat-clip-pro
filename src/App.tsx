@@ -8,7 +8,7 @@ import { ClipTrimmerModal } from './components/ClipTrimmerModal';
 import { AppUpdateModal } from './components/AppUpdateModal';
 import { resilientFetch } from './utils/api';
 import { getStoredCookies, hasStoredCookies } from './utils/cookieUtils';
-import { extractVideoClientMetadata } from './utils/audioExtractor';
+import { extractAudioFromVideoClient } from './utils/audioExtractor';
 import { renderClipClientSide, triggerBrowserDownload } from './services/clientRenderer';
 import { useLanguage } from './locales';
 import type { AnalyzeResponse, ViralClip, RenderSettings, BatchRenderProgress } from './types';
@@ -324,7 +324,7 @@ export default function App() {
 
     setIsLaunchingRender(true);
 
-    const isClientMode = settings.hardwareAccel === 'browser_wasm' || settings.renderEngine === 'client';
+    const isClientMode = settings.hardwareAccel === 'browser_wasm' || settings.renderEngine === 'client' || (sourceMode === 'upload' && Boolean(uploadedVideoFile));
 
     if (isClientMode) {
       try {
@@ -1394,16 +1394,18 @@ export default function App() {
       if (!currentVideoInfo && uploadedVideoFile) {
         setIsUploadingVideo(true);
         setLoadingDetails(t.form.uploadingVideo);
-        setAiStage('Inspecting Video File');
-        setAiDetail(`Reading video dimensions & duration from ${uploadedVideoFile.name}...`);
+        setAiStage('Extracting Audio for AI');
+        setAiDetail(`Extracting lightweight audio track in browser from ${uploadedVideoFile.name}...`);
 
         try {
-          const metadata = await extractVideoClientMetadata(uploadedVideoFile);
+          const { audioFile, metadata } = await extractAudioFromVideoClient(uploadedVideoFile, (stage) => {
+            setAiDetail(stage);
+          });
 
-          setAiStage('Uploading Local Video');
-          setAiDetail(`Uploading ${uploadedVideoFile.name} (${(uploadedVideoFile.size / (1024 * 1024)).toFixed(1)} MB)...`);
+          setAiStage('Uploading AI Audio');
+          setAiDetail(`Uploading compressed audio track (${(audioFile.size / (1024 * 1024)).toFixed(1)} MB)...`);
 
-          // Upload real video file to /api/upload-video with smooth upload progress tracking
+          // Upload lightweight audio file (.wav) to /api/upload-video
           const upData = await new Promise<any>((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/api/upload-video');
@@ -1412,7 +1414,7 @@ export default function App() {
                 const pct = Math.round((event.loaded / event.total) * 100);
                 const loadedMb = (event.loaded / (1024 * 1024)).toFixed(1);
                 const totalMb = (event.total / (1024 * 1024)).toFixed(1);
-                setAiDetail(`Uploading ${uploadedVideoFile.name} (${pct}% — ${loadedMb}/${totalMb} MB)...`);
+                setAiDetail(`Uploading audio track (${pct}% — ${loadedMb}/${totalMb} MB)...`);
                 setStepProgress(prev => ({ ...prev, 1: Math.min(95, pct) }));
               }
             };
@@ -1426,17 +1428,17 @@ export default function App() {
               } else {
                 try {
                   const errJson = JSON.parse(xhr.responseText);
-                  reject(new Error(errJson.detail || 'Failed to upload video file'));
+                  reject(new Error(errJson.detail || 'Failed to upload audio file'));
                 } catch {
                   reject(new Error(`Upload failed with status code ${xhr.status}`));
                 }
               }
             };
-            xhr.onerror = () => reject(new Error('Network error during video upload'));
-            xhr.onabort = () => reject(new Error('Video upload cancelled'));
+            xhr.onerror = () => reject(new Error('Network error during audio upload'));
+            xhr.onabort = () => reject(new Error('Audio upload cancelled'));
 
             const formData = new FormData();
-            formData.append('file', uploadedVideoFile);
+            formData.append('file', audioFile);
             formData.append('client_duration', String(metadata.duration || 0));
             formData.append('client_width', String(metadata.width || 1920));
             formData.append('client_height', String(metadata.height || 1080));
@@ -1446,20 +1448,20 @@ export default function App() {
 
           currentVideoInfo = {
             videoId: upData.video_id,
-            filename: upData.filename,
+            filename: uploadedVideoFile.name,
             savedName: upData.saved_name,
             duration: upData.duration || metadata.duration,
-            videoUrl: metadata.objectUrl || upData.video_url,
+            videoUrl: metadata.objectUrl, // Direct local Blob URL for in-browser video playback!
             filePath: upData.file_path,
-            width: upData.width || metadata.width,
-            height: upData.height || metadata.height,
+            width: metadata.width || upData.width || 1920,
+            height: metadata.height || upData.height || 1080,
           };
           setUploadedVideoInfo(currentVideoInfo);
           setIsUploadingVideo(false);
         } catch (uploadErr: any) {
           setIsUploadingVideo(false);
           setLoading(false);
-          setError(uploadErr.message || 'Failed to upload video file');
+          setError(uploadErr.message || 'Failed to extract or upload audio');
           return;
         }
       }
@@ -1683,10 +1685,10 @@ export default function App() {
 
       // For direct video preview on local upload, preserve the fast in-memory objectUrl
       if (sourceMode === 'upload' && currentVideoInfo) {
-        if (!resultData.video_url || resultData.video_url.endsWith('.wav')) {
-          resultData.video_url = currentVideoInfo.videoUrl || (currentVideoInfo.savedName ? `/api/video/${currentVideoInfo.savedName}` : `/api/video/${currentVideoInfo.videoId}`);
-        } else if (currentVideoInfo.videoUrl && currentVideoInfo.videoUrl.startsWith('blob:')) {
+        if (currentVideoInfo.videoUrl) {
           resultData.video_url = currentVideoInfo.videoUrl;
+        } else if (!resultData.video_url || resultData.video_url.endsWith('.wav')) {
+          resultData.video_url = currentVideoInfo.savedName ? `/api/video/${currentVideoInfo.savedName}` : `/api/video/${currentVideoInfo.videoId}`;
         }
       }
 
@@ -1775,6 +1777,14 @@ export default function App() {
 
   const handleDownloadRawVideo = async (forceProceed?: boolean | React.MouseEvent) => {
     if (!result || !result.video_id) return;
+
+    // For local upload with uploaded video file, trigger immediate direct browser download
+    if (sourceMode === 'upload' && uploadedVideoFile) {
+      triggerBrowserDownload(uploadedVideoFile, uploadedVideoFile.name);
+      setToastMessage(`${t.rawDownload.completedToast} (${uploadedVideoFile.name})`);
+      return;
+    }
+
     const isForced = forceProceed === true;
 
     if (!isForced && isCurrentVideoYouTube() && !hasStoredCookies()) {
@@ -1913,6 +1923,51 @@ export default function App() {
   const handleDownloadRawClip = async (clip: ViralClip, e?: React.MouseEvent, forceProceed = false) => {
     if (e) e.stopPropagation();
     if (!result || !result.video_id) return;
+
+    // For local upload with uploaded video file, slice and download directly in browser via WASM
+    if (sourceMode === 'upload' && uploadedVideoFile) {
+      const clipKey = `${clip.start_time}_${clip.end_time}`;
+      if (clipDownloadStates[clipKey]?.status === 'downloading') return;
+
+      setClipDownloadStates(prev => ({
+        ...prev,
+        [clipKey]: { status: 'downloading' }
+      }));
+      setToastMessage(`${t.results.downloadingRawClip} "${clip.title}"`);
+
+      try {
+        const rawSourceUrl = URL.createObjectURL(uploadedVideoFile);
+        const blob = await renderClipClientSide({
+          videoSourceUrl: rawSourceUrl,
+          startTime: clip.start_time,
+          endTime: clip.end_time,
+          aspectRatio: '16:9',
+          backgroundStyle: 'crop',
+          titleText: undefined,
+          fileName: `${clip.title}.mp4`,
+        });
+        triggerBrowserDownload(blob, `${clip.title} (raw).mp4`);
+        URL.revokeObjectURL(rawSourceUrl);
+        setClipDownloadStates(prev => ({
+          ...prev,
+          [clipKey]: { status: 'ready' }
+        }));
+        setToastMessage(`✅ ${clip.title} (raw)`);
+        setTimeout(() => {
+          setClipDownloadStates(prev => ({
+            ...prev,
+            [clipKey]: { status: 'idle' }
+          }));
+        }, 4000);
+      } catch (err: any) {
+        setClipDownloadStates(prev => ({
+          ...prev,
+          [clipKey]: { status: 'idle' }
+        }));
+        setToastMessage(`Failed to export raw clip: ${err?.message || err}`);
+      }
+      return;
+    }
 
     if (!forceProceed && isCurrentVideoYouTube() && !hasStoredCookies()) {
       const skipped = sessionStorage.getItem('cheatclip_skip_cookie_warning') === 'true';

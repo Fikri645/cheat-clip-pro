@@ -96,9 +96,11 @@ async def upload_video(
     if ext not in allowed:
         raise HTTPException(status_code=400, detail=f"Unsupported media format. Allowed: {', '.join(allowed)}")
     
-    clean_name = re.sub(r'[^a-zA-Z0-9_.-]', '_', display_filename)
+    actual_ext = os.path.splitext(file.filename)[1].lower()
+    base_display = os.path.splitext(display_filename)[0]
+    clean_base = re.sub(r'[^a-zA-Z0-9_.-]', '_', base_display)
     unique_id = f"upload_{uuid.uuid4().hex[:10]}"
-    unique_name = f"{unique_id}_{clean_name}"
+    unique_name = f"{unique_id}_{clean_base}{actual_ext}"
     save_path = UPLOADS_DIR / unique_name
     
     try:

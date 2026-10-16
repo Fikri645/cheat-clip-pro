@@ -709,6 +709,7 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
                     preload="auto"
                     onError={(e) => {
                       const vid = e.currentTarget;
+                      if (videoUrl?.startsWith('blob:')) return;
                       const fallback = `/api/video/${encodeURIComponent(videoId)}`;
                       if (vid.src !== fallback && !vid.src.endsWith(fallback)) {
                         vid.src = fallback;
