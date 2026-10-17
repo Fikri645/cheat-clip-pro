@@ -116,6 +116,11 @@ export default function App() {
   const [subtitlesSource, setSubtitlesSource] = useState<'youtube' | 'manual'>('youtube');
   const [manualSubtitlesContent, setManualSubtitlesContent] = useState<string>('');
   const [manualSubtitlesFileName, setManualSubtitlesFileName] = useState<string>('');
+  const [transcriptLanguage, setTranscriptLanguage] = useState<'id' | 'en'>(() => {
+    const saved = localStorage.getItem('cheat_clip_transcript_language');
+    if (saved === 'id' || saved === 'en') return saved;
+    return 'id';
+  });
 
   const parseTimeToSeconds = (val: string): number | null => {
     const clean = val.trim();
@@ -1001,6 +1006,13 @@ export default function App() {
         setSubtitlesSource('youtube');
       }
 
+      // Restore transcript language if available in range_suffix
+      if (entry.range_suffix?.includes('_lang_en')) {
+        setTranscriptLanguage('en');
+      } else if (entry.range_suffix?.includes('_lang_id')) {
+        setTranscriptLanguage('id');
+      }
+
       // Restore range inputs if they were custom
       if (entry.range_suffix) {
         const cleanRangeSuffix = entry.range_suffix.replace('_manual', '');
@@ -1477,7 +1489,8 @@ export default function App() {
       const promptSuffix = customPrompt.trim() ? `_prompt_${customPrompt.trim().replace(/[^a-zA-Z0-9]/g, '_')}` : '';
       const modelSuffix = `_model_${selectedModel}`;
       const clipsSuffix = clipCountMode === 'auto' ? '_clips_auto' : `_clips_${targetClipCount}`;
-      const cacheKey = `cheat_clip_cache_${videoId}_${durationPref}${modelSuffix}${clipsSuffix}${promptSuffix}${rangeSuffix}${manualSuffix}`;
+      const langSuffix = subtitlesSource === 'youtube' ? `_lang_${transcriptLanguage}` : '';
+      const cacheKey = `cheat_clip_cache_${videoId}_${durationPref}${modelSuffix}${clipsSuffix}${promptSuffix}${rangeSuffix}${manualSuffix}${langSuffix}`;
 
       const cachedData = localStorage.getItem(cacheKey);
       if (cachedData) {
@@ -1560,6 +1573,7 @@ export default function App() {
           range_end: rangeEndSecs,
           subtitles: subtitlesSource === 'manual' ? manualSubtitlesContent : undefined,
           subtitles_filename: subtitlesSource === 'manual' ? manualSubtitlesFileName : undefined,
+          transcript_language: subtitlesSource === 'youtube' ? transcriptLanguage : undefined,
           target_clip_count: clipCountMode === 'auto' ? 'auto' : targetClipCount,
           cookies: userCookies || undefined,
         }),
@@ -1665,8 +1679,9 @@ export default function App() {
           const promptSuffix = customPrompt.trim() ? `_prompt_${customPrompt.trim().replace(/[^a-zA-Z0-9]/g, '_')}` : '';
           const modelSuffix = `_model_${selectedModel}`;
           const clipsSuffix = clipCountMode === 'auto' ? '_clips_auto' : `_clips_${targetClipCount}`;
-          const targetCacheKey = `cheat_clip_cache_${resultData.video_id}_${durationPref}${modelSuffix}${clipsSuffix}${promptSuffix}${rangeSuffix}${manualSuffix}`;
-          const tsKey = `cheat_clip_ts_${resultData.video_id}_${durationPref}${modelSuffix}${clipsSuffix}${promptSuffix}${rangeSuffix}${manualSuffix}`;
+          const langSuffix = subtitlesSource === 'youtube' ? `_lang_${transcriptLanguage}` : '';
+          const targetCacheKey = `cheat_clip_cache_${resultData.video_id}_${durationPref}${modelSuffix}${clipsSuffix}${promptSuffix}${rangeSuffix}${manualSuffix}${langSuffix}`;
+          const tsKey = `cheat_clip_ts_${resultData.video_id}_${durationPref}${modelSuffix}${clipsSuffix}${promptSuffix}${rangeSuffix}${manualSuffix}${langSuffix}`;
           
           // Ensure persisted cache stores durable server URL, not temporary blob URL
           const persistData = {
@@ -3310,6 +3325,44 @@ Transcript:
                 </div>
               )}
             </div>
+
+            {subtitlesSource === 'youtube' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginTop: '0.25rem', padding: '0.75rem 0.9rem', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <span>🌐</span>
+                    <span>{t.form.transcriptLanguage}</span>
+                  </label>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    {t.form.transcriptLanguageHint}
+                  </span>
+                </div>
+                <div className="duration-selector" style={{ maxWidth: '320px' }}>
+                  <button
+                    type="button"
+                    className={`duration-btn ${transcriptLanguage === 'id' ? 'active' : ''}`}
+                    onClick={() => {
+                      setTranscriptLanguage('id');
+                      localStorage.setItem('cheat_clip_transcript_language', 'id');
+                    }}
+                    disabled={loading}
+                  >
+                    🇮🇩 {t.form.langIndonesian}
+                  </button>
+                  <button
+                    type="button"
+                    className={`duration-btn ${transcriptLanguage === 'en' ? 'active' : ''}`}
+                    onClick={() => {
+                      setTranscriptLanguage('en');
+                      localStorage.setItem('cheat_clip_transcript_language', 'en');
+                    }}
+                    disabled={loading}
+                  >
+                    🇬🇧 {t.form.langEnglish}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {subtitlesSource === 'youtube' && (
               <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', opacity: 0.8, display: 'block', marginTop: '0.15rem', lineHeight: '1.4' }}>
