@@ -1591,8 +1591,12 @@ def render_title_overlay_png(
         return None
 
     # Distinct, calibrated title font sizes based on preset or explicit px
-    if title_font_size_px and title_font_size_px > 0:
-        title_font_size = int(title_font_size_px)
+    # Scaled by 1.30x so export perfectly matches the live framing preview (WYSIWYG)
+    if title_font_size_px and int(title_font_size_px) > 0:
+        if target_aspect_ratio == "16:9_landscape":
+            title_font_size = max(24, int(round(int(title_font_size_px) * 1.30 * (1080 / 1920))))
+        else:
+            title_font_size = max(24, int(round(int(title_font_size_px) * 1.30)))
     elif effective_title_preset == "small":
         title_font_size = 58 if title_line_count >= 3 else 68
     elif effective_title_preset == "big":
@@ -1654,7 +1658,7 @@ def render_title_overlay_png(
             content_top = 0
             content_bot = 1920
 
-    line_step = int(title_font_size * 0.86)
+    line_step = int(title_font_size * 1.08)
     est_title_h = int(title_line_count * line_step)
 
     # Title Positioning (100% WYSIWYG matching framing preview):
@@ -1834,16 +1838,19 @@ def generate_ass_file(
             sub_font_size = 78
 
         if effective_title_preset == "small":
-            title_font_size = 58 if title_line_count >= 3 else 68
+            title_font_size = 65 if title_line_count >= 3 else 68
         elif effective_title_preset == "big":
             title_font_size = 106 if title_line_count >= 3 else 124
         else:  # medium
-            title_font_size = 82 if title_line_count >= 3 else 94
+            title_font_size = 85 if title_line_count >= 3 else 94
 
     if font_size_px and int(font_size_px) > 0:
         sub_font_size = int(font_size_px)
     if title_font_size_px and int(title_font_size_px) > 0:
-        title_font_size = int(title_font_size_px)
+        if is_landscape:
+            title_font_size = max(24, int(round(int(title_font_size_px) * 1.30 * (1080 / 1920))))
+        else:
+            title_font_size = max(24, int(round(int(title_font_size_px) * 1.30)))
 
     # 3. Content boundaries for aspect ratios
     if is_landscape:
@@ -1873,11 +1880,27 @@ def generate_ass_file(
             content_top = 0
             content_bot = 1920
 
-    # Tight line height step (0.86x) for close, compact multi-line title layout
-    line_step = int(title_font_size * 0.86)
+    # Title line step matching 1.08x line height of live preview CSS box model
+    line_step = int(title_font_size * 1.08)
     est_title_h = int(title_line_count * line_step)
     est_sub_h = int(sub_font_size * 1.08)
     sub_align = 5 if subtitle_position_mode == "center" else 2
+
+    # Ensure title line width does not overflow screen edges in ASS
+    title_lines_check = [l.strip() for l in formatted_title.split("\\N") if l.strip()]
+    if title_lines_check:
+        max_allowed_w = canvas_w - 70
+        test_font = get_font(title_font_name or font_name, title_font_size)
+        temp_draw = ImageDraw.Draw(Image.new("RGBA", (canvas_w, canvas_h)))
+        max_w = 0
+        for tl in title_lines_check:
+            bbox = temp_draw.textbbox((0, 0), tl, font=test_font)
+            max_w = max(max_w, bbox[2] - bbox[0])
+        if max_w > max_allowed_w and max_w > 0:
+            scale_factor = max_allowed_w / max_w
+            title_font_size = max(30, int(title_font_size * scale_factor))
+            line_step = int(title_font_size * 1.08)
+            est_title_h = int(title_line_count * line_step)
 
     # Title Positioning (100% WYSIWYG matching framing preview):
     if is_landscape:
@@ -2015,8 +2038,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
         end_time_str = format_ass_timestamp(t_end_sec)
         title_lines = [l.strip() for l in formatted_title.split("\\N") if l.strip()]
+        base_ass_y = max(10, title_y - int(title_font_size * 0.15))
         for line_idx, t_line in enumerate(title_lines):
-            line_y = title_y + (line_idx * line_step)
+            line_y = base_ass_y + (line_idx * line_step)
             events.append(
                 f"Dialogue: 1,0:00:00.00,{end_time_str},TitleStyle,,0,0,0,,{{\\q2\\an8\\pos({center_x},{line_y})}}{t_line}"
             )
