@@ -215,7 +215,7 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose 
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            <span style={{ fontSize: '1.4rem' }}>🔄</span>
+            <span style={{ fontSize: '1.4rem' }}>[~]</span>
             <div>
               <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                 {t.updateModal.title}
@@ -436,7 +436,7 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose 
                     gap: '0.8rem',
                   }}
                 >
-                  <span style={{ fontSize: '1.3rem' }}>🛡️</span>
+                  <span style={{ fontSize: '1.3rem' }}>[SEC]</span>
                   <div>
                     <h4 style={{ margin: 0, fontSize: '0.88rem', color: '#60a5fa', fontWeight: 600 }}>
                       Server / Production Deployment
@@ -459,7 +459,7 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose 
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontSize: '1.2rem' }}>🚀</span>
+                    <span style={{ fontSize: '1.2rem', fontFamily: 'var(--font-mono)' }}>&gt;</span>
                     <div>
                       <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#34d399', fontWeight: 700 }}>
                         {t.updateModal.updateAvailableTitle}
@@ -523,7 +523,7 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose 
                       transition: 'all 0.2s ease',
                     }}
                   >
-                    <span>⚡ {t.updateModal.updateRestartBtn}</span>
+                    <span>* {t.updateModal.updateRestartBtn}</span>
                   </button>
                 </div>
               ) : (
@@ -540,7 +540,7 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose 
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                    <span style={{ fontSize: '1.2rem' }}>✅</span>
+                    <span style={{ fontSize: '1.2rem' }}>[OK]</span>
                     <div>
                       <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#34d399', fontWeight: 600 }}>
                         {t.updateModal.upToDateTitle}
@@ -583,7 +583,7 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose 
                     lineHeight: 1.4,
                   }}
                 >
-                  ⚠️ {errorMessage}
+                  [!] {errorMessage}
                 </div>
               )}
             </>
@@ -620,7 +620,7 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose 
                 }}
                 title="Restart backend and frontend dev server"
               >
-                <span>🔄 {t.updateModal.restartBtn}</span>
+                <span>[~] {t.updateModal.restartBtn}</span>
               </button>
             )}
 

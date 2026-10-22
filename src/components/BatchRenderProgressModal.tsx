@@ -116,7 +116,7 @@ export const BatchRenderProgressModal: React.FC<BatchRenderProgressModalProps> =
                           }}
                           title="Retry rendering this clip"
                         >
-                          {t.batchProgress.retryClip || '🔄 Retry'}
+                          {t.batchProgress.retryClip || '[~] Retry'}
                         </button>
                       )}
                     </div>
@@ -138,7 +138,7 @@ export const BatchRenderProgressModal: React.FC<BatchRenderProgressModalProps> =
                         title="Click to copy full error message"
                         onClick={() => navigator.clipboard.writeText(clip.error_message || clip.error || '')}
                       >
-                        ⚠️ {clip.error_message || clip.error}
+                        [!] {clip.error_message || clip.error}
                       </span>
                     )}
                   </div>
@@ -172,7 +172,7 @@ export const BatchRenderProgressModal: React.FC<BatchRenderProgressModalProps> =
                 >
                   {t.batchProgress.retryAllFailed
                     ? t.batchProgress.retryAllFailed(progress.clips.filter(c => c.status === 'error').length)
-                    : `🔄 Retry Failed (${progress.clips.filter(c => c.status === 'error').length})`}
+                    : `[~] Retry Failed (${progress.clips.filter(c => c.status === 'error').length})`}
                 </button>
               )}
               {progress.zip_url && (

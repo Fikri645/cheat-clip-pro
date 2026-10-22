@@ -157,7 +157,7 @@ export const CookiesModal: React.FC<CookiesModalProps> = ({
         {/* Header */}
         <div className="studio-modal-header">
           <div className="studio-header-title">
-            <div className="studio-icon-badge">🍪</div>
+            <div className="studio-icon-badge">[*]</div>
             <div>
               <div className="studio-title-row">
                 <h2>{t.cookies.modalTitle}</h2>
@@ -181,7 +181,7 @@ export const CookiesModal: React.FC<CookiesModalProps> = ({
           <div className="cookies-status-section">
             {isCookieActive ? (
               <div className="cookie-status-box active">
-                <span className="status-icon">🛡️</span>
+                <span className="status-icon">[SEC]</span>
                 <div className="status-info">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <strong>{t.cookies.installedTitle}</strong>
@@ -217,7 +217,7 @@ export const CookiesModal: React.FC<CookiesModalProps> = ({
               </div>
             ) : (
               <div className="cookie-status-box warning">
-                <span className="status-icon">⚠️</span>
+                <span className="status-icon">[!]</span>
                 <div className="status-info">
                   <strong>{t.cookies.noCookiesTitle}</strong>
                   <p>
@@ -230,7 +230,7 @@ export const CookiesModal: React.FC<CookiesModalProps> = ({
 
           {/* Separate Storage Security Notice */}
           <div className="cookies-storage-notice">
-            <span className="cookies-notice-icon">🛡️</span>
+            <span className="cookies-notice-icon">[SEC]</span>
             <span>{t.cookies.clearCookiesNotice}</span>
           </div>
 
@@ -315,7 +315,7 @@ export const CookiesModal: React.FC<CookiesModalProps> = ({
           <div className="custom-confirm-modal-overlay" style={{ zIndex: 10005 }}>
             <div className="custom-confirm-modal-card">
               <div className="confirm-modal-icon-wrap" style={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.4)', color: '#ef4444' }}>
-                🍪
+                [*]
               </div>
               <h3 className="confirm-modal-title">{t.cookies.clearCookiesConfirmTitle}</h3>
               <p className="confirm-modal-desc">

@@ -11,6 +11,7 @@ import { getStoredCookies, hasStoredCookies } from './utils/cookieUtils';
 import { extractAudioFromVideoClient } from './utils/audioExtractor';
 import { renderClipClientSide, triggerBrowserDownload } from './services/clientRenderer';
 import { useLanguage } from './locales';
+import { HackerApiKeyInput } from './components/HackerApiKeyInput';
 import type { AnalyzeResponse, ViralClip, RenderSettings, BatchRenderProgress } from './types';
 
 // Declare YT global variables for TypeScript
@@ -46,7 +47,19 @@ export default function App() {
     return '30s';
   });
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('cheat_clip_gemini_api_key') || '');
-  const [showApiKey, setShowApiKey] = useState(false);
+  const [apiProvider, setApiProvider] = useState<'gemini' | 'openrouter'>(() => {
+    const saved = localStorage.getItem('cheat_clip_api_provider');
+    return (saved === 'openrouter' || saved === 'gemini') ? saved : 'gemini';
+  });
+  const [openRouterKey, setOpenRouterKey] = useState<string>(() => localStorage.getItem('cheat_clip_openrouter_key') || '');
+  const [openRouterModel, setOpenRouterModel] = useState<string>(() => {
+    const saved = localStorage.getItem('cheat_clip_openrouter_model');
+    return saved || 'google/gemini-2.5-flash';
+  });
+  const [openRouterModels, setOpenRouterModels] = useState<Array<{ id: string; name: string; description?: string; context_length?: number; recommended?: boolean }>>([]);
+  const [loadingOpenRouterModels, setLoadingOpenRouterModels] = useState(false);
+  const [customOpenRouterModel, setCustomOpenRouterModel] = useState<string>('');
+  const [isCustomOpenRouterModel, setIsCustomOpenRouterModel] = useState<boolean>(false);
   const [isCookiesModalOpen, setIsCookiesModalOpen] = useState(false);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [allowAppUpdates, setAllowAppUpdates] = useState<boolean>(() => {
@@ -119,8 +132,11 @@ export default function App() {
   const [transcriptLanguage, setTranscriptLanguage] = useState<'id' | 'en'>(() => {
     const saved = localStorage.getItem('cheat_clip_transcript_language');
     if (saved === 'id' || saved === 'en') return saved;
-    return 'id';
+    return 'en';
   });
+  const [workflowTab, setWorkflowTab] = useState<'source' | 'clips' | 'clipper'>('source');
+  const [showLanguageConfirmModal, setShowLanguageConfirmModal] = useState<boolean>(false);
+  const [skipLanguageConfirm, setSkipLanguageConfirm] = useState<boolean>(false);
 
   const parseTimeToSeconds = (val: string): number | null => {
     const clean = val.trim();
@@ -816,6 +832,37 @@ export default function App() {
     return () => clearTimeout(delayDebounce);
   }, [apiKey]);
 
+  // OpenRouter models retrieval
+  useEffect(() => {
+    let isCancelled = false;
+    const fetchOpenRouterModels = async () => {
+      setLoadingOpenRouterModels(true);
+      try {
+        const cleanKey = openRouterKey.trim();
+        const res = await resilientFetch(`/api/openrouter-models?api_key=${encodeURIComponent(cleanKey)}`, {
+          maxRetries: 2,
+          retryDelay: 800,
+          silent: true
+        });
+        if (res.ok && !isCancelled) {
+          const data = await res.json();
+          if (data.models && Array.isArray(data.models) && data.models.length > 0) {
+            setOpenRouterModels(data.models);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to retrieve OpenRouter models:', err);
+      } finally {
+        if (!isCancelled) setLoadingOpenRouterModels(false);
+      }
+    };
+
+    fetchOpenRouterModels();
+    return () => {
+      isCancelled = true;
+    };
+  }, [openRouterKey]);
+
   // Sync marked clips with local storage based on active video ID
   useEffect(() => {
     if (result?.video_id) {
@@ -1056,6 +1103,7 @@ export default function App() {
           setStepProgress({ 1: 100, 2: 100, 3: 100, 4: 100 });
           setOverallProgress(100);
           setResult(data);
+          setWorkflowTab('clips');
           setLoading(false);
           setShowHistory(false);
           if (data.clips?.length > 0) setActiveClip(data.clips[0]);
@@ -1329,6 +1377,15 @@ export default function App() {
     return null;
   };
 
+  const handleFormSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (sourceMode === 'youtube' && subtitlesSource === 'youtube' && !skipLanguageConfirm) {
+      setShowLanguageConfirmModal(true);
+      return;
+    }
+    handleAnalyze(e);
+  };
+
   const handleAnalyze = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
@@ -1348,9 +1405,16 @@ export default function App() {
     }
 
     // Require an API key before making any request
-    if (!apiKey.trim()) {
-      setError(t.errors.apiKeyRequired);
-      return;
+    if (apiProvider === 'gemini') {
+      if (!apiKey.trim()) {
+        setError(t.errors.apiKeyRequired);
+        return;
+      }
+    } else {
+      if (!openRouterKey.trim()) {
+        setError('OpenRouter API Key is required. Please paste your key in AI Engine Settings.');
+        return;
+      }
     }
 
     let rangeStartSecs: number | undefined = undefined;
@@ -1526,6 +1590,7 @@ export default function App() {
           await new Promise(r => setTimeout(r, 250));
 
           setResult(parsedData);
+          setWorkflowTab('clips');
           setLoading(false);
 
           if (parsedData.clips && parsedData.clips.length > 0) {
@@ -1553,7 +1618,8 @@ export default function App() {
     const isGDrive = isGoogleDriveUrl(targetAnalyzeUrl);
     setAiStage(isGDrive ? 'Connecting to Google Drive' : 'Initializing Analysis Pipeline');
     setAiDetail(sourceMode === 'upload' ? 'Inspecting local video container & audio track...' : isGDrive ? 'Connecting to Google Drive and resolving video...' : 'Connecting to YouTube and resolving media stream metadata...');
-    setActiveProcessingModel(selectedModel);
+    const effectiveModel = apiProvider === 'openrouter' ? openRouterModel : selectedModel;
+    setActiveProcessingModel(effectiveModel);
     setLoadingDetails(sourceMode === 'upload' ? 'Inspecting local video file...' : isGDrive ? 'Connecting to Google Drive...' : 'Connecting to YouTube...');
 
     let resultData: AnalyzeResponse | null = null;
@@ -1566,8 +1632,11 @@ export default function App() {
         body: JSON.stringify({
           url: targetAnalyzeUrl,
           duration: durationPref,
-          api_key: apiKey.trim() || undefined,
-          model: selectedModel,
+          api_key: apiProvider === 'gemini' ? (apiKey.trim() || undefined) : undefined,
+          model: apiProvider === 'gemini' ? selectedModel : undefined,
+          api_provider: apiProvider,
+          openrouter_key: apiProvider === 'openrouter' ? (openRouterKey.trim() || undefined) : undefined,
+          openrouter_model: apiProvider === 'openrouter' ? openRouterModel : undefined,
           custom_prompt: customPrompt.trim() || undefined,
           range_start: rangeStartSecs,
           range_end: rangeEndSecs,
@@ -1708,6 +1777,7 @@ export default function App() {
       }
 
       setResult(resultData);
+      setWorkflowTab('clips');
       setLoading(false);
 
       if (resultData.clips?.length > 0) setActiveClip(resultData.clips[0]);
@@ -1732,7 +1802,7 @@ export default function App() {
         msg.includes('not running')
       ) {
         setError(
-          '🔌 Backend API Server is unreachable (Port 8000).\n' +
+          '[CONN] Backend API Server is unreachable (Port 8000).\n' +
           'Please ensure the full app is running in your terminal (`npm run dev`).\n' +
           'If Python dependencies were not installed yet, run: `pip install -r requirements.txt`'
         );
@@ -1967,7 +2037,7 @@ export default function App() {
           ...prev,
           [clipKey]: { status: 'ready' }
         }));
-        setToastMessage(`✅ ${clip.title} (raw)`);
+        setToastMessage(`[OK] ${clip.title} (raw)`);
         setTimeout(() => {
           setClipDownloadStates(prev => ({
             ...prev,
@@ -2052,7 +2122,7 @@ export default function App() {
                 ...prev,
                 [clipKey]: { status: 'ready' }
               }));
-              setToastMessage(`✅ ${clip.title} (raw)`);
+              setToastMessage(`[OK] ${clip.title} (raw)`);
               const a = document.createElement("a");
               a.href = statusData.download_url;
               a.download = statusData.filename || `${clip.title} (raw).mp4`;
@@ -2210,7 +2280,7 @@ Transcript:
               setCopyTimestampScope('all');
             }}
           >
-            <span>🌐 {t.results.copyScopeAll}</span>
+            <span>// {t.results.copyScopeAll}</span>
             <span className="timestamp-scope-count">{totalCount}</span>
           </button>
           <button
@@ -2221,7 +2291,7 @@ Transcript:
               setCopyTimestampScope('marked');
             }}
           >
-            <span>🔖 {t.results.copyScopeMarked}</span>
+            <span>[*] {t.results.copyScopeMarked}</span>
             <span className="timestamp-scope-count">{markedCount}</span>
           </button>
         </div>
@@ -2229,7 +2299,7 @@ Transcript:
         {/* Empty notice if marked is selected but no clips are marked */}
         {copyTimestampScope === 'marked' && markedCount === 0 && (
           <div className="timestamp-menu-empty-notice">
-            ⚠️ {t.results.noMarkedClipsNotice}
+            [!] {t.results.noMarkedClipsNotice}
           </div>
         )}
 
@@ -2468,23 +2538,40 @@ Transcript:
       )}
 
       {/* Header Area */}
-      <header className="app-header">
-        <div className="header-logo">
-          <span className="logo-emoji">⚡</span>
+      <header className="app-header" style={{ borderBottom: '1px solid #272238', paddingBottom: '1.25rem' }}>
+        <div className="header-logo" style={{ display: 'flex', alignItems: 'center' }}>
           <div>
-            <div className="logo-title-row">
-              <h1 className="text-gradient logo-title">CHEAT CLIP</h1>
-              <span className="pro-badge" title="Cheat Clip Pro Edition">
+            <div className="logo-title-row" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+              <span className="prompt-marker" style={{
+                color: '#ff1e27',
+                fontFamily: 'var(--font-mono)',
+                fontWeight: 900,
+                fontSize: '1.45rem',
+                lineHeight: 1,
+                letterSpacing: '-0.02em',
+                userSelect: 'none',
+                textShadow: '0 0 10px rgba(255, 30, 39, 0.45)',
+                marginRight: '0.1rem'
+              }}>
+                &gt;_
+              </span>
+              <h1 className="logo-title" style={{ fontFamily: 'var(--font-mono)', fontSize: '1.35rem', fontWeight: 900, color: '#f8fafc', letterSpacing: '-0.02em', margin: 0, display: 'inline-flex', alignItems: 'center' }}>
+                JOHANSA <span style={{ color: 'var(--text-muted)', fontWeight: 500, margin: '0 0.35rem' }}>//</span> CHEAT CLIP
+              </h1>
+              <span className="pro-badge" title="Cheat Clip Pro Edition" style={{ background: 'rgba(255, 0, 255, 0.1)', border: '1px solid #ff00ff', color: '#ff00ff', fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '0.7rem', padding: '0.15rem 0.45rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
                 <svg className="pro-badge-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M5 16L3 5L8.5 10L12 4L15.5 10L21 5L19 16H5M19 19C19 19.6 18.6 20 18 20H6C5.4 20 5 19.6 5 19V17H19V19Z" />
                 </svg>
                 PRO
               </span>
+              <span className="status-dot" title="Online" style={{ display: 'inline-block', width: '8px', height: '8px', background: '#ff1e27', boxShadow: '0 0 10px #ff1e27', flexShrink: 0 }}></span>
             </div>
-            <p className="header-subtitle">{t.header.subtitle}</p>
+            <p className="header-subtitle" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+              &gt; {t.header.subtitle}
+            </p>
           </div>
         </div>
-        <div className="header-nav" style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+        <div className="header-nav" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <button
             type="button"
             className="cookie-header-btn"
@@ -2493,9 +2580,9 @@ Transcript:
               padding: '0.45rem 0.85rem',
               fontSize: '0.8rem',
               fontWeight: 600,
-              borderRadius: '8px',
-              background: hasCookies ? 'rgba(34, 197, 94, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-              border: hasCookies ? '1px solid rgba(34, 197, 94, 0.45)' : '1px solid rgba(255, 255, 255, 0.1)',
+              fontFamily: 'var(--font-mono)',
+              background: hasCookies ? 'rgba(34, 197, 94, 0.12)' : '#0d0d14',
+              border: hasCookies ? '1px solid rgba(34, 197, 94, 0.45)' : '1px solid #272238',
               color: hasCookies ? '#4ade80' : 'var(--text-secondary)',
               display: 'flex',
               alignItems: 'center',
@@ -2506,7 +2593,7 @@ Transcript:
             }}
             title={hasCookies ? t.header.cookiesTooltipActive : t.header.cookiesTooltipSetup}
           >
-            <span>🍪 {t.header.cookiesBtn}</span>
+            <span>[*] {t.header.cookiesBtn}</span>
             <span style={{ fontSize: '0.75rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
               {hasCookies ? (
                 <>
@@ -2531,9 +2618,9 @@ Transcript:
                 padding: '0.45rem 0.85rem',
                 fontSize: '0.8rem',
                 fontWeight: 600,
-                borderRadius: '8px',
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
+                fontFamily: 'var(--font-mono)',
+                background: '#0d0d14',
+                border: '1px solid #272238',
                 color: 'var(--text-secondary)',
                 display: 'flex',
                 alignItems: 'center',
@@ -2543,7 +2630,7 @@ Transcript:
               }}
               title={t.header.clearTempTooltip}
             >
-              <span>🧹 {isClearingGlobalTemp ? t.header.clearingTempBtn : t.header.clearTempBtn}</span>
+              <span>[x] {isClearingGlobalTemp ? t.header.clearingTempBtn : t.header.clearTempBtn}</span>
             </button>
           )}
           {allowAppUpdates && (
@@ -2555,9 +2642,9 @@ Transcript:
                 padding: '0.45rem 0.85rem',
                 fontSize: '0.8rem',
                 fontWeight: 600,
-                borderRadius: '8px',
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
+                fontFamily: 'var(--font-mono)',
+                background: '#0d0d14',
+                border: '1px solid #272238',
                 color: 'var(--text-secondary)',
                 display: 'flex',
                 alignItems: 'center',
@@ -2567,7 +2654,7 @@ Transcript:
               }}
               title={t.header.updateBtnTooltip}
             >
-              <span>🔄 {t.header.updateBtn}</span>
+              <span>[~] {t.header.updateBtn}</span>
             </button>
           )}
           <LanguageSwitcher />
@@ -2577,22 +2664,127 @@ Transcript:
             rel="noopener noreferrer"
             className="glowing-btn"
             style={{
-              padding: '0.5rem 1rem',
+              padding: '0.45rem 0.95rem',
               fontSize: '0.8rem',
-              borderRadius: '8px',
               textDecoration: 'none',
-              boxShadow: '0 4px 12px rgba(255, 94, 58, 0.2)',
-              background: 'linear-gradient(135deg, var(--secondary) 0%, #f43f5e 100%)'
+              background: 'rgba(255, 0, 255, 0.08)',
+              border: '1px solid #ff00ff',
+              color: '#ff00ff'
             }}
           >
-            🐈‍⬛ {t.header.supportProject}
+            [$] {t.header.supportProject}
           </a>
         </div>
       </header>
 
+      {/* Workflow Navigation Tabs (01 // SOURCE, 02 // CLIPS, 03 // CLIPPER) */}
+      <nav className="workflow-tab-bar" aria-label="Workflow Navigation">
+        <button
+          type="button"
+          id="tab-step-source"
+          className={`workflow-tab-btn ${workflowTab === 'source' ? 'active' : ''}`}
+          onClick={() => setWorkflowTab('source')}
+        >
+          <span className="workflow-tab-dot"></span>
+          <span>01 // SOURCE</span>
+        </button>
+
+        <button
+          type="button"
+          id="tab-step-clips"
+          className={`workflow-tab-btn ${workflowTab === 'clips' ? 'active' : ''}`}
+          onClick={() => {
+            if (result) {
+              setWorkflowTab('clips');
+            } else if (history.length > 0) {
+              loadFromHistory(history[0]);
+            }
+          }}
+          disabled={!result && history.length === 0}
+          title={
+            result
+              ? 'Lihat hasil rekomendasi klip'
+              : history.length > 0
+              ? 'Buka hasil analisis terakhir dari riwayat'
+              : 'Selesaikan analisis video terlebih dahulu'
+          }
+        >
+          <span className="workflow-tab-dot"></span>
+          <span>02 // RECOMMENDED CLIPS</span>
+          {result?.clips ? (
+            <span className="workflow-tab-count">[{result.clips.length}]</span>
+          ) : history.length > 0 ? (
+            <span className="workflow-tab-count" style={{ borderColor: 'rgba(255, 0, 255, 0.4)', color: '#ff00ff' }}>
+              [{history.length} RIWAYAT]
+            </span>
+          ) : null}
+        </button>
+
+        <button
+          type="button"
+          id="tab-step-clipper"
+          className={`workflow-tab-btn ${workflowTab === 'clipper' ? 'active' : ''}`}
+          onClick={() => {
+            if (result) setWorkflowTab('clipper');
+          }}
+          disabled={!result}
+          title={!result ? 'Selesaikan analisis video terlebih dahulu' : 'Buka Auto Clipper Studio'}
+        >
+          <span className="workflow-tab-dot"></span>
+          <span>03 // AUTO CLIPPER</span>
+          {markedClipsList.length > 0 && (
+            <span className="workflow-tab-count" style={{ background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', borderColor: 'rgba(34, 197, 94, 0.4)' }}>
+              [{markedClipsList.length} READY]
+            </span>
+          )}
+        </button>
+      </nav>
+      {/* Active Video Status Banner (Flow level - placed directly below workflow tabs) */}
+      {result && (
+        <div className="active-video-banner">
+          <div className="active-video-info">
+            <span style={{ color: 'var(--primary)', fontWeight: 800, textShadow: '0 0 10px var(--primary-glow)' }}>&gt;_ ACTIVE VIDEO:</span>
+            <span style={{ color: '#ffffff', fontWeight: 600, fontSize: '0.88rem' }}>{result.title}</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>[{result.clips?.length || 0} klip tersedia]</span>
+          </div>
+          <div className="active-video-actions">
+            <button
+              type="button"
+              className="glowing-btn"
+              onClick={() => setWorkflowTab('clips')}
+              style={{
+                padding: '0.4rem 0.95rem',
+                fontSize: '0.78rem',
+                background: workflowTab === 'clips' ? 'var(--primary)' : 'transparent',
+                color: workflowTab === 'clips' ? '#000000' : 'var(--text-primary)',
+                fontWeight: 700
+              }}
+            >
+              [ 02 // LIHAT CLIPS ➔ ]
+            </button>
+            <button
+              type="button"
+              className="glowing-btn"
+              onClick={() => setWorkflowTab('clipper')}
+              style={{
+                padding: '0.4rem 0.95rem',
+                fontSize: '0.78rem',
+                background: workflowTab === 'clipper' ? 'var(--primary)' : 'transparent',
+                color: workflowTab === 'clipper' ? '#000000' : 'var(--text-primary)',
+                fontWeight: 700
+              }}
+            >
+              [ 03 // AUTO CLIPPER ➔ ]
+            </button>
+          </div>
+        </div>
+      )}
+
+
       {/* Main Form controls panel */}
-      <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        <form onSubmit={handleAnalyze} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <section className="glass-panel" style={{ display: workflowTab === 'source' ? 'flex' : 'none', flexDirection: 'column', gap: '1.5rem' }}>
+        
+        <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Source Selector Tabs: YouTube vs Google Drive vs Upload Video File */}
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
             {/* YouTube Tab */}
@@ -2698,7 +2890,58 @@ Transcript:
 
           {/* YouTube input mode */}
           {sourceMode === 'youtube' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', width: '100%' }}>
+              {subtitlesSource === 'youtube' && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '0.65rem',
+                  padding: '0.65rem 0.95rem',
+                  background: '#0d0c15',
+                  border: '1px solid rgba(168, 85, 247, 0.4)',
+                  fontFamily: 'var(--font-mono)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                    <span style={{ color: '#ff00ff', fontWeight: 800, fontSize: '0.8rem' }}>&gt;_ TARGET TRANSCRIPT:</span>
+                    <span style={{ 
+                      background: 'rgba(255, 0, 255, 0.08)', 
+                      color: '#f8fafc', 
+                      padding: '0.15rem 0.6rem', 
+                      border: '1.5px solid #ff00ff',
+                      fontSize: '0.82rem',
+                      fontWeight: 800,
+                      boxShadow: '0 0 10px rgba(255, 0, 255, 0.3)'
+                    }}>
+                      {transcriptLanguage === 'en' ? '[EN] ENGLISH' : '[ID] INDONESIA'}
+                    </span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>
+                      // Pastikan bahasa audio video sesuai sebelum klik Hack Clips.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = transcriptLanguage === 'en' ? 'id' : 'en';
+                      setTranscriptLanguage(next);
+                      localStorage.setItem('cheat_clip_transcript_language', next);
+                    }}
+                    style={{
+                      background: '#0a0a0f',
+                      border: '1px solid #ff00ff',
+                      color: '#ff00ff',
+                      fontSize: '0.75rem',
+                      padding: '0.3rem 0.75rem',
+                      cursor: 'pointer',
+                      fontFamily: 'var(--font-mono)',
+                      fontWeight: 700
+                    }}
+                  >
+                    [ GANTI KE {transcriptLanguage === 'en' ? '[ID] INDONESIA' : '[EN] ENGLISH'} ]
+                  </button>
+                </div>
+              )}
               <label style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{t.form.urlLabel}</label>
               <div className="form-main-input-row" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                 <input
@@ -2780,7 +3023,7 @@ Transcript:
                 </button>
               </div>
               <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.3, fontWeight: 400 }}>
-                💡 {t.form.gdriveNotice}
+                // NOTE: {t.form.gdriveNotice}
               </span>
             </div>
           )}
@@ -2917,13 +3160,13 @@ Transcript:
                       </div>
                       <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.2rem', alignItems: 'center' }}>
                         {uploadedVideoFile && (
-                          <span>📦 {(uploadedVideoFile.size / (1024 * 1024)).toFixed(1)} MB</span>
+                          <span>[PKG] {(uploadedVideoFile.size / (1024 * 1024)).toFixed(1)} MB</span>
                         )}
                         {uploadedVideoInfo && uploadedVideoInfo.duration > 0 && (
-                          <span>⏱ {Math.round(uploadedVideoInfo.duration)}s</span>
+                          <span> {Math.round(uploadedVideoInfo.duration)}s</span>
                         )}
                         <span>•</span>
-                        <span style={{ color: '#10b981', fontWeight: 600 }}>✨ Whisper AI Auto-Transcribe</span>
+                        <span style={{ color: '#10b981', fontWeight: 600 }}>* Whisper AI Auto-Transcribe</span>
                       </div>
                     </div>
                   </div>
@@ -2989,106 +3232,279 @@ Transcript:
           <div className="form-settings-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
             {/* Card 1: AI Engine Configuration */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '1.25rem', borderRadius: '12px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
-              <h3 style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.25rem' }}>
-                🤖 {t.form.aiSettingsTitle}
-              </h3>
-              
-              {/* API Key input — required */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                  <span>
-                    {t.form.apiKeyLabel}
-                    <span style={{ marginLeft: '0.4rem', fontSize: '0.7rem', fontWeight: 700, color: '#f87171', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '4px', padding: '0.1rem 0.35rem', letterSpacing: '0.04em' }}>{t.form.apiKeyRequired}</span>
-                  </span>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <a
-                      href="https://aistudio.google.com/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: 'var(--primary)', textDecoration: 'none', fontSize: '0.75rem', fontWeight: 600, transition: 'var(--transition-smooth)' }}
-                      className="action-link-btn"
-                    >
-                      🔑 {t.form.getFreeKey}
-                    </a>
-                    <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: '0.75rem' }}>|</span>
-                    <span
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      style={{ cursor: 'pointer', color: 'var(--primary)', fontSize: '0.75rem' }}
-                    >
-                      {showApiKey ? t.form.hideKey : t.form.showKey}
-                    </span>
-                  </div>
-                </label>
-                <input
-                  id="gemini-key-input"
-                  type={showApiKey ? 'text' : 'password'}
-                  className={`form-input${!apiKey.trim() ? ' input-error-highlight' : ''}`}
-                  placeholder={t.form.apiKeyPlaceholder}
-                  value={apiKey}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setApiKey(val);
-                    localStorage.setItem('cheat_clip_gemini_api_key', val);
-                    if (val.trim()) setError(null);
-                  }}
-                  disabled={loading}
-                  style={{ height: '42px' }}
-                />
-                {!apiKey.trim() && (
-                  <span style={{ fontSize: '0.75rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-                    {t.form.apiKeyErrorHint}
-                  </span>
-                )}
-              </div>
-
-              {/* AI Model Selection */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                  <span>{t.form.aiModelLabel}</span>
-                  {loadingModels && (
-                    <span style={{ fontSize: '0.72rem', color: 'var(--primary)', animation: 'pulse 1.5s infinite ease-in-out' }}>
-                      ⌛ {t.form.fetchingModels}
-                    </span>
-                  )}
-                </label>
-                <select
-                  className="form-input"
-                  value={selectedModel}
-                  onChange={(e) => {
-                    setSelectedModel(e.target.value);
-                    localStorage.setItem('cheat_clip_selected_model', e.target.value);
-                  }}
-                  disabled={loading}
-                  style={{ padding: '0.6rem 1rem', fontSize: '0.875rem', height: '42px', cursor: 'pointer', appearance: 'auto', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '8px' }}
-                >
-                  {availableModels.length > 0 ? (
-                    availableModels.map((m) => (
-                      <option key={m} value={m} style={{ background: '#0d1324', color: '#fff' }}>
-                        {m}
-                      </option>
-                    ))
-                  ) : (
-                    <>
-                      <option value="gemini-2.5-flash" style={{ background: '#0d1324', color: '#fff' }}>gemini-2.5-flash (Fast & recommended - Free tier friendly)</option>
-                      <option value="gemini-2.5-flash-lite" style={{ background: '#0d1324', color: '#fff' }}>gemini-2.5-flash-lite (Ultra-fast & lightweight)</option>
-                      <option value="gemini-2.0-flash" style={{ background: '#0d1324', color: '#fff' }}>gemini-2.0-flash (Fast & responsive)</option>
-                      <option value="gemini-2.0-flash-lite" style={{ background: '#0d1324', color: '#fff' }}>gemini-2.0-flash-lite (Lightweight flash)</option>
-                      <option value="gemini-1.5-flash" style={{ background: '#0d1324', color: '#fff' }}>gemini-1.5-flash (Fallback flash)</option>
-                      <option value="gemini-2.5-pro" style={{ background: '#0d1324', color: '#fff' }}>gemini-2.5-pro (Creative & complex - High quota)</option>
-                    </>
-                  )}
-                </select>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.4, marginTop: '0.2rem' }}>
-                  💡 <strong>{t.form.resilienceTip}</strong> {t.form.resilienceDesc}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.4rem', margin: 0 }}>
+                  [AI] {t.form.aiSettingsTitle}
+                </h3>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace" }}>
+                  {apiProvider === 'gemini' ? 'ENGINE: GOOGLE_GEMINI' : 'ENGINE: OPENROUTER_MULTILLM'}
                 </span>
               </div>
+
+              {/* Provider Selection Tabs */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', background: '#0a0a0f', padding: '3px', border: '1px solid rgba(255, 0, 255, 0.2)' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setApiProvider('gemini');
+                    localStorage.setItem('cheat_clip_api_provider', 'gemini');
+                    setError(null);
+                  }}
+                  style={{
+                    padding: '0.55rem 0.75rem',
+                    background: apiProvider === 'gemini' ? '#ff00ff' : 'transparent',
+                    color: apiProvider === 'gemini' ? '#000000' : 'rgba(255, 255, 255, 0.7)',
+                    border: 'none',
+                    fontWeight: 700,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    letterSpacing: '0.04em',
+                    transition: 'all 0.15s ease',
+                    boxShadow: apiProvider === 'gemini' ? '0 0 10px rgba(255, 0, 255, 0.4)' : 'none',
+                  }}
+                >
+                  {t.form.providerGemini}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setApiProvider('openrouter');
+                    localStorage.setItem('cheat_clip_api_provider', 'openrouter');
+                    setError(null);
+                  }}
+                  style={{
+                    padding: '0.55rem 0.75rem',
+                    background: apiProvider === 'openrouter' ? '#ff00ff' : 'transparent',
+                    color: apiProvider === 'openrouter' ? '#000000' : 'rgba(255, 255, 255, 0.7)',
+                    border: 'none',
+                    fontWeight: 700,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    letterSpacing: '0.04em',
+                    transition: 'all 0.15s ease',
+                    boxShadow: apiProvider === 'openrouter' ? '0 0 10px rgba(255, 0, 255, 0.4)' : 'none',
+                  }}
+                >
+                  {t.form.providerOpenRouter}
+                </button>
+              </div>
+
+              {/* Provider Content: GEMINI */}
+              {apiProvider === 'gemini' ? (
+                <>
+                  {/* Gemini API Key input */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      <span>
+                        {t.form.apiKeyLabel}
+                        <span style={{ marginLeft: '0.4rem', fontSize: '0.7rem', fontWeight: 700, color: '#f87171', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '4px', padding: '0.1rem 0.35rem', letterSpacing: '0.04em' }}>{t.form.apiKeyRequired}</span>
+                      </span>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <a
+                          href="https://aistudio.google.com/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: 'var(--primary)', textDecoration: 'none', fontSize: '0.75rem', fontWeight: 600, transition: 'var(--transition-smooth)' }}
+                          className="action-link-btn"
+                        >
+                          [KEY] {t.form.getFreeKey}
+                        </a>
+                      </div>
+                    </label>
+                    <HackerApiKeyInput
+                      id="gemini-key-input"
+                      value={apiKey}
+                      onChange={(val) => {
+                        setApiKey(val);
+                        localStorage.setItem('cheat_clip_gemini_api_key', val);
+                        if (val.trim()) setError(null);
+                      }}
+                      disabled={loading}
+                      placeholder={t.form.apiKeyPlaceholder}
+                      error={!apiKey.trim()}
+                    />
+                    {!apiKey.trim() && (
+                      <span style={{ fontSize: '0.75rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /></svg>
+                        {t.form.apiKeyErrorHint}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Gemini AI Model Selection */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      <span>{t.form.aiModelLabel}</span>
+                      {loadingModels && (
+                        <span style={{ fontSize: '0.72rem', color: 'var(--primary)', animation: 'pulse 1.5s infinite ease-in-out' }}>
+                          ⌛ {t.form.fetchingModels}
+                        </span>
+                      )}
+                    </label>
+                    <select
+                      className="form-input"
+                      value={selectedModel}
+                      onChange={(e) => {
+                        setSelectedModel(e.target.value);
+                        localStorage.setItem('cheat_clip_selected_model', e.target.value);
+                      }}
+                      disabled={loading}
+                      style={{ padding: '0.6rem 1rem', fontSize: '0.875rem', height: '42px', cursor: 'pointer', appearance: 'auto', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '8px' }}
+                    >
+                      {availableModels.length > 0 ? (
+                        availableModels.map((m) => (
+                          <option key={m} value={m} style={{ background: '#0a0a0f', color: '#fff' }}>
+                            {m}
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="gemini-2.5-flash" style={{ background: '#0a0a0f', color: '#fff' }}>gemini-2.5-flash (Fast & recommended - Free tier friendly)</option>
+                          <option value="gemini-2.5-flash-lite" style={{ background: '#0a0a0f', color: '#fff' }}>gemini-2.5-flash-lite (Ultra-fast & lightweight)</option>
+                          <option value="gemini-2.0-flash" style={{ background: '#0a0a0f', color: '#fff' }}>gemini-2.0-flash (Fast & responsive)</option>
+                          <option value="gemini-2.0-flash-lite" style={{ background: '#0a0a0f', color: '#fff' }}>gemini-2.0-flash-lite (Lightweight flash)</option>
+                          <option value="gemini-1.5-flash" style={{ background: '#0a0a0f', color: '#fff' }}>gemini-1.5-flash (Fallback flash)</option>
+                          <option value="gemini-2.5-pro" style={{ background: '#0a0a0f', color: '#fff' }}>gemini-2.5-pro (Creative & complex - High quota)</option>
+                        </>
+                      )}
+                    </select>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.4, marginTop: '0.2rem' }}>
+                      // NOTE: <strong>{t.form.resilienceTip}</strong> {t.form.resilienceDesc}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* OpenRouter API Key input */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      <span>
+                        {t.form.openrouterKeyLabel}
+                        <span style={{ marginLeft: '0.4rem', fontSize: '0.7rem', fontWeight: 700, color: '#f87171', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '4px', padding: '0.1rem 0.35rem', letterSpacing: '0.04em' }}>{t.form.apiKeyRequired}</span>
+                      </span>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <a
+                          href="https://openrouter.ai/settings/keys"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: 'var(--primary)', textDecoration: 'none', fontSize: '0.75rem', fontWeight: 600, transition: 'var(--transition-smooth)' }}
+                          className="action-link-btn"
+                        >
+                          [KEY] {t.form.openrouterGetFreeKey}
+                        </a>
+                      </div>
+                    </label>
+                    <HackerApiKeyInput
+                      id="openrouter-key-input"
+                      value={openRouterKey}
+                      onChange={(val) => {
+                        setOpenRouterKey(val);
+                        localStorage.setItem('cheat_clip_openrouter_key', val);
+                        if (val.trim()) setError(null);
+                      }}
+                      disabled={loading}
+                      placeholder={t.form.openrouterKeyPlaceholder}
+                      error={!openRouterKey.trim()}
+                    />
+                    {!openRouterKey.trim() && (
+                      <span style={{ fontSize: '0.75rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /></svg>
+                        {t.form.apiKeyErrorHint}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* OpenRouter Model Selection */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                        {t.form.openrouterModelLabel}
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {loadingOpenRouterModels && (
+                          <span style={{ fontSize: '0.72rem', color: 'var(--primary)', animation: 'pulse 1.5s infinite ease-in-out' }}>
+                            ⌛ {t.form.fetchingModels}
+                          </span>
+                        )}
+                        <span
+                          onClick={() => setIsCustomOpenRouterModel(!isCustomOpenRouterModel)}
+                          style={{
+                            cursor: 'pointer',
+                            color: isCustomOpenRouterModel ? 'var(--primary)' : 'var(--text-muted)',
+                            fontSize: '0.72rem',
+                            fontFamily: "'JetBrains Mono', monospace",
+                            textDecoration: 'underline'
+                          }}
+                        >
+                          {isCustomOpenRouterModel ? '[SELECT PRESET]' : '[CUSTOM ID]'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {isCustomOpenRouterModel ? (
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="e.g. qwen/qwen-2.5-72b-instruct or deepseek/deepseek-r1"
+                        value={customOpenRouterModel || openRouterModel}
+                        onChange={(e) => {
+                          const val = e.target.value.trim();
+                          setCustomOpenRouterModel(val);
+                          setOpenRouterModel(val);
+                          localStorage.setItem('cheat_clip_openrouter_model', val);
+                        }}
+                        disabled={loading}
+                        style={{ height: '42px', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.85rem' }}
+                      />
+                    ) : (
+                      <select
+                        className="form-input"
+                        value={openRouterModel}
+                        onChange={(e) => {
+                          setOpenRouterModel(e.target.value);
+                          localStorage.setItem('cheat_clip_openrouter_model', e.target.value);
+                        }}
+                        disabled={loading}
+                        style={{ padding: '0.6rem 1rem', fontSize: '0.875rem', height: '42px', cursor: 'pointer', appearance: 'auto', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '8px' }}
+                      >
+                        {openRouterModels.length > 0 ? (
+                          openRouterModels.map((m) => (
+                            <option key={m.id} value={m.id} style={{ background: '#0a0a0f', color: '#fff' }}>
+                              {m.name || m.id} {m.recommended ? '★ [RECOMMENDED]' : ''}
+                            </option>
+                          ))
+                        ) : (
+                          <>
+                            <option value="google/gemini-2.5-flash" style={{ background: '#0a0a0f', color: '#fff' }}>Google: Gemini 2.5 Flash ★ [RECOMMENDED]</option>
+                            <option value="google/gemini-2.0-flash-001" style={{ background: '#0a0a0f', color: '#fff' }}>Google: Gemini 2.0 Flash</option>
+                            <option value="anthropic/claude-3.5-sonnet" style={{ background: '#0a0a0f', color: '#fff' }}>Anthropic: Claude 3.5 Sonnet ★ [RECOMMENDED]</option>
+                            <option value="anthropic/claude-3.5-haiku" style={{ background: '#0a0a0f', color: '#fff' }}>Anthropic: Claude 3.5 Haiku</option>
+                            <option value="deepseek/deepseek-chat" style={{ background: '#0a0a0f', color: '#fff' }}>DeepSeek: DeepSeek V3 ★ [RECOMMENDED]</option>
+                            <option value="meta-llama/llama-3.3-70b-instruct" style={{ background: '#0a0a0f', color: '#fff' }}>Meta: Llama 3.3 70B Instruct</option>
+                            <option value="openai/gpt-4o-mini" style={{ background: '#0a0a0f', color: '#fff' }}>OpenAI: GPT-4o Mini</option>
+                            <option value="openai/gpt-4o" style={{ background: '#0a0a0f', color: '#fff' }}>OpenAI: GPT-4o</option>
+                            <option value="qwen/qwen-2.5-72b-instruct" style={{ background: '#0a0a0f', color: '#fff' }}>Qwen: Qwen 2.5 72B Instruct</option>
+                            <option value="mistralai/mistral-large-2411" style={{ background: '#0a0a0f', color: '#fff' }}>Mistral: Mistral Large 2</option>
+                            <option value="google/gemini-2.5-pro" style={{ background: '#0a0a0f', color: '#fff' }}>Google: Gemini 2.5 Pro</option>
+                          </>
+                        )}
+                      </select>
+                    )}
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.4, marginTop: '0.2rem' }}>
+                      // NOTE: <strong>Same-Family Fallback:</strong> {t.form.openrouterResilienceDesc}
+                    </span>
+                  </div>
+                </>
+              )}
+
             </div>
 
             {/* Card 2: Clip Parameters & Focus */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '1.25rem', borderRadius: '12px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
               <h3 style={{ fontSize: '0.9rem', color: 'var(--secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.25rem' }}>
-                ⚡ {t.form.clipCustomizationTitle}
+                * {t.form.clipCustomizationTitle}
               </h3>
 
               {/* Preferred Duration Selector */}
@@ -3142,7 +3558,7 @@ Transcript:
                 </div>
                 {durationPref === 'auto' && (
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.3, marginTop: '0.1rem' }}>
-                    💡 {t.form.durAutoTip}
+                    // NOTE: {t.form.durAutoTip}
                   </span>
                 )}
               </div>
@@ -3236,12 +3652,12 @@ Transcript:
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', width: '20px', textAlign: 'right' }}>50</span>
                     </div>
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
-                      💡 {t.form.clipCountTip(targetClipCount, targetClipCount <= 5 ? `${Math.max(1, targetClipCount - 1)}-${targetClipCount + 2}` : targetClipCount <= 10 ? `${Math.max(1, targetClipCount - 2)}-${targetClipCount + 3}` : `${targetClipCount - 5}-${targetClipCount + 5}`)}
+                      // NOTE: {t.form.clipCountTip(targetClipCount, targetClipCount <= 5 ? `${Math.max(1, targetClipCount - 1)}-${targetClipCount + 2}` : targetClipCount <= 10 ? `${Math.max(1, targetClipCount - 2)}-${targetClipCount + 3}` : `${targetClipCount - 5}-${targetClipCount + 5}`)}
                     </span>
                   </>
                 ) : (
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.3, marginTop: '0.1rem' }}>
-                    💡 {t.form.clipCountAutoTip}
+                    // NOTE: {t.form.clipCountAutoTip}
                   </span>
                 )}
               </div>
@@ -3319,7 +3735,7 @@ Transcript:
                   </label>
                   {manualSubtitlesFileName && (
                     <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: '500' }}>
-                      📄 {manualSubtitlesFileName}
+                      // {manualSubtitlesFileName}
                     </span>
                   )}
                 </div>
@@ -3330,7 +3746,7 @@ Transcript:
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginTop: '0.25rem', padding: '0.75rem 0.9rem', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
                   <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <span>🌐</span>
+                    <span>//</span>
                     <span>{t.form.transcriptLanguage}</span>
                   </label>
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
@@ -3340,17 +3756,6 @@ Transcript:
                 <div className="duration-selector" style={{ maxWidth: '320px' }}>
                   <button
                     type="button"
-                    className={`duration-btn ${transcriptLanguage === 'id' ? 'active' : ''}`}
-                    onClick={() => {
-                      setTranscriptLanguage('id');
-                      localStorage.setItem('cheat_clip_transcript_language', 'id');
-                    }}
-                    disabled={loading}
-                  >
-                    🇮🇩 {t.form.langIndonesian}
-                  </button>
-                  <button
-                    type="button"
                     className={`duration-btn ${transcriptLanguage === 'en' ? 'active' : ''}`}
                     onClick={() => {
                       setTranscriptLanguage('en');
@@ -3358,7 +3763,18 @@ Transcript:
                     }}
                     disabled={loading}
                   >
-                    🇬🇧 {t.form.langEnglish}
+                    [EN] {t.form.langEnglish}
+                  </button>
+                  <button
+                    type="button"
+                    className={`duration-btn ${transcriptLanguage === 'id' ? 'active' : ''}`}
+                    onClick={() => {
+                      setTranscriptLanguage('id');
+                      localStorage.setItem('cheat_clip_transcript_language', 'id');
+                    }}
+                    disabled={loading}
+                  >
+                    [ID] {t.form.langIndonesian}
                   </button>
                 </div>
               </div>
@@ -3366,7 +3782,7 @@ Transcript:
 
             {subtitlesSource === 'youtube' && (
               <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', opacity: 0.8, display: 'block', marginTop: '0.15rem', lineHeight: '1.4' }}>
-                💡 <strong>{t.form.subtitlesTipTitle}</strong> {t.form.subtitlesTipDesc} <a href="https://downsub.com/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--secondary)', textDecoration: 'underline', fontWeight: '500' }}>downsub.com</a> {t.form.andUploadOption}
+                // NOTE: <strong>{t.form.subtitlesTipTitle}</strong> {t.form.subtitlesTipDesc} <a href="https://downsub.com/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--secondary)', textDecoration: 'underline', fontWeight: '500' }}>downsub.com</a> {t.form.andUploadOption}
               </span>
             )}
           </div>
@@ -3431,377 +3847,13 @@ Transcript:
         </form>
       </section>
 
-      {/* Detached & Highlighted Previous Analyses Section */}
-      {history.length > 0 && (
-        <section
-          className="history-highlight-panel"
-          aria-label="Previously analyzed clips"
-        >
-          {/* Header Row */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-            <div
-              style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', userSelect: 'none' }}
-              onClick={() => setShowHistory(h => !h)}
-            >
-              <span style={{ fontSize: '1.5rem', filter: 'drop-shadow(0 0 8px rgba(168,85,247,0.5))' }}>🎬</span>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {t.form.previouslyAnalyzed}
-                  </h3>
-                  <span style={{
-                    background: 'rgba(168, 85, 247, 0.2)',
-                    color: '#c084fc',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    padding: '0.15rem 0.65rem',
-                    borderRadius: '9999px',
-                    border: '1px solid rgba(168, 85, 247, 0.45)'
-                  }}>
-                    {history.length}
-                  </span>
-                </div>
-                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                  {t.form.historySubtitle}
-                </p>
-              </div>
-            </div>
-
-            {/* Actions: Search bar, Clear All, Collapse Toggle */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-              {/* Search Bar */}
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <span style={{ position: 'absolute', left: '0.75rem', fontSize: '0.85rem', color: 'var(--text-muted)', pointerEvents: 'none' }}>
-                  🔍
-                </span>
-                <input
-                  type="text"
-                  className="history-search-input"
-                  placeholder={t.form.searchHistoryPlaceholder}
-                  value={historySearchQuery}
-                  onChange={(e) => setHistorySearchQuery(e.target.value)}
-                  style={{ paddingRight: historySearchQuery ? '2rem' : '0.85rem' }}
-                />
-                {historySearchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setHistorySearchQuery('')}
-                    style={{
-                      position: 'absolute',
-                      right: '0.6rem',
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-muted)',
-                      cursor: 'pointer',
-                      fontSize: '0.85rem',
-                      padding: 0
-                    }}
-                    title={t.form.clearSearch}
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-
-              {/* Clear all with confirmation */}
-              {confirmClearAll ? (
-                <div style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.45rem',
-                  background: 'rgba(239, 68, 68, 0.12)',
-                  padding: '0.25rem 0.55rem',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(239, 68, 68, 0.35)',
-                  animation: 'fadeIn 0.2s ease'
-                }}>
-                  <span style={{ fontSize: '0.74rem', color: '#fca5a5', fontWeight: 600 }}>
-                    ⚠️ {t.form.areYouSure}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      clearAllHistory();
-                      setConfirmClearAll(false);
-                    }}
-                    style={{
-                      fontSize: '0.74rem',
-                      color: '#fff',
-                      background: '#ef4444',
-                      border: 'none',
-                      borderRadius: '6px',
-                      padding: '0.25rem 0.55rem',
-                      cursor: 'pointer',
-                      fontWeight: 700,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.2rem',
-                      boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)'
-                    }}
-                  >
-                    ✓ {t.form.confirmClear}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmClearAll(false)}
-                    style={{
-                      fontSize: '0.74rem',
-                      color: 'var(--text-secondary)',
-                      background: 'rgba(255, 255, 255, 0.08)',
-                      border: '1px solid rgba(255, 255, 255, 0.15)',
-                      borderRadius: '6px',
-                      padding: '0.25rem 0.45rem',
-                      cursor: 'pointer',
-                      fontWeight: 500
-                    }}
-                  >
-                    ✕ {t.form.cancel}
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setConfirmClearAll(true)}
-                  style={{
-                    fontSize: '0.75rem',
-                    color: '#f87171',
-                    background: 'rgba(239, 68, 68, 0.1)',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    borderRadius: '8px',
-                    padding: '0.45rem 0.75rem',
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    transition: 'all 0.2s ease',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.3rem'
-                  }}
-                >
-                  {t.form.clearAll}
-                </button>
-              )}
-
-              {/* Toggle button */}
-              <button
-                type="button"
-                onClick={() => setShowHistory(h => !h)}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid var(--border-color)',
-                  color: 'var(--text-secondary)',
-                  borderRadius: '8px',
-                  padding: '0.45rem 0.7rem',
-                  cursor: 'pointer',
-                  fontSize: '0.8rem',
-                  fontWeight: 600
-                }}
-                title={showHistory ? "Minimize" : "Expand"}
-              >
-                {showHistory ? '▲' : '▼'}
-              </button>
-            </div>
-          </div>
-
-          {/* Expanded content */}
-          {showHistory && (
-            <div style={{ marginTop: '1.25rem' }}>
-              {historySearchQuery.trim() && (
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>{t.form.showingHistoryCount(filteredHistory.length, history.length)}</span>
-                  <button
-                    type="button"
-                    onClick={() => setHistorySearchQuery('')}
-                    style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.78rem', textDecoration: 'underline' }}
-                  >
-                    {t.form.clearSearch}
-                  </button>
-                </div>
-              )}
-
-              {filteredHistory.length === 0 ? (
-                <div style={{
-                  padding: '2rem 1rem',
-                  textAlign: 'center',
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  borderRadius: '12px',
-                  border: '1px dashed rgba(255, 255, 255, 0.1)'
-                }}>
-                  <span style={{ fontSize: '1.75rem', display: 'block', marginBottom: '0.5rem' }}>🔍</span>
-                  <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                    {t.form.noHistoryMatch}
-                  </p>
-                  {historySearchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setHistorySearchQuery('')}
-                      style={{
-                        marginTop: '0.75rem',
-                        fontSize: '0.78rem',
-                        background: 'rgba(168, 85, 247, 0.15)',
-                        border: '1px solid rgba(168, 85, 247, 0.35)',
-                        color: '#c084fc',
-                        borderRadius: '6px',
-                        padding: '0.35rem 0.8rem',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {t.form.clearSearch}
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', maxHeight: '420px', overflowY: 'auto', paddingRight: '0.35rem' }}>
-                  {filteredHistory.map((entry) => {
-                    const q = historySearchQuery.trim().toLowerCase();
-                    const matchedClip = q ? entry.clip_titles?.find(t => t.toLowerCase().includes(q)) : null;
-                    const matchedQuote = (!matchedClip && q) ? entry.key_quotes?.find(k => k.toLowerCase().includes(q)) : null;
-
-                    return (
-                      <div
-                        key={`${entry.video_id}_${entry.duration_pref}_${entry.range_suffix || ''}`}
-                        className="history-entry-card"
-                        onClick={() => loadFromHistory(entry)}
-                      >
-                        {/* Thumbnail with overlay duration badge */}
-                        <div style={{ position: 'relative', flexShrink: 0 }}>
-                          <img
-                            src={entry.thumbnail}
-                            alt=""
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="84" height="48" viewBox="0 0 84 48"><rect width="84" height="48" fill="%231e1e2d"/><polygon points="36,18 52,24 36,30" fill="%236366f1"/></svg>';
-                            }}
-                            style={{ width: '84px', height: '48px', objectFit: 'cover', borderRadius: '7px', background: '#111', display: 'block' }}
-                          />
-                          <span style={{
-                            position: 'absolute',
-                            bottom: '3px',
-                            right: '3px',
-                            background: 'rgba(0, 0, 0, 0.75)',
-                            color: '#fff',
-                            fontSize: '0.65rem',
-                            fontWeight: 700,
-                            padding: '0.1rem 0.3rem',
-                            borderRadius: '4px',
-                            lineHeight: 1
-                          }}>
-                            {entry.duration_pref === 'auto' ? 'Auto' : entry.duration_pref}
-                          </span>
-                        </div>
-
-                        {/* Title and details */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{
-                            fontSize: '0.88rem',
-                            fontWeight: 600,
-                            color: 'var(--text-primary)',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }}>
-                            {entry.title}
-                          </div>
-                          <div style={{ display: 'flex', gap: '0.65rem', marginTop: '0.25rem', fontSize: '0.74rem', color: 'var(--text-muted)', flexWrap: 'wrap', alignItems: 'center' }}>
-                            <span style={{ color: 'var(--secondary)', fontWeight: 600 }}>{t.form.clipsCountMeta(entry.clip_count)}</span>
-                            <span>•</span>
-                            <span>⏱ {entry.duration_pref === 'auto' ? 'Auto' : entry.duration_pref}</span>
-                            <span>•</span>
-                            <span>🕓 {formatRelativeTime(entry.analyzed_at)}</span>
-                            <span>•</span>
-                            {entry.source_type === 'gdrive' ? (
-                              <a
-                                href={entry.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                style={{ color: '#10b981', textDecoration: 'none', opacity: 0.9, fontWeight: 600 }}
-                              >
-                                🔗 Google Drive
-                              </a>
-                            ) : entry.source_type === 'upload' ? (
-                              <span style={{ color: '#3b82f6', opacity: 0.9, fontWeight: 600 }}>
-                                📁 Local Video
-                              </span>
-                            ) : (
-                              <a
-                                href={entry.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                style={{ color: 'var(--primary)', textDecoration: 'none', opacity: 0.85, fontWeight: 600 }}
-                              >
-                                🔗 YouTube
-                              </a>
-                            )}
-                          </div>
-
-                          {/* Matched clip/quote search preview */}
-                          {matchedClip && (
-                            <div style={{ fontSize: '0.72rem', color: '#c084fc', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                              <span style={{ fontWeight: 600 }}>✨ {t.form.matchedClipLabel}:</span>
-                              <span style={{ fontStyle: 'italic', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>"{matchedClip}"</span>
-                            </div>
-                          )}
-                          {matchedQuote && (
-                            <div style={{ fontSize: '0.72rem', color: '#38bdf8', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                              <span style={{ fontWeight: 600 }}>💬 {t.form.matchedQuoteLabel}:</span>
-                              <span style={{ fontStyle: 'italic', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>"{matchedQuote}"</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Action buttons */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); loadFromHistory(entry); }}
-                            style={{
-                              background: 'rgba(168, 85, 247, 0.15)',
-                              border: '1px solid rgba(168, 85, 247, 0.4)',
-                              color: '#c084fc',
-                              borderRadius: '6px',
-                              padding: '0.35rem 0.75rem',
-                              fontSize: '0.75rem',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.3rem'
-                            }}
-                          >
-                            ▶ {t.form.loadVideo}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => deleteHistoryEntry(entry, e)}
-                            style={{
-                              background: 'rgba(239, 68, 68, 0.08)',
-                              border: '1px solid rgba(239, 68, 68, 0.25)',
-                              color: '#ef4444',
-                              borderRadius: '6px',
-                              padding: '0.35rem 0.55rem',
-                              cursor: 'pointer',
-                              fontSize: '0.75rem'
-                            }}
-                            title={t.form.removeFromHistory}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </section>
-      )}
+      
 
       {/* Error state */}
       {error && (
         <section className="glass-panel" style={{ borderColor: 'rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.05)' }}>
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-            <span style={{ fontSize: '1.5rem', color: '#ef4444', lineHeight: 1, marginTop: '2px' }}>⚠️</span>
+            <span style={{ fontSize: '1.5rem', color: '#ef4444', lineHeight: 1, marginTop: '2px' }}>[!]</span>
             <div style={{ flex: 1 }}>
               <h4 style={{ color: '#ef4444', margin: 0, fontSize: '1rem', fontWeight: 700 }}>{t.errors.analysisFailed}</h4>
               {/* Subtitle failure actions */}
@@ -3839,7 +3891,7 @@ Transcript:
                         cursor: 'pointer'
                       }}
                     >
-                      <span className={loading ? "spinner-icon" : ""}>🔄</span>
+                      <span className={loading ? "spinner-icon" : ""}>[~]</span>
                       {t.errors.tryAgain || "Try Again"}
                     </button>
                     <button
@@ -3863,11 +3915,11 @@ Transcript:
                         gap: '0.35rem'
                       }}
                     >
-                      📄 {t.form.uploadCustomSubtitles}
+                      // {t.form.uploadCustomSubtitles}
                     </button>
                   </div>
                   <div style={{ marginTop: '0.75rem', padding: '0.6rem 0.85rem', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', borderLeft: '3px solid #f59e0b', fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
-                    💡 <strong>Tip:</strong> {t.errors.noSubtitlesTip}
+                    // NOTE: <strong>Tip:</strong> {t.errors.noSubtitlesTip}
                   </div>
                 </>
               ) : (
@@ -3901,7 +3953,7 @@ Transcript:
                           transition: 'all 0.2s ease'
                         }}
                       >
-                        🔑 {t.errors.changeApiKeyAction}
+                        [KEY] {t.errors.changeApiKeyAction}
                       </button>
                       <a
                         href="https://aistudio.google.com/app/apikey"
@@ -4049,7 +4101,7 @@ Transcript:
                         fontWeight: 600,
                         width: 'fit-content'
                       }}>
-                        <span className="spinner-icon" style={{ fontSize: '0.75rem' }}>🔄</span>
+                        <span className="spinner-icon" style={{ fontSize: '0.75rem' }}>[~]</span>
                         <span>{aiStage || t.loading.step3Label}</span>
                       </div>
                       <span className="step-subtext" style={{ color: 'var(--text-secondary)', lineHeight: 1.4 }}>
@@ -4081,7 +4133,7 @@ Transcript:
                     <div className="ai-activity-card">
                       <div className="ai-activity-topbar">
                         <div className="ai-engine-badge">
-                          <span style={{ fontSize: '0.85rem' }}>⚡</span>
+                          <span style={{ fontSize: '0.85rem' }}>*</span>
                           <span>{t.loading.aiEngineBadge}</span>
                           {activeProcessingModel && (
                             <span style={{ opacity: 0.85, fontWeight: 500 }}>({activeProcessingModel})</span>
@@ -4094,7 +4146,7 @@ Transcript:
 
                       <div>
                         <div className="ai-stage-title">
-                          <span style={{ animation: 'spin 2.5s linear infinite', display: 'inline-block' }}>🧠</span>
+                          <span style={{ animation: 'spin 2.5s linear infinite', display: 'inline-block' }}>[AI]</span>
                           <span>{aiStage || t.loading.synthesizingHighlights}</span>
                         </div>
                       </div>
@@ -4125,7 +4177,7 @@ Transcript:
             </div>
 
             <div style={{ marginTop: '1.75rem', textAlign: 'center', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              <span className="pulsing-text">⚙️ {loadingDetails}</span>
+              <span className="pulsing-text">[SYS] {loadingDetails}</span>
             </div>
           </div>
         </section>
@@ -4133,7 +4185,7 @@ Transcript:
 
       {/* Dashboard Section - Video Player, Timeline, and Clip list */}
       {result && (
-        <main className="dashboard-grid">
+        <main className="dashboard-grid" style={{ display: workflowTab === 'clips' ? 'grid' : 'none' }}>
           {/* Left panel: Player + Heatmap */}
           <div className="sticky-player-panel" ref={leftPanelRef}>
             <div className="glass-panel" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -4252,7 +4304,7 @@ Transcript:
                   <div className="progress-card-header">
                     <span className="progress-card-title">
                       {rawDownloadProgress.status === 'ready' ? (
-                        <span style={{ color: '#4ade80' }}>✅ {t.rawDownload.readyBadge}</span>
+                        <span style={{ color: '#4ade80' }}>[OK] {t.rawDownload.readyBadge}</span>
                       ) : (
                         <>
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="spinner-icon">
@@ -4439,7 +4491,7 @@ Transcript:
                             padding: '0.05rem 0.35rem',
                             whiteSpace: 'nowrap'
                           }}>
-                            🔥 {clip.virality_score}%
+                             {clip.virality_score}%
                           </span>
                           <span
                             onClick={(e) => handleCopyTimestamp(clip, e)}
@@ -4463,7 +4515,7 @@ Transcript:
                               e.currentTarget.style.background = 'transparent';
                             }}
                           >
-                            ⏱️ {formatSeconds(clip.start_time)} – {formatSeconds(clip.end_time)}
+                             {formatSeconds(clip.start_time)} – {formatSeconds(clip.end_time)}
                           </span>
                         </div>
                       </div>
@@ -4497,21 +4549,21 @@ Transcript:
                 flexWrap: 'wrap'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span style={{ fontSize: '1rem' }}>🤖</span>
+                  <span style={{ fontSize: '1rem' }}>[AI]</span>
                   <span>{t.results.aiModelBadge}</span>
                   <strong style={{ color: 'var(--primary)', fontWeight: 600 }}>
                     {result.model || selectedModel}
                   </strong>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span style={{ fontSize: '1rem' }}>🎬</span>
+                  <span style={{ fontSize: '1rem', fontFamily: 'var(--font-mono)' }}>&gt;_</span>
                   <span>{t.results.generatedClipsBadge}</span>
                   <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
                     {result.clips.length}
                   </strong>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span style={{ fontSize: '1rem' }}>🔖</span>
+                  <span style={{ fontSize: '0.9rem', fontFamily: 'var(--font-mono)' }}>[*]</span>
                   <span>{t.results.markedClipsBadge}</span>
                   <strong style={{ color: 'var(--secondary)', fontWeight: 600 }}>
                     {result.clips.filter(clip => !!markedClips[`${clip.start_time}_${clip.end_time}`]).length}
@@ -4708,7 +4760,7 @@ Transcript:
                               }}
                               title={t.results.copyTitleTooltip}
                             >
-                              📋 {t.results.copyMini}
+                              // {t.results.copyMini}
                             </button>
                           </div>
                           <div className="score-meta" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -4717,7 +4769,7 @@ Transcript:
                               onClick={(e) => handleCopyTimestamp(clip, e)}
                               title={t.results.copyTimestampTooltip}
                             >
-                              ⏱️ {formatSeconds(clip.start_time)} - {formatSeconds(clip.end_time)}
+                               {formatSeconds(clip.start_time)} - {formatSeconds(clip.end_time)}
                             </span>
                             <span>{t.results.durationLabel(formatSeconds(clip.end_time - clip.start_time))}</span>
                             {clip.hook_time !== undefined && (
@@ -4749,7 +4801,7 @@ Transcript:
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.35rem' }}>
                           <div className={`score-badge ${clip.virality_score >= 90 ? 'score-high' : 'score-medium'}`}>
-                            <span>🔥</span>
+                            <span></span>
                             <span>{t.results.viralityBadge(clip.virality_score)}</span>
                           </div>
                           {!!markedClips[`${clip.start_time}_${clip.end_time}`] && (
@@ -4798,7 +4850,7 @@ Transcript:
                                 }}
                                 title={t.results.copyTitleTooltip}
                               >
-                                📋
+                                //
                               </button>
                             </div>
                           )}
@@ -4831,7 +4883,7 @@ Transcript:
                                 }}
                                 title={t.results.copyCaptionTooltip}
                               >
-                                📋
+                                //
                               </button>
                             </div>
                           )}
@@ -4900,11 +4952,11 @@ Transcript:
                                 </>
                               ) : isReady ? (
                                 <>
-                                  <span>✅ {t.results.downloadedRawClip}</span>
+                                  <span>[OK] {t.results.downloadedRawClip}</span>
                                 </>
                               ) : (
                                 <>
-                                  <span>✂️ {t.results.downloadRawClip}</span>
+                                  <span>[TRIM] {t.results.downloadRawClip}</span>
                                 </>
                               )}
                             </button>
@@ -4954,7 +5006,417 @@ Transcript:
               )}
             </div>
           </div>
+
+          {/* Bottom Workflow Action Bar */}
+          <div style={{
+            gridColumn: '1 / -1',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '1rem 1.25rem',
+            background: '#0c0b14',
+            border: '1px solid #272238',
+            fontFamily: 'var(--font-mono)',
+            marginTop: '0.75rem',
+            flexWrap: 'wrap',
+            gap: '1rem'
+          }}>
+            <button
+              type="button"
+              className="btn-confirm-cancel"
+              onClick={() => setWorkflowTab('source')}
+              style={{
+                padding: '0.65rem 1.25rem',
+                fontFamily: 'var(--font-mono)',
+                background: '#141220',
+                border: '1px solid #272238',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer'
+              }}
+            >
+              [ ⟵ 01 // KEMBALI KE SUMBER / EDIT ]
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                {markedClipsList.length} klip dipilih untuk dirender
+              </span>
+              <button
+                type="button"
+                className="glowing-btn"
+                onClick={() => setWorkflowTab('clipper')}
+                style={{ padding: '0.65rem 1.6rem' }}
+              >
+                [ 03 // BUKA AUTO CLIPPER STUDIO ➔ ]
+              </button>
+            </div>
+          </div>
         </main>
+      )}
+
+      {/* Detached & Highlighted Previous Analyses Section */}
+      {workflowTab === 'clips' && history.length > 0 && (
+        <section
+          className="history-highlight-panel"
+          aria-label="Previously analyzed clips"
+        >
+          {/* Header Row */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', userSelect: 'none' }}
+              onClick={() => setShowHistory(h => !h)}
+            >
+              <span style={{ fontSize: '1.5rem', filter: 'drop-shadow(0 0 8px rgba(168,85,247,0.5))' }}>&gt;_</span>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {t.form.previouslyAnalyzed}
+                  </h3>
+                  <span style={{
+                    background: 'rgba(168, 85, 247, 0.2)',
+                    color: '#c084fc',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    padding: '0.15rem 0.65rem',
+                    borderRadius: '9999px',
+                    border: '1px solid rgba(168, 85, 247, 0.45)'
+                  }}>
+                    {history.length}
+                  </span>
+                </div>
+                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  {t.form.historySubtitle}
+                </p>
+              </div>
+            </div>
+
+            {/* Actions: Search bar, Clear All, Collapse Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              {/* Search Bar */}
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <span style={{ position: 'absolute', left: '0.75rem', fontSize: '0.85rem', color: 'var(--text-muted)', pointerEvents: 'none' }}>
+                  &gt;
+                </span>
+                <input
+                  type="text"
+                  className="history-search-input"
+                  placeholder={t.form.searchHistoryPlaceholder}
+                  value={historySearchQuery}
+                  onChange={(e) => setHistorySearchQuery(e.target.value)}
+                  style={{ paddingRight: historySearchQuery ? '2rem' : '0.85rem' }}
+                />
+                {historySearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setHistorySearchQuery('')}
+                    style={{
+                      position: 'absolute',
+                      right: '0.6rem',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                      padding: 0
+                    }}
+                    title={t.form.clearSearch}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Clear all with confirmation */}
+              {confirmClearAll ? (
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  padding: '0.25rem 0.55rem',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  animation: 'fadeIn 0.2s ease'
+                }}>
+                  <span style={{ fontSize: '0.74rem', color: '#fca5a5', fontWeight: 600 }}>
+                    [!] {t.form.areYouSure}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearAllHistory();
+                      setConfirmClearAll(false);
+                    }}
+                    style={{
+                      fontSize: '0.74rem',
+                      color: '#fff',
+                      background: '#ef4444',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '0.25rem 0.55rem',
+                      cursor: 'pointer',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.2rem',
+                      boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)'
+                    }}
+                  >
+                    ✓ {t.form.confirmClear}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmClearAll(false)}
+                    style={{
+                      fontSize: '0.74rem',
+                      color: 'var(--text-secondary)',
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: '6px',
+                      padding: '0.25rem 0.45rem',
+                      cursor: 'pointer',
+                      fontWeight: 500
+                    }}
+                  >
+                    ✕ {t.form.cancel}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmClearAll(true)}
+                  style={{
+                    fontSize: '0.75rem',
+                    color: '#f87171',
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    borderRadius: '8px',
+                    padding: '0.45rem 0.75rem',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    transition: 'all 0.2s ease',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.3rem'
+                  }}
+                >
+                  {t.form.clearAll}
+                </button>
+              )}
+
+              {/* Toggle button */}
+              <button
+                type="button"
+                onClick={() => setShowHistory(h => !h)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-secondary)',
+                  borderRadius: '8px',
+                  padding: '0.45rem 0.7rem',
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  fontWeight: 600
+                }}
+                title={showHistory ? "Minimize" : "Expand"}
+              >
+                {showHistory ? '▲' : '▼'}
+              </button>
+            </div>
+          </div>
+
+          {/* Expanded content */}
+          {showHistory && (
+            <div style={{ marginTop: '1.25rem' }}>
+              {historySearchQuery.trim() && (
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>{t.form.showingHistoryCount(filteredHistory.length, history.length)}</span>
+                  <button
+                    type="button"
+                    onClick={() => setHistorySearchQuery('')}
+                    style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.78rem', textDecoration: 'underline' }}
+                  >
+                    {t.form.clearSearch}
+                  </button>
+                </div>
+              )}
+
+              {filteredHistory.length === 0 ? (
+                <div style={{
+                  padding: '2rem 1rem',
+                  textAlign: 'center',
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  borderRadius: '12px',
+                  border: '1px dashed rgba(255, 255, 255, 0.1)'
+                }}>
+                  <span style={{ fontSize: '1.75rem', display: 'block', marginBottom: '0.5rem' }}>&gt;</span>
+                  <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                    {t.form.noHistoryMatch}
+                  </p>
+                  {historySearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setHistorySearchQuery('')}
+                      style={{
+                        marginTop: '0.75rem',
+                        fontSize: '0.78rem',
+                        background: 'rgba(168, 85, 247, 0.15)',
+                        border: '1px solid rgba(168, 85, 247, 0.35)',
+                        color: '#c084fc',
+                        borderRadius: '6px',
+                        padding: '0.35rem 0.8rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {t.form.clearSearch}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', maxHeight: '420px', overflowY: 'auto', paddingRight: '0.35rem' }}>
+                  {filteredHistory.map((entry) => {
+                    const q = historySearchQuery.trim().toLowerCase();
+                    const matchedClip = q ? entry.clip_titles?.find(t => t.toLowerCase().includes(q)) : null;
+                    const matchedQuote = (!matchedClip && q) ? entry.key_quotes?.find(k => k.toLowerCase().includes(q)) : null;
+
+                    return (
+                      <div
+                        key={`${entry.video_id}_${entry.duration_pref}_${entry.range_suffix || ''}`}
+                        className="history-entry-card"
+                        onClick={() => loadFromHistory(entry)}
+                      >
+                        {/* Thumbnail with overlay duration badge */}
+                        <div style={{ position: 'relative', flexShrink: 0 }}>
+                          <img
+                            src={entry.thumbnail}
+                            alt=""
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="84" height="48" viewBox="0 0 84 48"><rect width="84" height="48" fill="%231e1e2d"/><polygon points="36,18 52,24 36,30" fill="%236366f1"/></svg>';
+                            }}
+                            style={{ width: '84px', height: '48px', objectFit: 'cover', borderRadius: '7px', background: '#111', display: 'block' }}
+                          />
+                          <span style={{
+                            position: 'absolute',
+                            bottom: '3px',
+                            right: '3px',
+                            background: 'rgba(0, 0, 0, 0.75)',
+                            color: '#fff',
+                            fontSize: '0.65rem',
+                            fontWeight: 700,
+                            padding: '0.1rem 0.3rem',
+                            borderRadius: '4px',
+                            lineHeight: 1
+                          }}>
+                            {entry.duration_pref === 'auto' ? 'Auto' : entry.duration_pref}
+                          </span>
+                        </div>
+
+                        {/* Title and details */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: '0.88rem',
+                            fontWeight: 600,
+                            color: 'var(--text-primary)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}>
+                            {entry.title}
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.65rem', marginTop: '0.25rem', fontSize: '0.74rem', color: 'var(--text-muted)', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--secondary)', fontWeight: 600 }}>{t.form.clipsCountMeta(entry.clip_count)}</span>
+                            <span>•</span>
+                            <span> {entry.duration_pref === 'auto' ? 'Auto' : entry.duration_pref}</span>
+                            <span>•</span>
+                            <span> {formatRelativeTime(entry.analyzed_at)}</span>
+                            <span>•</span>
+                            {entry.source_type === 'gdrive' ? (
+                              <a
+                                href={entry.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ color: '#10b981', textDecoration: 'none', opacity: 0.9, fontWeight: 600 }}
+                              >
+                                -&gt; Google Drive
+                              </a>
+                            ) : entry.source_type === 'upload' ? (
+                              <span style={{ color: '#3b82f6', opacity: 0.9, fontWeight: 600 }}>
+                                [+] Local Video
+                              </span>
+                            ) : (
+                              <a
+                                href={entry.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ color: 'var(--primary)', textDecoration: 'none', opacity: 0.85, fontWeight: 600 }}
+                              >
+                                -&gt; YouTube
+                              </a>
+                            )}
+                          </div>
+
+                          {/* Matched clip/quote search preview */}
+                          {matchedClip && (
+                            <div style={{ fontSize: '0.72rem', color: '#c084fc', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <span style={{ fontWeight: 600 }}>* {t.form.matchedClipLabel}:</span>
+                              <span style={{ fontStyle: 'italic', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>"{matchedClip}"</span>
+                            </div>
+                          )}
+                          {matchedQuote && (
+                            <div style={{ fontSize: '0.72rem', color: '#38bdf8', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <span style={{ fontWeight: 600 }}>// {t.form.matchedQuoteLabel}:</span>
+                              <span style={{ fontStyle: 'italic', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>"{matchedQuote}"</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action buttons */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); loadFromHistory(entry); }}
+                            style={{
+                              background: 'rgba(168, 85, 247, 0.15)',
+                              border: '1px solid rgba(168, 85, 247, 0.4)',
+                              color: '#c084fc',
+                              borderRadius: '6px',
+                              padding: '0.35rem 0.75rem',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.3rem'
+                            }}
+                          >
+                            [&gt;] {t.form.loadVideo}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => deleteHistoryEntry(entry, e)}
+                            style={{
+                              background: 'rgba(239, 68, 68, 0.08)',
+                              border: '1px solid rgba(239, 68, 68, 0.25)',
+                              color: '#ef4444',
+                              borderRadius: '6px',
+                              padding: '0.35rem 0.55rem',
+                              cursor: 'pointer',
+                              fontSize: '0.75rem'
+                            }}
+                            title={t.form.removeFromHistory}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </section>
       )}
 
       {/* Global CSS spinner keyframe animation injection */}
@@ -4980,28 +5442,155 @@ Transcript:
       `}</style>
       {/* Embedded Clip Studio Section with side inline batch progress */}
       {result && (
-        <ClipStudioSection
-          videoUrl={result.video_url || url}
-          videoId={result.video_id}
-          allClips={result.clips}
-          markedClips={markedClipsList}
-          activeClip={activeClip}
-          onStartRender={handleStartBatchRender}
-          isRendering={isLaunchingRender}
-          onToggleMarkClip={(clip) => toggleMarkedClip(`${clip.start_time}_${clip.end_time}`)}
-          onToggleAllClips={toggleAllMarkedClips}
-          batchProgress={batchProgress}
-          onDismissProgress={() => {
-            if (batchEventSourceRef.current) {
-              batchEventSourceRef.current.close();
-              batchEventSourceRef.current = null;
-            }
-            setBatchProgress(null);
-          }}
-          onRetryClip={handleRetryBatchClip}
-          allowAppUpdates={allowAppUpdates}
-          onOpenCookiesModal={() => setIsCookiesModalOpen(true)}
-        />
+        <div style={{ display: workflowTab === 'clipper' ? 'block' : 'none' }}>
+          <ClipStudioSection
+            videoUrl={result.video_url || url}
+            videoId={result.video_id}
+            allClips={result.clips}
+            markedClips={markedClipsList}
+            activeClip={activeClip}
+            onStartRender={handleStartBatchRender}
+            isRendering={isLaunchingRender}
+            onToggleMarkClip={(clip) => toggleMarkedClip(`${clip.start_time}_${clip.end_time}`)}
+            onToggleAllClips={toggleAllMarkedClips}
+            batchProgress={batchProgress}
+            onDismissProgress={() => {
+              if (batchEventSourceRef.current) {
+                batchEventSourceRef.current.close();
+                batchEventSourceRef.current = null;
+              }
+              setBatchProgress(null);
+            }}
+            onRetryClip={handleRetryBatchClip}
+            allowAppUpdates={allowAppUpdates}
+            onOpenCookiesModal={() => setIsCookiesModalOpen(true)}
+            onBackToClips={() => setWorkflowTab('clips')}
+          />
+        </div>
+      )}
+
+      {/* Transcript Language Confirmation Notice Modal before Hack Clips */}
+      {showLanguageConfirmModal && (
+        <div className="custom-confirm-modal-overlay" style={{ zIndex: 10000 }}>
+          <div className="custom-confirm-modal-card" style={{ maxWidth: '520px', textAlign: 'left', alignItems: 'stretch', background: '#0a0910', border: '1.5px solid #ff00ff', boxShadow: '0 0 35px rgba(255, 0, 255, 0.35)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #272238', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ color: '#ff1e27', fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '1rem' }}>&gt;_</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '0.86rem', color: '#fff', letterSpacing: '0.04em' }}>
+                  SYS // KONFIRMASI BAHASA AUDIO VIDEO
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLanguageConfirmModal(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.1rem' }}
+                aria-label="Tutup"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5', marginBottom: '1.25rem' }}>
+              Cheat Clip Pro akan mengambil subtitle/transkrip otomatis dari YouTube sesuai bahasa yang Anda pilih. 
+              Pastikan audio video ini sesuai agar deteksi momen viral AI tidak meleset:
+            </p>
+
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
+                &gt; PILIHAN TARGET BAHASA TRANSKRIP:
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTranscriptLanguage('en');
+                    localStorage.setItem('cheat_clip_transcript_language', 'en');
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    padding: '0.85rem',
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 700,
+                    fontSize: '0.88rem',
+                    cursor: 'pointer',
+                    background: transcriptLanguage === 'en' ? 'rgba(255, 0, 255, 0.12)' : '#0d0d14',
+                    border: transcriptLanguage === 'en' ? '2px solid #ff00ff' : '1px solid #272238',
+                    color: transcriptLanguage === 'en' ? '#ff00ff' : 'var(--text-muted)',
+                    boxShadow: transcriptLanguage === 'en' ? '0 0 15px rgba(255, 0, 255, 0.3)' : 'none'
+                  }}
+                >
+                  <span>[EN]</span>
+                  <span>ENGLISH</span>
+                  {transcriptLanguage === 'en' && <span style={{ color: '#ff00ff', marginLeft: '0.25rem' }}>✓</span>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTranscriptLanguage('id');
+                    localStorage.setItem('cheat_clip_transcript_language', 'id');
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    padding: '0.85rem',
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 700,
+                    fontSize: '0.88rem',
+                    cursor: 'pointer',
+                    background: transcriptLanguage === 'id' ? 'rgba(255, 0, 255, 0.12)' : '#0d0d14',
+                    border: transcriptLanguage === 'id' ? '2px solid #ff00ff' : '1px solid #272238',
+                    color: transcriptLanguage === 'id' ? '#ff00ff' : 'var(--text-muted)',
+                    boxShadow: transcriptLanguage === 'id' ? '0 0 15px rgba(255, 0, 255, 0.3)' : 'none'
+                  }}
+                >
+                  <span>[ID]</span>
+                  <span>INDONESIA</span>
+                  {transcriptLanguage === 'id' && <span style={{ color: '#ff00ff', marginLeft: '0.25rem' }}>✓</span>}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '1.5rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              <input
+                type="checkbox"
+                id="skip-lang-check"
+                checked={skipLanguageConfirm}
+                onChange={(e) => setSkipLanguageConfirm(e.target.checked)}
+                style={{ width: '16px', height: '16px', accentColor: '#ff00ff', cursor: 'pointer' }}
+              />
+              <label htmlFor="skip-lang-check" style={{ cursor: 'pointer' }}>
+                Jangan tampilkan konfirmasi ini lagi (ingat untuk sesi ini)
+              </label>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn-confirm-cancel"
+                onClick={() => setShowLanguageConfirmModal(false)}
+                style={{ padding: '0.65rem 1.25rem', fontFamily: 'var(--font-mono)' }}
+              >
+                [ BATAL ]
+              </button>
+              <button
+                type="button"
+                className="glowing-btn"
+                onClick={() => {
+                  setShowLanguageConfirmModal(false);
+                  handleAnalyze();
+                }}
+                style={{ padding: '0.65rem 1.75rem' }}
+              >
+                [ LANJUTKAN HACK CLIPS ➔ ]
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Cookie Pre-check Warning Modal */}
@@ -5054,7 +5643,7 @@ Transcript:
         <div className="custom-confirm-modal-overlay">
           <div className="custom-confirm-modal-card">
             <div className="confirm-modal-icon-wrap">
-              🧹
+              [x]
             </div>
             <h3 className="confirm-modal-title">{t.studio.confirmModalTitle}</h3>
             <p className="confirm-modal-desc" style={{ marginBottom: '1rem' }}>
@@ -5078,7 +5667,7 @@ Transcript:
                 <strong>{t.studio.confirmModalNotice}</strong>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#38bdf8' }}>
-                <span>🛡️</span>
+                <span>[SEC]</span>
                 <strong>{t.header.confirmModalCookieNotice}</strong>
               </div>
             </div>

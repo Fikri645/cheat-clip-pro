@@ -74,7 +74,7 @@ export const CookieWarningModal: React.FC<CookieWarningModalProps> = ({
             marginBottom: '1.1rem',
           }}
         >
-          🍪
+          [*]
         </div>
 
         {/* Modal Title */}
@@ -90,7 +90,7 @@ export const CookieWarningModal: React.FC<CookieWarningModalProps> = ({
             gap: '0.45rem',
           }}
         >
-          <span style={{ color: '#f59e0b' }}>⚠️</span> {t.cookieWarning.modalTitle}
+          <span style={{ color: '#f59e0b' }}>[!]</span> {t.cookieWarning.modalTitle}
         </h3>
 
         {/* Description */}
@@ -126,7 +126,7 @@ export const CookieWarningModal: React.FC<CookieWarningModalProps> = ({
         >
           {/* Without Cookies */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem' }}>
-            <span style={{ fontSize: '1rem', flexShrink: 0, marginTop: '2px' }}>❌</span>
+            <span style={{ fontSize: '1rem', flexShrink: 0, marginTop: '2px' }}>[X]</span>
             <div>
               <strong style={{ fontSize: '0.8rem', color: '#f87171', display: 'block' }}>
                 {t.cookieWarning.withoutCookiesTitle}
@@ -141,7 +141,7 @@ export const CookieWarningModal: React.FC<CookieWarningModalProps> = ({
 
           {/* With Cookies */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem' }}>
-            <span style={{ fontSize: '1rem', flexShrink: 0, marginTop: '2px' }}>✨</span>
+            <span style={{ fontSize: '1rem', flexShrink: 0, marginTop: '2px' }}>*</span>
             <div>
               <strong style={{ fontSize: '0.8rem', color: '#34d399', display: 'block' }}>
                 {t.cookieWarning.withCookiesTitle}

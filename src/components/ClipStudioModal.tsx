@@ -127,7 +127,7 @@ export const ClipStudioModal: React.FC<ClipStudioModalProps> = ({
         {/* Header */}
         <div className="studio-modal-header">
           <div className="studio-header-title">
-            <div className="studio-icon-badge">🎬</div>
+            <div className="studio-icon-badge">&gt;_</div>
             <div>
               <div className="studio-title-row">
                 <h2>{t.studio.heading}</h2>
@@ -250,10 +250,10 @@ export const ClipStudioModal: React.FC<ClipStudioModalProps> = ({
                       </div>
                       <div className="pill-group framing-pills" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
                         {[
-                          { id: 'auto', label: t.studio.framingAuto || '🤖 AI Auto' },
-                          { id: 'center', label: t.studio.framingCenter || '🎯 Center (50%)' },
+                          { id: 'auto', label: t.studio.framingAuto || '[AI] AI Auto' },
+                          { id: 'center', label: t.studio.framingCenter || '> Center (50%)' },
                           { id: 'left', label: t.studio.framingLeft || '⬅️ Left Focus (35%)' },
-                          { id: 'right', label: t.studio.framingRight || '➡️ Right Focus (65%)' },
+                          { id: 'right', label: t.studio.framingRight || '-> Right Focus (65%)' },
                         ].map(opt => (
                           <button
                             key={opt.id}
@@ -622,7 +622,7 @@ export const ClipStudioModal: React.FC<ClipStudioModalProps> = ({
                           {clip.title_suggestion || clip.title}
                         </span>
                         <span className="batch-clip-ts">
-                          ⏱️ {Math.floor(clip.start_time / 60)}:{(clip.start_time % 60).toFixed(0).padStart(2, '0')} -{' '}
+                           {Math.floor(clip.start_time / 60)}:{(clip.start_time % 60).toFixed(0).padStart(2, '0')} -{' '}
                           {Math.floor(clip.end_time / 60)}:{(clip.end_time % 60).toFixed(0).padStart(2, '0')} (
                           {(clip.end_time - clip.start_time).toFixed(0)}s)
                         </span>
@@ -688,12 +688,12 @@ export const ClipStudioModal: React.FC<ClipStudioModalProps> = ({
                             </svg>
                             <span className="pip-skeleton-text">CAM</span>
                           </div>
-                          <div className="wireframe-pip-badge">🔴 CAM</div>
+                          <div className="wireframe-pip-badge">[*] CAM</div>
                         </div>
                       )}
                       {streamerPreset === 'split_top_cam' && (
                         <div className="wireframe-gameplay-badge">
-                          🎮 GAMEPLAY ({aspectRatio})
+                          // GAMEPLAY ({aspectRatio})
                         </div>
                       )}
                     </div>

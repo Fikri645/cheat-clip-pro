@@ -31,8 +31,11 @@ class VideoAnalysis(BaseModel):
 class AnalyzeRequest(BaseModel):
     url: str = Field(..., description="YouTube video URL")
     duration: str = Field("30s", description="Target clip duration: '15s', '30s', '60s', or 'auto'")
-    api_key: Optional[str] = Field(None, description="Optional custom Gemini API key provided by the user")
-    model: Optional[str] = Field("gemini-2.5-flash", description="Preferred Gemini model name")
+    api_key: Optional[str] = Field(None, description="Optional custom Gemini or fallback API key provided by the user")
+    api_provider: Optional[str] = Field("gemini", description="AI provider: 'gemini' or 'openrouter'")
+    openrouter_key: Optional[str] = Field(None, description="Optional OpenRouter API key provided by the user")
+    openrouter_model: Optional[str] = Field(None, description="Preferred OpenRouter model name (e.g. 'google/gemini-2.5-flash')")
+    model: Optional[str] = Field("gemini-2.5-flash", description="Preferred model name")
     custom_prompt: Optional[str] = Field(None, description="Optional custom focus prompt for clips search")
     range_start: Optional[float] = Field(None, description="Search range start in seconds")
     range_end: Optional[float] = Field(None, description="Search range end in seconds")
