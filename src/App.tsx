@@ -1143,6 +1143,24 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  const handleDeselectActiveVideo = () => {
+    destroyPlayer();
+    setResult(null);
+    setActiveClip(null);
+    setUrl('');
+    setGdriveUrl('');
+    setUploadedVideoFile(null);
+    setUploadedVideoInfo(null);
+    if (videoFileInputRef.current) videoFileInputRef.current.value = '';
+    setMarkedClips({});
+    setError(null);
+    if (workflowTab === 'clipper') {
+      setWorkflowTab('source');
+    }
+    setToastMessage('Active video ditutup (deselected)');
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
   const formatRelativeTime = (iso: string) => {
     const diff = Date.now() - new Date(iso).getTime();
     const mins = Math.floor(diff / 60000);
@@ -2773,6 +2791,15 @@ Transcript:
                 }}
               >
                 [ 03 // AUTO CLIPPER ➔ ]
+              </button>
+              <button
+                type="button"
+                className="active-video-close-btn"
+                onClick={handleDeselectActiveVideo}
+                title="Tutup & Nonaktifkan Active Video (Deselect)"
+                aria-label="Close active video"
+              >
+                [ ✕ ]
               </button>
             </div>
           </div>
@@ -4706,6 +4733,15 @@ Transcript:
                   }}
                 >
                   [ 03 // AUTO CLIPPER ➔ ]
+                </button>
+                <button
+                  type="button"
+                  className="active-video-close-btn"
+                  onClick={handleDeselectActiveVideo}
+                  title="Tutup & Nonaktifkan Active Video (Deselect)"
+                  aria-label="Close active video"
+                >
+                  [ ✕ ]
                 </button>
               </div>
             </div>

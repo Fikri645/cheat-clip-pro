@@ -387,6 +387,29 @@ input[type="radio"]:checked::after {
   align-items: center;
 }
 
+.active-video-close-btn {
+  background: rgba(255, 30, 39, 0.12);
+  border: 1px solid rgba(255, 30, 39, 0.45);
+  color: #ff1e27;
+  border-radius: 0;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  box-shadow: 0 0 10px rgba(255, 30, 39, 0.2);
+}
+
+.active-video-close-btn:hover {
+  background: #ff1e27;
+  color: #ffffff;
+  box-shadow: 0 0 15px rgba(255, 30, 39, 0.6);
+}
+
 .glass-panel:hover {
   border-color: rgba(255, 255, 255, 0.1);
 }
