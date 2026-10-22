@@ -2517,7 +2517,7 @@ Transcript:
   );
 
   return (
-    <div className="app-container">
+    <>
       {/* Toast Notification */}
       {toastMessage && (
         <div className="toast-msg" role="status" aria-live="polite">
@@ -2537,356 +2537,353 @@ Transcript:
         </div>
       )}
 
-      {/* Header Area */}
-      <header className="app-header" style={{ borderBottom: '1px solid #272238', paddingBottom: '1.25rem' }}>
-        <div className="header-logo" style={{ display: 'flex', alignItems: 'center' }}>
-          <div>
-            <div className="logo-title-row" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
-              <span className="prompt-marker" style={{
-                color: '#ff1e27',
-                fontFamily: 'var(--font-mono)',
-                fontWeight: 900,
-                fontSize: '1.45rem',
-                lineHeight: 1,
-                letterSpacing: '-0.02em',
-                userSelect: 'none',
-                textShadow: '0 0 10px rgba(255, 30, 39, 0.45)',
-                marginRight: '0.1rem'
-              }}>
-                &gt;_
-              </span>
-              <h1 className="logo-title" style={{ fontFamily: 'var(--font-mono)', fontSize: '1.35rem', fontWeight: 900, color: '#f8fafc', letterSpacing: '-0.02em', margin: 0, display: 'inline-flex', alignItems: 'center' }}>
-                JOHANSA <span style={{ color: 'var(--text-muted)', fontWeight: 500, margin: '0 0.35rem' }}>//</span> CHEAT CLIP
-              </h1>
-              <span className="pro-badge" title="Cheat Clip Pro Edition" style={{ background: 'rgba(255, 0, 255, 0.1)', border: '1px solid #ff00ff', color: '#ff00ff', fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '0.7rem', padding: '0.15rem 0.45rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                <svg className="pro-badge-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M5 16L3 5L8.5 10L12 4L15.5 10L21 5L19 16H5M19 19C19 19.6 18.6 20 18 20H6C5.4 20 5 19.6 5 19V17H19V19Z" />
-                </svg>
-                PRO
-              </span>
-              <span className="status-dot" title="Online" style={{ display: 'inline-block', width: '8px', height: '8px', background: '#ff1e27', boxShadow: '0 0 10px #ff1e27', flexShrink: 0 }}></span>
+      {/* Full-Width Cyber Header Bar (johansa.com style - Edge-to-Edge Solid Dark) */}
+      <div className="app-header-wrapper">
+        <div className="app-header-inner">
+          <header className="app-header" style={{ borderBottom: 'none', padding: 0 }}>
+            <div className="header-logo" style={{ display: 'flex', alignItems: 'center' }}>
+              <div>
+                <div className="logo-title-row" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+                  <span className="prompt-marker" style={{
+                    color: '#ff00ff',
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 900,
+                    fontSize: '1.45rem',
+                    lineHeight: 1,
+                    letterSpacing: '-0.02em',
+                    userSelect: 'none',
+                    textShadow: '0 0 10px rgba(255, 0, 255, 0.45)',
+                    marginRight: '0.1rem'
+                  }}>
+                    &gt;_
+                  </span>
+                  <h1 className="logo-title" style={{ fontFamily: 'var(--font-mono)', fontSize: '1.35rem', fontWeight: 900, color: '#f8fafc', letterSpacing: '-0.02em', margin: 0, display: 'inline-flex', alignItems: 'center' }}>
+                    JOHANSA <span style={{ color: 'var(--text-muted)', fontWeight: 500, margin: '0 0.35rem' }}>//</span> CHEAT CLIP
+                  </h1>
+                  <span className="pro-badge" title="Cheat Clip Pro Edition" style={{ background: 'rgba(255, 0, 255, 0.1)', border: '1px solid #ff00ff', color: '#ff00ff', fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '0.7rem', padding: '0.15rem 0.45rem', display: 'inline-flex', alignItems: 'center' }}>
+                    PRO
+                  </span>
+                  <span className="status-dot" title="Online" style={{ display: 'inline-block', width: '8px', height: '8px', background: '#ff00ff', boxShadow: '0 0 10px #ff00ff', flexShrink: 0 }}></span>
+                </div>
+                <p className="header-subtitle" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                  &gt; {t.header.subtitle}
+                </p>
+              </div>
             </div>
-            <p className="header-subtitle" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-              &gt; {t.header.subtitle}
-            </p>
-          </div>
+            <div className="header-nav" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <button
+                type="button"
+                className="cookie-header-btn"
+                onClick={() => setIsCookiesModalOpen(true)}
+                style={{
+                  padding: '0.45rem 0.85rem',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  fontFamily: 'var(--font-mono)',
+                  background: hasCookies ? 'rgba(34, 197, 94, 0.12)' : '#0d0d14',
+                  border: hasCookies ? '1px solid rgba(34, 197, 94, 0.45)' : '1px solid #272238',
+                  color: hasCookies ? '#4ade80' : 'var(--text-secondary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: hasCookies ? '0 0 10px rgba(34, 197, 94, 0.15)' : 'none'
+                }}
+                title={hasCookies ? t.header.cookiesTooltipActive : t.header.cookiesTooltipSetup}
+              >
+                <span>[*] {t.header.cookiesBtn}</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                  {hasCookies ? (
+                    <>
+                      <span style={{ color: '#22c55e', fontSize: '0.85rem' }}>✓</span>
+                      <span>{t.header.cookiesStatusActive}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ opacity: 0.5 }}>○</span>
+                      <span>{t.header.cookiesStatusSetup}</span>
+                    </>
+                  )}
+                </span>
+              </button>
+              {allowAppUpdates && (
+                <button
+                  type="button"
+                  className="cookie-header-btn"
+                  onClick={() => setShowGlobalClearModal(true)}
+                  disabled={isClearingGlobalTemp}
+                  style={{
+                    padding: '0.45rem 0.85rem',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    fontFamily: 'var(--font-mono)',
+                    background: '#0d0d14',
+                    border: '1px solid #272238',
+                    color: 'var(--text-secondary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    cursor: isClearingGlobalTemp ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  title={t.header.clearTempTooltip}
+                >
+                  <span>[x] {isClearingGlobalTemp ? t.header.clearingTempBtn : t.header.clearTempBtn}</span>
+                </button>
+              )}
+              {allowAppUpdates && (
+                <button
+                  type="button"
+                  className="cookie-header-btn"
+                  onClick={() => setIsUpdateModalOpen(true)}
+                  style={{
+                    padding: '0.45rem 0.85rem',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    fontFamily: 'var(--font-mono)',
+                    background: '#0d0d14',
+                    border: '1px solid #272238',
+                    color: 'var(--text-secondary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  title={t.header.updateBtnTooltip}
+                >
+                  <span>[~] {t.header.updateBtn}</span>
+                </button>
+              )}
+              <LanguageSwitcher />
+              <a
+                href="https://tako.id/johansa"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="glowing-btn"
+                style={{
+                  padding: '0.45rem 0.95rem',
+                  fontSize: '0.8rem',
+                  textDecoration: 'none',
+                  background: 'rgba(255, 0, 255, 0.08)',
+                  border: '1px solid #ff00ff',
+                  color: '#ff00ff'
+                }}
+              >
+                [$] {t.header.supportProject}
+              </a>
+            </div>
+          </header>
         </div>
-        <div className="header-nav" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      </div>
+
+      <div className="app-container">
+        {/* Workflow Navigation Tabs (01 // SOURCE, 02 // CLIPS, 03 // CLIPPER) */}
+        <nav className="workflow-tab-bar" aria-label="Workflow Navigation">
           <button
             type="button"
-            className="cookie-header-btn"
-            onClick={() => setIsCookiesModalOpen(true)}
-            style={{
-              padding: '0.45rem 0.85rem',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              fontFamily: 'var(--font-mono)',
-              background: hasCookies ? 'rgba(34, 197, 94, 0.12)' : '#0d0d14',
-              border: hasCookies ? '1px solid rgba(34, 197, 94, 0.45)' : '1px solid #272238',
-              color: hasCookies ? '#4ade80' : 'var(--text-secondary)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              boxShadow: hasCookies ? '0 0 10px rgba(34, 197, 94, 0.15)' : 'none'
-            }}
-            title={hasCookies ? t.header.cookiesTooltipActive : t.header.cookiesTooltipSetup}
+            id="tab-step-source"
+            className={`workflow-tab-btn ${workflowTab === 'source' ? 'active' : ''}`}
+            onClick={() => setWorkflowTab('source')}
           >
-            <span>[*] {t.header.cookiesBtn}</span>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-              {hasCookies ? (
-                <>
-                  <span style={{ color: '#22c55e', fontSize: '0.85rem' }}>✓</span>
-                  <span>{t.header.cookiesStatusActive}</span>
-                </>
-              ) : (
-                <>
-                  <span style={{ opacity: 0.5 }}>○</span>
-                  <span>{t.header.cookiesStatusSetup}</span>
-                </>
-              )}
-            </span>
+            <span className="workflow-tab-dot"></span>
+            <span>01 // SOURCE</span>
           </button>
-          {allowAppUpdates && (
-            <button
-              type="button"
-              className="cookie-header-btn"
-              onClick={() => setShowGlobalClearModal(true)}
-              disabled={isClearingGlobalTemp}
-              style={{
-                padding: '0.45rem 0.85rem',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                fontFamily: 'var(--font-mono)',
-                background: '#0d0d14',
-                border: '1px solid #272238',
-                color: 'var(--text-secondary)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-                cursor: isClearingGlobalTemp ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s ease'
-              }}
-              title={t.header.clearTempTooltip}
-            >
-              <span>[x] {isClearingGlobalTemp ? t.header.clearingTempBtn : t.header.clearTempBtn}</span>
-            </button>
-          )}
-          {allowAppUpdates && (
-            <button
-              type="button"
-              className="cookie-header-btn"
-              onClick={() => setIsUpdateModalOpen(true)}
-              style={{
-                padding: '0.45rem 0.85rem',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                fontFamily: 'var(--font-mono)',
-                background: '#0d0d14',
-                border: '1px solid #272238',
-                color: 'var(--text-secondary)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
-              title={t.header.updateBtnTooltip}
-            >
-              <span>[~] {t.header.updateBtn}</span>
-            </button>
-          )}
-          <LanguageSwitcher />
-          <a
-            href="https://tako.id/johansa"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="glowing-btn"
-            style={{
-              padding: '0.45rem 0.95rem',
-              fontSize: '0.8rem',
-              textDecoration: 'none',
-              background: 'rgba(255, 0, 255, 0.08)',
-              border: '1px solid #ff00ff',
-              color: '#ff00ff'
-            }}
-          >
-            [$] {t.header.supportProject}
-          </a>
-        </div>
-      </header>
 
-      {/* Workflow Navigation Tabs (01 // SOURCE, 02 // CLIPS, 03 // CLIPPER) */}
-      <nav className="workflow-tab-bar" aria-label="Workflow Navigation">
-        <button
-          type="button"
-          id="tab-step-source"
-          className={`workflow-tab-btn ${workflowTab === 'source' ? 'active' : ''}`}
-          onClick={() => setWorkflowTab('source')}
-        >
-          <span className="workflow-tab-dot"></span>
-          <span>01 // SOURCE</span>
-        </button>
-
-        <button
-          type="button"
-          id="tab-step-clips"
-          className={`workflow-tab-btn ${workflowTab === 'clips' ? 'active' : ''}`}
-          onClick={() => {
-            if (result) {
+          <button
+            type="button"
+            id="tab-step-clips"
+            className={`workflow-tab-btn ${workflowTab === 'clips' ? 'active' : ''}`}
+            onClick={() => {
               setWorkflowTab('clips');
-            } else if (history.length > 0) {
-              loadFromHistory(history[0]);
+            }}
+            disabled={!result && history.length === 0}
+            title={
+              result
+                ? 'Lihat hasil rekomendasi klip'
+                : history.length > 0
+                ? 'Buka riwayat klip tersimpan'
+                : 'Selesaikan analisis video terlebih dahulu'
             }
-          }}
-          disabled={!result && history.length === 0}
-          title={
-            result
-              ? 'Lihat hasil rekomendasi klip'
-              : history.length > 0
-              ? 'Buka hasil analisis terakhir dari riwayat'
-              : 'Selesaikan analisis video terlebih dahulu'
-          }
-        >
-          <span className="workflow-tab-dot"></span>
-          <span>02 // RECOMMENDED CLIPS</span>
-          {result?.clips ? (
-            <span className="workflow-tab-count">[{result.clips.length}]</span>
-          ) : history.length > 0 ? (
-            <span className="workflow-tab-count" style={{ borderColor: 'rgba(255, 0, 255, 0.4)', color: '#ff00ff' }}>
-              [{history.length} RIWAYAT]
-            </span>
-          ) : null}
-        </button>
+          >
+            <span className="workflow-tab-dot"></span>
+            <span>{result ? '02 // RECOMMENDED CLIPS' : '02 // HISTORY CLIPS'}</span>
+            {result?.clips ? (
+              <span className="workflow-tab-count">[{result.clips.length}]</span>
+            ) : history.length > 0 ? (
+              <span className="workflow-tab-count">
+                [{history.length}]
+              </span>
+            ) : null}
+          </button>
 
-        <button
-          type="button"
-          id="tab-step-clipper"
-          className={`workflow-tab-btn ${workflowTab === 'clipper' ? 'active' : ''}`}
-          onClick={() => {
-            if (result) setWorkflowTab('clipper');
-          }}
-          disabled={!result}
-          title={!result ? 'Selesaikan analisis video terlebih dahulu' : 'Buka Auto Clipper Studio'}
-        >
-          <span className="workflow-tab-dot"></span>
-          <span>03 // AUTO CLIPPER</span>
-          {markedClipsList.length > 0 && (
-            <span className="workflow-tab-count" style={{ background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', borderColor: 'rgba(34, 197, 94, 0.4)' }}>
-              [{markedClipsList.length} READY]
-            </span>
-          )}
-        </button>
-      </nav>
-      {/* Active Video Status Banner (Flow level - placed directly below workflow tabs) */}
-      {result && (
-        <div className="active-video-banner">
-          <div className="active-video-info">
-            <span style={{ color: 'var(--primary)', fontWeight: 800, textShadow: '0 0 10px var(--primary-glow)' }}>&gt;_ ACTIVE VIDEO:</span>
-            <span style={{ color: '#ffffff', fontWeight: 600, fontSize: '0.88rem' }}>{result.title}</span>
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>[{result.clips?.length || 0} klip tersedia]</span>
+          <button
+            type="button"
+            id="tab-step-clipper"
+            className={`workflow-tab-btn ${workflowTab === 'clipper' ? 'active' : ''}`}
+            onClick={() => {
+              if (result) setWorkflowTab('clipper');
+            }}
+            disabled={!result}
+            title={!result ? 'Selesaikan analisis video terlebih dahulu' : 'Buka Auto Clipper Studio'}
+          >
+            <span className="workflow-tab-dot"></span>
+            <span>03 // AUTO CLIPPER</span>
+            {markedClipsList.length > 0 && (
+              <span className="workflow-tab-count" style={{ background: 'rgba(0, 255, 102, 0.15)', color: '#00ff66', border: '1px solid #00ff66', boxShadow: '0 0 8px rgba(0, 255, 102, 0.35)' }}>
+                [{markedClipsList.length} READY]
+              </span>
+            )}
+          </button>
+        </nav>
+        {/* Active Video Status Banner (Flow level - placed directly below workflow tabs for Tab 01 and Tab 03) */}
+        {result && workflowTab !== 'clips' && (
+          <div className="active-video-banner">
+            <div className="active-video-info">
+              <span style={{ color: 'var(--primary)', fontWeight: 800, textShadow: '0 0 10px var(--primary-glow)' }}>&gt;_ ACTIVE VIDEO:</span>
+              <span style={{ color: '#ffffff', fontWeight: 600, fontSize: '0.88rem' }}>{result.title}</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>[{result.clips?.length || 0} klip tersedia]</span>
+            </div>
+            <div className="active-video-actions">
+              <button
+                type="button"
+                className="glowing-btn"
+                onClick={() => setWorkflowTab('clips')}
+                style={{
+                  padding: '0.4rem 0.95rem',
+                  fontSize: '0.78rem',
+                  background: 'transparent',
+                  color: 'var(--text-primary)',
+                  fontWeight: 700
+                }}
+              >
+                [ 02 // LIHAT CLIPS ➔ ]
+              </button>
+              <button
+                type="button"
+                className="glowing-btn"
+                onClick={() => setWorkflowTab('clipper')}
+                style={{
+                  padding: '0.4rem 0.95rem',
+                  fontSize: '0.78rem',
+                  background: workflowTab === 'clipper' ? 'var(--primary)' : 'transparent',
+                  color: workflowTab === 'clipper' ? '#000000' : 'var(--text-primary)',
+                  fontWeight: 700
+                }}
+              >
+                [ 03 // AUTO CLIPPER ➔ ]
+              </button>
+            </div>
           </div>
-          <div className="active-video-actions">
-            <button
-              type="button"
-              className="glowing-btn"
-              onClick={() => setWorkflowTab('clips')}
-              style={{
-                padding: '0.4rem 0.95rem',
-                fontSize: '0.78rem',
-                background: workflowTab === 'clips' ? 'var(--primary)' : 'transparent',
-                color: workflowTab === 'clips' ? '#000000' : 'var(--text-primary)',
-                fontWeight: 700
-              }}
-            >
-              [ 02 // LIHAT CLIPS ➔ ]
-            </button>
-            <button
-              type="button"
-              className="glowing-btn"
-              onClick={() => setWorkflowTab('clipper')}
-              style={{
-                padding: '0.4rem 0.95rem',
-                fontSize: '0.78rem',
-                background: workflowTab === 'clipper' ? 'var(--primary)' : 'transparent',
-                color: workflowTab === 'clipper' ? '#000000' : 'var(--text-primary)',
-                fontWeight: 700
-              }}
-            >
-              [ 03 // AUTO CLIPPER ➔ ]
-            </button>
-          </div>
-        </div>
-      )}
+        )}
 
+        {/* Main Form controls panel */}
+        <section className="glass-panel" style={{ display: workflowTab === 'source' ? 'flex' : 'none', flexDirection: 'column', gap: '1.5rem' }}>
+          
+          <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* Source Selector Tabs: YouTube vs Google Drive vs Upload Video File */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
+              {/* YouTube Tab */}
+              <button
+                type="button"
+                id="source-mode-youtube"
+                className={`source-tab-btn ${sourceMode === 'youtube' ? 'active' : ''}`}
+                onClick={() => {
+                  setSourceMode('youtube');
+                  setError(null);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.55rem 1.1rem',
+                  borderRadius: 0,
+                  border: sourceMode === 'youtube' ? '1px solid #ff1e27' : '1px solid #201e2c',
+                  background: sourceMode === 'youtube' ? 'rgba(255, 30, 39, 0.15)' : '#08080c',
+                  color: sourceMode === 'youtube' ? '#ffffff' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  transition: 'all 0.2s ease',
+                  boxShadow: sourceMode === 'youtube' ? '0 0 15px rgba(255, 30, 39, 0.45)' : 'none'
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#ff1e27' }}>
+                  <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                </svg>
+                {t.form.tabYoutube}
+              </button>
 
-      {/* Main Form controls panel */}
-      <section className="glass-panel" style={{ display: workflowTab === 'source' ? 'flex' : 'none', flexDirection: 'column', gap: '1.5rem' }}>
-        
-        <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* Source Selector Tabs: YouTube vs Google Drive vs Upload Video File */}
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
-            {/* YouTube Tab */}
-            <button
-              type="button"
-              id="source-mode-youtube"
-              className={`source-tab-btn ${sourceMode === 'youtube' ? 'active' : ''}`}
-              onClick={() => {
-                setSourceMode('youtube');
-                setError(null);
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.55rem 1.1rem',
-                borderRadius: '10px',
-                border: sourceMode === 'youtube' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(255,255,255,0.08)',
-                background: sourceMode === 'youtube' ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.08) 100%)' : 'rgba(255,255,255,0.03)',
-                color: sourceMode === 'youtube' ? '#fff' : 'var(--text-secondary)',
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontSize: '0.85rem',
-                transition: 'all 0.2s ease',
-                boxShadow: sourceMode === 'youtube' ? '0 0 15px rgba(239, 68, 68, 0.2)' : 'none'
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#ef4444' }}>
-                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-              </svg>
-              {t.form.tabYoutube}
-            </button>
+              {/* Google Drive Tab */}
+              <button
+                type="button"
+                id="source-mode-gdrive"
+                className={`source-tab-btn ${sourceMode === 'gdrive' ? 'active' : ''}`}
+                onClick={() => {
+                  setSourceMode('gdrive');
+                  setError(null);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.55rem 1.1rem',
+                  borderRadius: 0,
+                  border: sourceMode === 'gdrive' ? '1px solid #00ff66' : '1px solid #201e2c',
+                  background: sourceMode === 'gdrive' ? 'rgba(0, 255, 102, 0.15)' : '#08080c',
+                  color: sourceMode === 'gdrive' ? '#ffffff' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  transition: 'all 0.2s ease',
+                  boxShadow: sourceMode === 'gdrive' ? '0 0 15px rgba(0, 255, 102, 0.45)' : 'none'
+                }}
+              >
+                <svg width="17" height="17" viewBox="0 0 87.3 78" fill="none">
+                  <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
+                  <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44c-.8 1.4-1.2 2.95-1.2 4.5h27.5z" fill="#00ac47"/>
+                  <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l5.85 10.1z" fill="#ea4335"/>
+                  <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
+                  <path d="m59.8 53h27.5c0-1.55-.4-3.1-1.2-4.5l-25.4-44c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8z" fill="#ffba00"/>
+                  <path d="m73.55 76.8c1.35 0 2.9-.4 4.25-1.2l-14.1-22.6H27.5l13.75 23.8h32.3z" fill="#2684fc"/>
+                </svg>
+                {t.form.tabGdrive}
+              </button>
 
-            {/* Google Drive Tab */}
-            <button
-              type="button"
-              id="source-mode-gdrive"
-              className={`source-tab-btn ${sourceMode === 'gdrive' ? 'active' : ''}`}
-              onClick={() => {
-                setSourceMode('gdrive');
-                setError(null);
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.55rem 1.1rem',
-                borderRadius: '10px',
-                border: sourceMode === 'gdrive' ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid rgba(255,255,255,0.08)',
-                background: sourceMode === 'gdrive' ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.08) 100%)' : 'rgba(255,255,255,0.03)',
-                color: sourceMode === 'gdrive' ? '#fff' : 'var(--text-secondary)',
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontSize: '0.85rem',
-                transition: 'all 0.2s ease',
-                boxShadow: sourceMode === 'gdrive' ? '0 0 15px rgba(16, 185, 129, 0.2)' : 'none'
-              }}
-            >
-              <svg width="17" height="17" viewBox="0 0 87.3 78" fill="none">
-                <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
-                <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44c-.8 1.4-1.2 2.95-1.2 4.5h27.5z" fill="#00ac47"/>
-                <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l5.85 10.1z" fill="#ea4335"/>
-                <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
-                <path d="m59.8 53h27.5c0-1.55-.4-3.1-1.2-4.5l-25.4-44c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8z" fill="#ffba00"/>
-                <path d="m73.55 76.8c1.35 0 2.9-.4 4.25-1.2l-14.1-22.6H27.5l13.75 23.8h32.3z" fill="#2684fc"/>
-              </svg>
-              {t.form.tabGdrive}
-            </button>
-
-            {/* Upload Video File Tab */}
-            <button
-              type="button"
-              id="source-mode-upload"
-              className={`source-tab-btn ${sourceMode === 'upload' ? 'active' : ''}`}
-              onClick={() => {
-                setSourceMode('upload');
-                setError(null);
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.55rem 1.1rem',
-                borderRadius: '10px',
-                border: sourceMode === 'upload' ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid rgba(255,255,255,0.08)',
-                background: sourceMode === 'upload' ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(37, 99, 235, 0.08) 100%)' : 'rgba(255,255,255,0.03)',
-                color: sourceMode === 'upload' ? '#fff' : 'var(--text-secondary)',
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontSize: '0.85rem',
-                transition: 'all 0.2s ease',
-                boxShadow: sourceMode === 'upload' ? '0 0 15px rgba(59, 130, 246, 0.2)' : 'none'
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#3b82f6' }}>
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="17 8 12 3 7 8"></polyline>
-                <line x1="12" y1="3" x2="12" y2="15"></line>
-              </svg>
-              {t.form.tabUpload}
-            </button>
-          </div>
+              {/* Upload Video File Tab */}
+              <button
+                type="button"
+                id="source-mode-upload"
+                className={`source-tab-btn ${sourceMode === 'upload' ? 'active' : ''}`}
+                onClick={() => {
+                  setSourceMode('upload');
+                  setError(null);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.55rem 1.1rem',
+                  borderRadius: 0,
+                  border: sourceMode === 'upload' ? '1px solid #00e5ff' : '1px solid #201e2c',
+                  background: sourceMode === 'upload' ? 'rgba(0, 229, 255, 0.15)' : '#08080c',
+                  color: sourceMode === 'upload' ? '#ffffff' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  transition: 'all 0.2s ease',
+                  boxShadow: sourceMode === 'upload' ? '0 0 15px rgba(0, 229, 255, 0.45)' : 'none'
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#00e5ff' }}>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                {t.form.tabUpload}
+              </button>
+            </div>
 
           {/* YouTube input mode */}
           {sourceMode === 'youtube' && (
@@ -2942,13 +2939,13 @@ Transcript:
                   </button>
                 </div>
               )}
-              <label style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{t.form.urlLabel}</label>
+              <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>{t.form.urlLabel}</label>
               <div className="form-main-input-row" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                 <input
                   id="youtube-url-input"
                   type="text"
                   className="form-input"
-                  style={{ flex: 1 }}
+                  style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: '0.9rem', fontWeight: 400 }}
                   placeholder={t.form.urlPlaceholder}
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
@@ -2985,13 +2982,13 @@ Transcript:
           {/* Google Drive input mode */}
           {sourceMode === 'gdrive' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
-              <label style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{t.form.gdriveUrlLabel}</label>
+              <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>{t.form.gdriveUrlLabel}</label>
               <div className="form-main-input-row" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                 <input
                   id="gdrive-url-input"
                   type="text"
                   className="form-input"
-                  style={{ flex: 1 }}
+                  style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: '0.9rem', fontWeight: 400 }}
                   placeholder={t.form.gdriveUrlPlaceholder}
                   value={gdriveUrl}
                   onChange={(e) => setGdriveUrl(e.target.value)}
@@ -3071,30 +3068,33 @@ Transcript:
                     justifyContent: 'center',
                     gap: '0.85rem',
                     padding: '2.5rem 1.5rem',
-                    borderRadius: '14px',
-                    border: isDragOverVideo ? '2px dashed #3b82f6' : '2px dashed rgba(255, 255, 255, 0.15)',
-                    background: isDragOverVideo ? 'rgba(59, 130, 246, 0.12)' : 'rgba(255, 255, 255, 0.02)',
+                    borderRadius: 0,
+                    border: isDragOverVideo ? '2px dashed #00e5ff' : '1px dashed rgba(0, 229, 255, 0.45)',
+                    background: isDragOverVideo ? 'rgba(0, 229, 255, 0.15)' : 'rgba(0, 229, 255, 0.04)',
+                    boxShadow: isDragOverVideo ? '0 0 20px rgba(0, 229, 255, 0.35)' : 'none',
                     cursor: 'pointer',
-                    transition: 'all 0.25s ease'
+                    transition: 'all 0.2s ease'
                   }}
                 >
                   <div style={{
                     width: '56px',
                     height: '56px',
-                    borderRadius: '50%',
-                    background: 'rgba(59, 130, 246, 0.15)',
+                    borderRadius: 0,
+                    background: 'rgba(0, 229, 255, 0.12)',
+                    border: '1px solid #00e5ff',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: '#60a5fa'
+                    color: '#00e5ff',
+                    boxShadow: '0 0 12px rgba(0, 229, 255, 0.35)'
                   }}>
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <polygon points="23 7 16 12 23 17 23 7"></polygon>
-                      <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                      <rect x="1" y="5" width="15" height="14" rx="0" ry="0"></rect>
                     </svg>
                   </div>
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+                    <div style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', marginBottom: '0.25rem' }}>
                       {t.form.dropVideoTitle}
                     </div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -3107,12 +3107,14 @@ Transcript:
                     style={{
                       marginTop: '0.25rem',
                       padding: '0.45rem 1.2rem',
-                      borderRadius: '8px',
-                      background: 'rgba(59, 130, 246, 0.2)',
-                      border: '1px solid rgba(59, 130, 246, 0.4)',
-                      color: '#93c5fd',
+                      borderRadius: 0,
+                      background: 'rgba(0, 229, 255, 0.15)',
+                      border: '1px solid #00e5ff',
+                      color: '#00e5ff',
                       fontSize: '0.82rem',
-                      fontWeight: 600
+                      fontWeight: 700,
+                      fontFamily: 'var(--font-mono)',
+                      boxShadow: '0 0 10px rgba(0, 229, 255, 0.3)'
                     }}
                   >
                     {t.form.chooseVideoFile}
@@ -3124,9 +3126,10 @@ Transcript:
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   padding: '1.25rem 1.5rem',
-                  borderRadius: '12px',
-                  background: 'rgba(59, 130, 246, 0.08)',
-                  border: '1px solid rgba(59, 130, 246, 0.25)',
+                  borderRadius: 0,
+                  background: 'rgba(0, 229, 255, 0.08)',
+                  border: '1px solid #00e5ff',
+                  boxShadow: '0 0 12px rgba(0, 229, 255, 0.2)',
                   flexWrap: 'wrap',
                   gap: '1rem'
                 }}>
@@ -3324,6 +3327,8 @@ Transcript:
                       disabled={loading}
                       placeholder={t.form.apiKeyPlaceholder}
                       error={!apiKey.trim()}
+                      revealLabel={t.form.revealKey}
+                      maskLabel={t.form.maskKey}
                     />
                     {!apiKey.trim() && (
                       <span style={{ fontSize: '0.75rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
@@ -3407,6 +3412,8 @@ Transcript:
                       disabled={loading}
                       placeholder={t.form.openrouterKeyPlaceholder}
                       error={!openRouterKey.trim()}
+                      revealLabel={t.form.revealKey}
+                      maskLabel={t.form.maskKey}
                     />
                     {!openRouterKey.trim() && (
                       <span style={{ fontSize: '0.75rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
@@ -3753,7 +3760,7 @@ Transcript:
                     {t.form.transcriptLanguageHint}
                   </span>
                 </div>
-                <div className="duration-selector" style={{ maxWidth: '320px' }}>
+                <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap', width: '100%', maxWidth: '440px' }}>
                   <button
                     type="button"
                     className={`duration-btn ${transcriptLanguage === 'en' ? 'active' : ''}`}
@@ -3762,6 +3769,15 @@ Transcript:
                       localStorage.setItem('cheat_clip_transcript_language', 'en');
                     }}
                     disabled={loading}
+                    style={{
+                      flex: '1 1 140px',
+                      padding: '0.6rem 0.9rem',
+                      fontSize: '0.82rem',
+                      fontWeight: 500,
+                      whiteSpace: 'nowrap',
+                      textAlign: 'center',
+                      borderRadius: 0
+                    }}
                   >
                     [EN] {t.form.langEnglish}
                   </button>
@@ -3773,6 +3789,15 @@ Transcript:
                       localStorage.setItem('cheat_clip_transcript_language', 'id');
                     }}
                     disabled={loading}
+                    style={{
+                      flex: '1 1 160px',
+                      padding: '0.6rem 0.9rem',
+                      fontSize: '0.82rem',
+                      fontWeight: 500,
+                      whiteSpace: 'nowrap',
+                      textAlign: 'center',
+                      borderRadius: 0
+                    }}
                   >
                     [ID] {t.form.langIndonesian}
                   </button>
@@ -4183,9 +4208,409 @@ Transcript:
         </section>
       )}
 
-      {/* Dashboard Section - Video Player, Timeline, and Clip list */}
-      {result && (
-        <main className="dashboard-grid" style={{ display: workflowTab === 'clips' ? 'grid' : 'none' }}>
+      {/* Tab 02: CLIPS / HISTORY SECTION */}
+      {workflowTab === 'clips' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
+          {/* Top-level Previously Analyzed Videos (History) Panel */}
+          {history.length > 0 && (
+            <section
+              className="history-highlight-panel"
+              aria-label="Previously analyzed clips"
+              style={{ marginTop: 0, marginBottom: '0.75rem', borderRadius: 0, border: '1px solid #201e2c', borderLeft: '3px solid #ff00ff', background: '#0a0a0f' }}
+            >
+              {/* Header Row */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => setShowHistory(h => !h)}
+                >
+                  <span style={{ fontSize: '1.4rem', color: '#ff00ff', textShadow: '0 0 10px rgba(255, 0, 255, 0.7)', fontFamily: 'var(--font-mono)', fontWeight: 800 }}>&gt;_</span>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {t.form.previouslyAnalyzed}
+                      </h3>
+                      <span style={{
+                        background: 'rgba(255, 0, 255, 0.15)',
+                        color: '#ff00ff',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        padding: '0.15rem 0.65rem',
+                        borderRadius: 0,
+                        border: '1px solid #ff00ff',
+                        boxShadow: '0 0 8px rgba(255, 0, 255, 0.35)'
+                      }}>
+                        {history.length}
+                      </span>
+                    </div>
+                    <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                      {t.form.historySubtitle}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Actions: Search bar, Clear All, Collapse Toggle */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  {/* Search Bar */}
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <span style={{ position: 'absolute', left: '0.75rem', fontSize: '0.85rem', color: 'var(--text-muted)', pointerEvents: 'none' }}>
+                      &gt;
+                    </span>
+                    <input
+                      type="text"
+                      className="history-search-input"
+                      placeholder={t.form.searchHistoryPlaceholder}
+                      value={historySearchQuery}
+                      onChange={(e) => setHistorySearchQuery(e.target.value)}
+                      style={{ paddingRight: historySearchQuery ? '2rem' : '0.85rem', borderRadius: 0, background: '#08080c', border: '1px solid #201e2c', fontWeight: 400 }}
+                    />
+                    {historySearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setHistorySearchQuery('')}
+                        style={{
+                          position: 'absolute',
+                          right: '0.6rem',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          fontSize: '0.85rem',
+                          padding: 0
+                        }}
+                        title={t.form.clearSearch}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Clear all with confirmation */}
+                  {confirmClearAll ? (
+                    <div style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.45rem',
+                      background: 'rgba(255, 30, 39, 0.12)',
+                      padding: '0.25rem 0.55rem',
+                      borderRadius: 0,
+                      border: '1px solid rgba(255, 30, 39, 0.4)',
+                      animation: 'fadeIn 0.2s ease'
+                    }}>
+                      <span style={{ fontSize: '0.74rem', color: '#ff1e27', fontWeight: 600 }}>
+                        [!] {t.form.areYouSure}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          clearAllHistory();
+                          setConfirmClearAll(false);
+                        }}
+                        style={{
+                          fontSize: '0.74rem',
+                          color: '#fff',
+                          background: '#ff1e27',
+                          border: '1px solid #ff1e27',
+                          borderRadius: 0,
+                          padding: '0.25rem 0.55rem',
+                          cursor: 'pointer',
+                          fontWeight: 700,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.2rem',
+                          boxShadow: '0 2px 8px rgba(255, 30, 39, 0.4)'
+                        }}
+                      >
+                        [V] {t.form.confirmClear}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmClearAll(false)}
+                        style={{
+                          fontSize: '0.74rem',
+                          color: 'var(--text-secondary)',
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          borderRadius: 0,
+                          padding: '0.25rem 0.45rem',
+                          cursor: 'pointer',
+                          fontWeight: 500
+                        }}
+                      >
+                        [X] {t.form.cancel}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmClearAll(true)}
+                      style={{
+                        fontSize: '0.75rem',
+                        color: '#ff1e27',
+                        background: 'rgba(255, 30, 39, 0.12)',
+                        border: '1px solid #ff1e27',
+                        borderRadius: 0,
+                        padding: '0.45rem 0.75rem',
+                        cursor: 'pointer',
+                        fontWeight: 700,
+                        transition: 'all 0.2s ease',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.3rem'
+                      }}
+                    >
+                      {t.form.clearAll}
+                    </button>
+                  )}
+
+                  {/* Toggle button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowHistory(h => !h)}
+                    style={{
+                      background: '#08080c',
+                      border: '1px solid #201e2c',
+                      color: 'var(--text-secondary)',
+                      borderRadius: 0,
+                      padding: '0.45rem 0.7rem',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      fontWeight: 600
+                    }}
+                    title={showHistory ? "Minimize" : "Expand"}
+                  >
+                    {showHistory ? '▲' : '▼'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Expanded content */}
+              {showHistory && (
+                <div style={{ marginTop: '1.25rem' }}>
+                  {historySearchQuery.trim() && (
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>{t.form.showingHistoryCount(filteredHistory.length, history.length)}</span>
+                      <button
+                        type="button"
+                        onClick={() => setHistorySearchQuery('')}
+                        style={{ background: 'none', border: 'none', color: '#ff00ff', cursor: 'pointer', fontSize: '0.78rem', textDecoration: 'underline' }}
+                      >
+                        {t.form.clearSearch}
+                      </button>
+                    </div>
+                  )}
+
+                  {filteredHistory.length === 0 ? (
+                    <div style={{
+                      padding: '2rem 1rem',
+                      textAlign: 'center',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      borderRadius: 0,
+                      border: '1px dashed rgba(255, 255, 255, 0.1)'
+                    }}>
+                      <span style={{ fontSize: '1.75rem', display: 'block', marginBottom: '0.5rem', color: '#ff00ff' }}>&gt;_</span>
+                      <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                        {t.form.noHistoryMatch}
+                      </p>
+                      {historySearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setHistorySearchQuery('')}
+                          style={{
+                            marginTop: '0.75rem',
+                            fontSize: '0.78rem',
+                            background: 'rgba(255, 0, 255, 0.15)',
+                            border: '1px solid #ff00ff',
+                            color: '#ff00ff',
+                            borderRadius: 0,
+                            padding: '0.35rem 0.8rem',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {t.form.clearSearch}
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', maxHeight: '420px', overflowY: 'auto', paddingRight: '0.35rem' }}>
+                      {filteredHistory.map((entry) => {
+                        const q = historySearchQuery.trim().toLowerCase();
+                        const matchedClip = q ? entry.clip_titles?.find(t => t.toLowerCase().includes(q)) : null;
+                        const matchedQuote = (!matchedClip && q) ? entry.key_quotes?.find(k => k.toLowerCase().includes(q)) : null;
+
+                        return (
+                          <div
+                            key={`${entry.video_id}_${entry.duration_pref}_${entry.range_suffix || ''}`}
+                            className="history-entry-card"
+                            onClick={() => loadFromHistory(entry)}
+                            style={{ borderRadius: 0, background: '#08080c', border: '1px solid #201e2c' }}
+                          >
+                            {/* Thumbnail with overlay duration badge */}
+                            <div style={{ position: 'relative', flexShrink: 0 }}>
+                              <img
+                                src={entry.thumbnail}
+                                alt=""
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="84" height="48" viewBox="0 0 84 48"><rect width="84" height="48" fill="%2308080c"/><polygon points="36,18 52,24 36,30" fill="%23ff00ff"/></svg>';
+                                }}
+                                style={{ width: '84px', height: '48px', objectFit: 'cover', borderRadius: 0, background: '#111', display: 'block' }}
+                              />
+                              <span style={{
+                                position: 'absolute',
+                                bottom: '3px',
+                                right: '3px',
+                                background: 'rgba(0, 0, 0, 0.85)',
+                                color: '#fff',
+                                fontSize: '0.65rem',
+                                fontWeight: 700,
+                                padding: '0.1rem 0.3rem',
+                                borderRadius: 0,
+                                lineHeight: 1
+                              }}>
+                                {entry.duration_pref === 'auto' ? 'Auto' : entry.duration_pref}
+                              </span>
+                            </div>
+
+                            {/* Title and details */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{
+                                fontSize: '0.88rem',
+                                fontWeight: 600,
+                                color: 'var(--text-primary)',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}>
+                                {entry.title}
+                              </div>
+                              <div style={{ display: 'flex', gap: '0.65rem', marginTop: '0.25rem', fontSize: '0.74rem', color: 'var(--text-muted)', flexWrap: 'wrap', alignItems: 'center' }}>
+                                <span style={{ color: '#00ff66', fontWeight: 600 }}>{t.form.clipsCountMeta(entry.clip_count)}</span>
+                                <span>•</span>
+                                <span> {entry.duration_pref === 'auto' ? 'Auto' : entry.duration_pref}</span>
+                                <span>•</span>
+                                <span> {formatRelativeTime(entry.analyzed_at)}</span>
+                                <span>•</span>
+                                {entry.source_type === 'gdrive' ? (
+                                  <a
+                                    href={entry.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{ color: '#00ff66', textDecoration: 'none', opacity: 0.9, fontWeight: 600 }}
+                                  >
+                                    -&gt; Google Drive
+                                  </a>
+                                ) : entry.source_type === 'upload' ? (
+                                  <span style={{ color: '#00e5ff', opacity: 0.9, fontWeight: 600 }}>
+                                    [+] Local Video
+                                  </span>
+                                ) : (
+                                  <a
+                                    href={entry.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{ color: '#ff1e27', textDecoration: 'none', opacity: 0.9, fontWeight: 600 }}
+                                  >
+                                    -&gt; YouTube
+                                  </a>
+                                )}
+                              </div>
+
+                              {/* Matched clip/quote search preview */}
+                              {matchedClip && (
+                                <div style={{ fontSize: '0.72rem', color: '#ff00ff', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                  <span style={{ fontWeight: 600 }}>* {t.form.matchedClipLabel}:</span>
+                                  <span style={{ fontStyle: 'italic', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>"{matchedClip}"</span>
+                                </div>
+                              )}
+                              {matchedQuote && (
+                                <div style={{ fontSize: '0.72rem', color: '#00e5ff', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                  <span style={{ fontWeight: 600 }}>// {t.form.matchedQuoteLabel}:</span>
+                                  <span style={{ fontStyle: 'italic', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>"{matchedQuote}"</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Action buttons */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); loadFromHistory(entry); }}
+                                style={{
+                                  background: 'rgba(0, 229, 255, 0.15)',
+                                  border: '1px solid #00e5ff',
+                                  color: '#00e5ff',
+                                  borderRadius: 0,
+                                  padding: '0.35rem 0.75rem',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.3rem'
+                                }}
+                              >
+                                [&gt;] {t.form.loadVideo}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => deleteHistoryEntry(entry, e)}
+                                style={{
+                                  background: 'rgba(255, 30, 39, 0.12)',
+                                  border: '1px solid rgba(255, 30, 39, 0.35)',
+                                  color: '#ff1e27',
+                                  borderRadius: 0,
+                                  padding: '0.35rem 0.55rem',
+                                  cursor: 'pointer',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700
+                                }}
+                                title={t.form.removeFromHistory}
+                              >
+                                [X]
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Active Video Status Banner (When inside Tab 02, rendered directly below History Panel) */}
+          {result && (
+            <div className="active-video-banner" style={{ margin: 0 }}>
+              <div className="active-video-info">
+                <span style={{ color: '#ff00ff', fontWeight: 800, textShadow: '0 0 10px rgba(255,0,255,0.6)' }}>&gt;_ ACTIVE VIDEO:</span>
+                <span style={{ color: '#ffffff', fontWeight: 600, fontSize: '0.88rem' }}>{result.title}</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>[{result.clips?.length || 0} klip tersedia]</span>
+              </div>
+              <div className="active-video-actions">
+                <button
+                  type="button"
+                  className="glowing-btn"
+                  onClick={() => setWorkflowTab('clipper')}
+                  style={{
+                    padding: '0.4rem 0.95rem',
+                    fontSize: '0.78rem',
+                    background: 'var(--primary)',
+                    color: '#000000',
+                    fontWeight: 700
+                  }}
+                >
+                  [ 03 // AUTO CLIPPER ➔ ]
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Dashboard Grid for Active Video */}
+          {result && (
+            <main className="dashboard-grid">
           {/* Left panel: Player + Heatmap */}
           <div className="sticky-player-panel" ref={leftPanelRef}>
             <div className="glass-panel" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -4251,13 +4676,16 @@ Transcript:
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '0.4rem',
-                    fontSize: '0.8rem',
-                    padding: '0.5rem 1rem',
-                    borderRadius: '8px',
+                    fontSize: '0.78rem',
+                    padding: '0.55rem 1rem',
+                    borderRadius: 0,
                     cursor: 'pointer',
-                    background: 'rgba(255, 255, 255, 0.03)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    color: 'var(--text-primary)'
+                    background: '#0a0a0f',
+                    border: '1px solid #201e2c',
+                    color: 'var(--text-primary)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    fontWeight: 600
                   }}
                 >
                   {t.results.refreshPlayer}
@@ -4275,14 +4703,16 @@ Transcript:
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '0.4rem',
-                    fontSize: '0.8rem',
-                    padding: '0.5rem 1rem',
-                    borderRadius: '8px',
+                    fontSize: '0.78rem',
+                    padding: '0.55rem 1rem',
+                    borderRadius: 0,
                     cursor: isDownloadingRaw ? 'not-allowed' : 'pointer',
-                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(37, 99, 235, 0.45) 100%)',
-                    border: '1px solid rgba(59, 130, 246, 0.5)',
-                    color: '#ffffff',
-                    fontWeight: 600
+                    background: 'rgba(0, 229, 255, 0.15)',
+                    border: '1px solid #00e5ff',
+                    color: '#00e5ff',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    fontWeight: 700
                   }}
                 >
                   {isDownloadingRaw ? (
@@ -4527,11 +4957,24 @@ Transcript:
           </div>
 
           {/* Right panel: Suggested Clips scrollable list */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxHeight: leftPanelHeight ? `${leftPanelHeight}px` : '80vh' }}>
+          <div
+            className="glass-panel"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.25rem',
+              maxHeight: leftPanelHeight ? `${leftPanelHeight}px` : '80vh',
+              background: '#0a0a0f',
+              border: '1px solid #201e2c',
+              borderRadius: 0,
+              padding: '1.25rem',
+              overflowY: 'auto'
+            }}
+          >
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1.25rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 style={{ fontSize: '1.5rem', fontFamily: 'Outfit' }}>{t.results.recommendedClips}</h2>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>{t.results.sortLabel(sortBy.toUpperCase())}</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>{t.results.sortLabel(sortBy.toUpperCase())}</span>
               </div>
 
               {/* Analysis Metadata Info Bar */}
@@ -4541,9 +4984,9 @@ Transcript:
                 justifyContent: 'space-between',
                 gap: '1rem',
                 padding: '0.6rem 1rem',
-                borderRadius: '10px',
-                background: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid var(--border-color)',
+                borderRadius: 0,
+                background: '#0e0e14',
+                border: '1px solid #201e2c',
                 fontSize: '0.8rem',
                 color: 'var(--text-secondary)',
                 flexWrap: 'wrap'
@@ -4895,7 +5338,17 @@ Transcript:
                         <button
                           type="button"
                           className="glowing-btn"
-                          style={{ padding: '0.4rem 0.9rem', fontSize: '0.78rem', borderRadius: '8px', boxShadow: 'none', whiteSpace: 'nowrap' }}
+                          style={{
+                            padding: '0.45rem 1rem',
+                            fontSize: '0.78rem',
+                            borderRadius: 0,
+                            boxShadow: 'none',
+                            whiteSpace: 'nowrap',
+                            background: '#ff00ff',
+                            color: '#000000',
+                            fontWeight: 700,
+                            border: '1px solid #ff00ff'
+                          }}
                           onClick={(e) => {
                             e.stopPropagation();
                             playClip(clip);
@@ -4920,21 +5373,21 @@ Transcript:
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '0.35rem',
-                                padding: '0.4rem 0.85rem',
+                                padding: '0.45rem 0.9rem',
                                 fontSize: '0.78rem',
-                                borderRadius: '8px',
+                                borderRadius: 0,
                                 whiteSpace: 'nowrap',
                                 cursor: isDl ? 'not-allowed' : 'pointer',
                                 background: isReady
-                                  ? 'rgba(34, 197, 94, 0.15)'
-                                  : 'rgba(59, 130, 246, 0.12)',
+                                  ? 'rgba(0, 255, 102, 0.15)'
+                                  : 'rgba(0, 229, 255, 0.15)',
                                 border: isReady
-                                  ? '1px solid rgba(34, 197, 94, 0.4)'
-                                  : '1px solid rgba(59, 130, 246, 0.35)',
+                                  ? '1px solid #00ff66'
+                                  : '1px solid #00e5ff',
                                 color: isReady
-                                  ? '#4ade80'
-                                  : '#60a5fa',
-                                fontWeight: 600,
+                                  ? '#00ff66'
+                                  : '#00e5ff',
+                                fontWeight: 700,
                                 transition: 'var(--transition-smooth)'
                               }}
                               onClick={(e) => {
@@ -4956,7 +5409,7 @@ Transcript:
                                 </>
                               ) : (
                                 <>
-                                  <span>[TRIM] {t.results.downloadRawClip}</span>
+                                  <span>{t.results.downloadRawClip}</span>
                                 </>
                               )}
                             </button>
@@ -4969,7 +5422,7 @@ Transcript:
                         <button
                           type="button"
                           className="form-input"
-                          style={{ padding: '0.35rem 0.65rem', fontSize: '0.76rem', width: 'auto', borderRadius: '7px', cursor: 'pointer', background: 'transparent', whiteSpace: 'nowrap' }}
+                          style={{ padding: '0.35rem 0.65rem', fontSize: '0.76rem', width: 'auto', borderRadius: 0, cursor: 'pointer', background: '#0a0a0f', border: '1px solid #201e2c', whiteSpace: 'nowrap' }}
                           onClick={(e) => handleCopyTimestamp(clip, e)}
                           title={t.results.copyTimestampTooltip}
                         >
@@ -4978,13 +5431,13 @@ Transcript:
                         <button
                           type="button"
                           className="form-input"
-                          style={{ padding: '0.35rem 0.65rem', fontSize: '0.76rem', width: 'auto', borderRadius: '7px', cursor: 'pointer', background: 'transparent', whiteSpace: 'nowrap' }}
+                          style={{ padding: '0.35rem 0.65rem', fontSize: '0.76rem', width: 'auto', borderRadius: 0, cursor: 'pointer', background: '#0a0a0f', border: '1px solid #201e2c', whiteSpace: 'nowrap' }}
                           onClick={(e) => handleCopyClip(clip, e)}
                         >
                           {t.results.copyDetails}
                         </button>
                         <span
-                          style={{ display: 'flex', alignItems: 'center', fontSize: '0.74rem', color: 'var(--primary)', fontWeight: 'bold', cursor: 'pointer', userSelect: 'none', marginLeft: '0.15rem' }}
+                          style={{ display: 'flex', alignItems: 'center', fontSize: '0.74rem', color: 'var(--primary)', fontWeight: 500, cursor: 'pointer', userSelect: 'none', marginLeft: '0.15rem' }}
                         >
                           {isExpanded ? t.results.hideTranscript : t.results.showTranscript}
                         </span>
@@ -4995,8 +5448,9 @@ Transcript:
                         <div
                           className="transcript-box"
                           onClick={(e) => e.stopPropagation()} /* Prevents collapse */
+                          style={{ borderRadius: 0, background: '#08080c', border: '1px solid #201e2c' }}
                         >
-                          <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--primary)', marginBottom: '0.25rem', textTransform: 'uppercase' }}>{t.results.transcriptTitle}</div>
+                          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.25rem', textTransform: 'uppercase' }}>{t.results.transcriptTitle}</div>
                           {clip.transcript}
                         </div>
                       )}
@@ -5053,371 +5507,26 @@ Transcript:
         </main>
       )}
 
-      {/* Detached & Highlighted Previous Analyses Section */}
-      {workflowTab === 'clips' && history.length > 0 && (
-        <section
-          className="history-highlight-panel"
-          aria-label="Previously analyzed clips"
-        >
-          {/* Header Row */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-            <div
-              style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', userSelect: 'none' }}
-              onClick={() => setShowHistory(h => !h)}
-            >
-              <span style={{ fontSize: '1.5rem', filter: 'drop-shadow(0 0 8px rgba(168,85,247,0.5))' }}>&gt;_</span>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {t.form.previouslyAnalyzed}
-                  </h3>
-                  <span style={{
-                    background: 'rgba(168, 85, 247, 0.2)',
-                    color: '#c084fc',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    padding: '0.15rem 0.65rem',
-                    borderRadius: '9999px',
-                    border: '1px solid rgba(168, 85, 247, 0.45)'
-                  }}>
-                    {history.length}
-                  </span>
-                </div>
-                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                  {t.form.historySubtitle}
-                </p>
-              </div>
-            </div>
-
-            {/* Actions: Search bar, Clear All, Collapse Toggle */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-              {/* Search Bar */}
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <span style={{ position: 'absolute', left: '0.75rem', fontSize: '0.85rem', color: 'var(--text-muted)', pointerEvents: 'none' }}>
-                  &gt;
-                </span>
-                <input
-                  type="text"
-                  className="history-search-input"
-                  placeholder={t.form.searchHistoryPlaceholder}
-                  value={historySearchQuery}
-                  onChange={(e) => setHistorySearchQuery(e.target.value)}
-                  style={{ paddingRight: historySearchQuery ? '2rem' : '0.85rem' }}
-                />
-                {historySearchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setHistorySearchQuery('')}
-                    style={{
-                      position: 'absolute',
-                      right: '0.6rem',
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-muted)',
-                      cursor: 'pointer',
-                      fontSize: '0.85rem',
-                      padding: 0
-                    }}
-                    title={t.form.clearSearch}
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-
-              {/* Clear all with confirmation */}
-              {confirmClearAll ? (
-                <div style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.45rem',
-                  background: 'rgba(239, 68, 68, 0.12)',
-                  padding: '0.25rem 0.55rem',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(239, 68, 68, 0.35)',
-                  animation: 'fadeIn 0.2s ease'
-                }}>
-                  <span style={{ fontSize: '0.74rem', color: '#fca5a5', fontWeight: 600 }}>
-                    [!] {t.form.areYouSure}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      clearAllHistory();
-                      setConfirmClearAll(false);
-                    }}
-                    style={{
-                      fontSize: '0.74rem',
-                      color: '#fff',
-                      background: '#ef4444',
-                      border: 'none',
-                      borderRadius: '6px',
-                      padding: '0.25rem 0.55rem',
-                      cursor: 'pointer',
-                      fontWeight: 700,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.2rem',
-                      boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)'
-                    }}
-                  >
-                    ✓ {t.form.confirmClear}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmClearAll(false)}
-                    style={{
-                      fontSize: '0.74rem',
-                      color: 'var(--text-secondary)',
-                      background: 'rgba(255, 255, 255, 0.08)',
-                      border: '1px solid rgba(255, 255, 255, 0.15)',
-                      borderRadius: '6px',
-                      padding: '0.25rem 0.45rem',
-                      cursor: 'pointer',
-                      fontWeight: 500
-                    }}
-                  >
-                    ✕ {t.form.cancel}
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setConfirmClearAll(true)}
-                  style={{
-                    fontSize: '0.75rem',
-                    color: '#f87171',
-                    background: 'rgba(239, 68, 68, 0.1)',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    borderRadius: '8px',
-                    padding: '0.45rem 0.75rem',
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    transition: 'all 0.2s ease',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.3rem'
-                  }}
-                >
-                  {t.form.clearAll}
-                </button>
-              )}
-
-              {/* Toggle button */}
-              <button
-                type="button"
-                onClick={() => setShowHistory(h => !h)}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid var(--border-color)',
-                  color: 'var(--text-secondary)',
-                  borderRadius: '8px',
-                  padding: '0.45rem 0.7rem',
-                  cursor: 'pointer',
-                  fontSize: '0.8rem',
-                  fontWeight: 600
-                }}
-                title={showHistory ? "Minimize" : "Expand"}
-              >
-                {showHistory ? '▲' : '▼'}
-              </button>
-            </div>
-          </div>
-
-          {/* Expanded content */}
-          {showHistory && (
-            <div style={{ marginTop: '1.25rem' }}>
-              {historySearchQuery.trim() && (
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>{t.form.showingHistoryCount(filteredHistory.length, history.length)}</span>
-                  <button
-                    type="button"
-                    onClick={() => setHistorySearchQuery('')}
-                    style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.78rem', textDecoration: 'underline' }}
-                  >
-                    {t.form.clearSearch}
-                  </button>
-                </div>
-              )}
-
-              {filteredHistory.length === 0 ? (
-                <div style={{
-                  padding: '2rem 1rem',
-                  textAlign: 'center',
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  borderRadius: '12px',
-                  border: '1px dashed rgba(255, 255, 255, 0.1)'
-                }}>
-                  <span style={{ fontSize: '1.75rem', display: 'block', marginBottom: '0.5rem' }}>&gt;</span>
-                  <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                    {t.form.noHistoryMatch}
-                  </p>
-                  {historySearchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setHistorySearchQuery('')}
-                      style={{
-                        marginTop: '0.75rem',
-                        fontSize: '0.78rem',
-                        background: 'rgba(168, 85, 247, 0.15)',
-                        border: '1px solid rgba(168, 85, 247, 0.35)',
-                        color: '#c084fc',
-                        borderRadius: '6px',
-                        padding: '0.35rem 0.8rem',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {t.form.clearSearch}
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', maxHeight: '420px', overflowY: 'auto', paddingRight: '0.35rem' }}>
-                  {filteredHistory.map((entry) => {
-                    const q = historySearchQuery.trim().toLowerCase();
-                    const matchedClip = q ? entry.clip_titles?.find(t => t.toLowerCase().includes(q)) : null;
-                    const matchedQuote = (!matchedClip && q) ? entry.key_quotes?.find(k => k.toLowerCase().includes(q)) : null;
-
-                    return (
-                      <div
-                        key={`${entry.video_id}_${entry.duration_pref}_${entry.range_suffix || ''}`}
-                        className="history-entry-card"
-                        onClick={() => loadFromHistory(entry)}
-                      >
-                        {/* Thumbnail with overlay duration badge */}
-                        <div style={{ position: 'relative', flexShrink: 0 }}>
-                          <img
-                            src={entry.thumbnail}
-                            alt=""
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="84" height="48" viewBox="0 0 84 48"><rect width="84" height="48" fill="%231e1e2d"/><polygon points="36,18 52,24 36,30" fill="%236366f1"/></svg>';
-                            }}
-                            style={{ width: '84px', height: '48px', objectFit: 'cover', borderRadius: '7px', background: '#111', display: 'block' }}
-                          />
-                          <span style={{
-                            position: 'absolute',
-                            bottom: '3px',
-                            right: '3px',
-                            background: 'rgba(0, 0, 0, 0.75)',
-                            color: '#fff',
-                            fontSize: '0.65rem',
-                            fontWeight: 700,
-                            padding: '0.1rem 0.3rem',
-                            borderRadius: '4px',
-                            lineHeight: 1
-                          }}>
-                            {entry.duration_pref === 'auto' ? 'Auto' : entry.duration_pref}
-                          </span>
-                        </div>
-
-                        {/* Title and details */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{
-                            fontSize: '0.88rem',
-                            fontWeight: 600,
-                            color: 'var(--text-primary)',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }}>
-                            {entry.title}
-                          </div>
-                          <div style={{ display: 'flex', gap: '0.65rem', marginTop: '0.25rem', fontSize: '0.74rem', color: 'var(--text-muted)', flexWrap: 'wrap', alignItems: 'center' }}>
-                            <span style={{ color: 'var(--secondary)', fontWeight: 600 }}>{t.form.clipsCountMeta(entry.clip_count)}</span>
-                            <span>•</span>
-                            <span> {entry.duration_pref === 'auto' ? 'Auto' : entry.duration_pref}</span>
-                            <span>•</span>
-                            <span> {formatRelativeTime(entry.analyzed_at)}</span>
-                            <span>•</span>
-                            {entry.source_type === 'gdrive' ? (
-                              <a
-                                href={entry.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                style={{ color: '#10b981', textDecoration: 'none', opacity: 0.9, fontWeight: 600 }}
-                              >
-                                -&gt; Google Drive
-                              </a>
-                            ) : entry.source_type === 'upload' ? (
-                              <span style={{ color: '#3b82f6', opacity: 0.9, fontWeight: 600 }}>
-                                [+] Local Video
-                              </span>
-                            ) : (
-                              <a
-                                href={entry.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                style={{ color: 'var(--primary)', textDecoration: 'none', opacity: 0.85, fontWeight: 600 }}
-                              >
-                                -&gt; YouTube
-                              </a>
-                            )}
-                          </div>
-
-                          {/* Matched clip/quote search preview */}
-                          {matchedClip && (
-                            <div style={{ fontSize: '0.72rem', color: '#c084fc', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                              <span style={{ fontWeight: 600 }}>* {t.form.matchedClipLabel}:</span>
-                              <span style={{ fontStyle: 'italic', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>"{matchedClip}"</span>
-                            </div>
-                          )}
-                          {matchedQuote && (
-                            <div style={{ fontSize: '0.72rem', color: '#38bdf8', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                              <span style={{ fontWeight: 600 }}>// {t.form.matchedQuoteLabel}:</span>
-                              <span style={{ fontStyle: 'italic', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>"{matchedQuote}"</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Action buttons */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); loadFromHistory(entry); }}
-                            style={{
-                              background: 'rgba(168, 85, 247, 0.15)',
-                              border: '1px solid rgba(168, 85, 247, 0.4)',
-                              color: '#c084fc',
-                              borderRadius: '6px',
-                              padding: '0.35rem 0.75rem',
-                              fontSize: '0.75rem',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.3rem'
-                            }}
-                          >
-                            [&gt;] {t.form.loadVideo}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => deleteHistoryEntry(entry, e)}
-                            style={{
-                              background: 'rgba(239, 68, 68, 0.08)',
-                              border: '1px solid rgba(239, 68, 68, 0.25)',
-                              color: '#ef4444',
-                              borderRadius: '6px',
-                              padding: '0.35rem 0.55rem',
-                              cursor: 'pointer',
-                              fontSize: '0.75rem'
-                            }}
-                            title={t.form.removeFromHistory}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </section>
+      {/* If no video selected and no history in Tab 02 */}
+      {!result && history.length === 0 && (
+        <div className="glass-panel" style={{ padding: '3.5rem 2rem', textAlign: 'center', borderRadius: 0, background: '#0a0a0f', border: '1px solid #201e2c' }}>
+          <span style={{ fontSize: '2rem', color: '#ff00ff', display: 'block', marginBottom: '1rem', fontFamily: 'var(--font-mono)', fontWeight: 800 }}>&gt;_</span>
+          <h3 style={{ fontSize: '1.1rem', color: '#fff', marginBottom: '0.5rem', fontWeight: 600 }}>Belum Ada Klip yang Dianalisis</h3>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>Silakan masukkan URL YouTube, link Google Drive, atau unggah video di Tab 01 // SOURCE.</p>
+          <button
+            type="button"
+            className="glowing-btn"
+            onClick={() => setWorkflowTab('source')}
+            style={{ padding: '0.65rem 1.6rem', borderRadius: 0, background: '#ff00ff', color: '#000', fontWeight: 700 }}
+          >
+            [ 01 // KE TAB SUMBER ]
+          </button>
+        </div>
       )}
+    </div>
+  )}
+
+
 
       {/* Global CSS spinner keyframe animation injection */}
       <style>{`
@@ -5692,6 +5801,7 @@ Transcript:
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

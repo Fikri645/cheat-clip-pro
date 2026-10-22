@@ -1630,9 +1630,14 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
               style={{
                 padding: '0.45rem 1rem',
                 fontSize: '0.78rem',
-                background: '#1a102b',
-                border: '1px solid #a855f7',
-                color: '#c084fc',
+                fontWeight: 700,
+                fontFamily: 'var(--font-mono)',
+                background: 'rgba(255, 0, 255, 0.12)',
+                border: '1px solid #ff00ff',
+                color: '#ff00ff',
+                boxShadow: '0 0 10px rgba(255, 0, 255, 0.25)',
+                cursor: 'pointer',
+                borderRadius: 0,
               }}
             >
               [ ⟵ 02 // KEMBALI KE CLIPS ]
@@ -4277,8 +4282,33 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                     className="player-ctrl-btn"
                     onClick={toggleMute}
                     title={isMuted ? t.studio.unmute : t.studio.mute}
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      background: isMuted ? 'rgba(255, 0, 255, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                      border: isMuted ? '1px solid #ff00ff' : '1px solid rgba(255, 255, 255, 0.15)',
+                      color: isMuted ? '#ff00ff' : '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      borderRadius: 0,
+                    }}
                   >
-                    {isMuted ? '[MUTE]' : '//'}
+                    {isMuted ? (
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="1" y1="1" x2="23" y2="23"></line>
+                        <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path>
+                        <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path>
+                        <line x1="12" y1="19" x2="12" y2="23"></line>
+                        <line x1="8" y1="23" x2="16" y2="23"></line>
+                      </svg>
+                    ) : (
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                      </svg>
+                    )}
                   </button>
 
                   <span className="player-time-badge">
@@ -4289,11 +4319,29 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                 <div className="player-controls-right">
                   <button
                     type="button"
-                    className={`player-loop-toggle ${isLooping ? 'active' : ''}`}
+                    className={`player-ctrl-btn ${isLooping ? 'active' : ''}`}
                     onClick={() => setIsLooping(!isLooping)}
                     title={isLooping ? t.studio.loopEnabled : t.studio.loopDisabled}
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      background: isLooping ? 'rgba(255, 0, 255, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                      border: isLooping ? '1px solid #ff00ff' : '1px solid rgba(255, 255, 255, 0.15)',
+                      color: isLooping ? '#ff00ff' : 'var(--text-muted)',
+                      boxShadow: isLooping ? '0 0 8px rgba(255, 0, 255, 0.45)' : 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: 0,
+                    }}
                   >
-                    {t.studio.loop}
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="17 1 21 5 17 9"></polyline>
+                      <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                      <polyline points="7 23 3 19 7 15"></polyline>
+                      <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+                    </svg>
                   </button>
                 </div>
               </div>
@@ -4302,7 +4350,14 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
             <div className="studio-render-history-card">
               <div className="history-card-header">
                 <span className="history-card-title">{t.studio.renderSpecsTitle}</span>
-                <span className="history-badge-pill">
+                <span className="history-badge-pill" style={{
+                  background: 'rgba(0, 229, 255, 0.15)',
+                  border: '1px solid #00e5ff',
+                  color: '#00e5ff',
+                  boxShadow: '0 0 8px rgba(0, 229, 255, 0.35)',
+                  fontWeight: 700,
+                  borderRadius: 0
+                }}>
                   {aspectRatio === '16:9' ? '1920×1080' : aspectRatio === '1:1' ? '1080×1080' : aspectRatio === '4:3' ? '1440×1080' : '1080×1920'}
                 </span>
               </div>

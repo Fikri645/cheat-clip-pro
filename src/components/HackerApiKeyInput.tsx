@@ -8,6 +8,8 @@ interface HackerApiKeyInputProps {
   disabled?: boolean;
   error?: boolean;
   showToggle?: boolean;
+  revealLabel?: string;
+  maskLabel?: string;
 }
 
 export const HackerApiKeyInput: React.FC<HackerApiKeyInputProps> = ({
@@ -18,6 +20,8 @@ export const HackerApiKeyInput: React.FC<HackerApiKeyInputProps> = ({
   disabled = false,
   error = false,
   showToggle = true,
+  revealLabel = '[ REVEAL ]',
+  maskLabel = '[ MASK ]',
 }) => {
   const [isRevealed, setIsRevealed] = useState(false);
 
@@ -118,9 +122,7 @@ export const HackerApiKeyInput: React.FC<HackerApiKeyInputProps> = ({
               userSelect: 'none',
             }}
           >
-            {value.length > 36
-              ? '#'.repeat(16) + '...' + '#'.repeat(16) + ` [${value.length}]`
-              : '#'.repeat(value.length)}
+            {'#'.repeat(Math.max(16, Math.min(value.length, 38)))}
           </div>
         )}
       </div>
@@ -185,7 +187,7 @@ export const HackerApiKeyInput: React.FC<HackerApiKeyInputProps> = ({
               e.currentTarget.style.color = '#ff00ff';
             }}
           >
-            {isRevealed ? '[ MASK ]' : '[ REVEAL ]'}
+            {isRevealed ? maskLabel : revealLabel}
           </button>
         )}
       </div>
