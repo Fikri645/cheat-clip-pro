@@ -971,28 +971,43 @@ input[type="radio"]:checked::after {
   font-weight: 600;
 }
 
-/* Virality Score Badge */
+/* Virality Score Badge (Tiered Colors: Bright Fire Orange, Neon Blue, Neon Green) */
 .score-badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.35rem;
-  padding: 0.35rem 0.75rem;
-  border-radius: 30px;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  font-family: 'Outfit', sans-serif;
+  padding: 0.28rem 0.65rem;
+  border-radius: 0 !important;
+  font-size: 0.82rem;
+  font-weight: 800;
+  font-family: var(--font-mono), 'Outfit', monospace, sans-serif;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
+/* 1. Paling Viral (High / Terbakar): Oranye Terang Neon */
 .score-high {
-  background: rgba(255, 94, 58, 0.12);
-  color: var(--secondary);
-  border: 1px solid rgba(255, 94, 58, 0.35);
+  background: rgba(255, 102, 0, 0.14) !important;
+  color: #ff6600 !important;
+  border: 1.5px solid #ff6600 !important;
+  box-shadow: 0 0 10px rgba(255, 102, 0, 0.45);
 }
 
+/* 2. Yang Biasa (Medium / Average): Biru Neon */
 .score-medium {
-  background: rgba(168, 85, 247, 0.12);
-  color: var(--primary);
-  border: 1px solid rgba(168, 85, 247, 0.35);
+  background: rgba(0, 240, 255, 0.14) !important;
+  color: #00f0ff !important;
+  border: 1.5px solid #00f0ff !important;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.45);
+}
+
+/* 3. Yang Jelek (Low / Poor): Hijau Neon */
+.score-low {
+  background: rgba(0, 255, 102, 0.14) !important;
+  color: #00ff66 !important;
+  border: 1.5px solid #00ff66 !important;
+  box-shadow: 0 0 10px rgba(0, 255, 102, 0.45);
 }
 
 .score-meta {

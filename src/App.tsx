@@ -5051,15 +5051,31 @@ Transcript:
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.15rem', flexShrink: 0 }}>
                           <span style={{
                             fontSize: '0.68rem',
-                            fontWeight: 700,
-                            color: clip.virality_score >= 90 ? 'var(--secondary)' : 'var(--primary)',
-                            background: clip.virality_score >= 90
-                              ? 'rgba(255, 94, 58, 0.12)'
-                              : 'rgba(168, 85, 247, 0.12)',
-                            border: `1px solid ${clip.virality_score >= 90 ? 'rgba(255,94,58,0.35)' : 'rgba(168,85,247,0.35)'}`,
-                            borderRadius: '4px',
-                            padding: '0.05rem 0.35rem',
-                            whiteSpace: 'nowrap'
+                            fontWeight: 800,
+                            fontFamily: 'var(--font-mono)',
+                            borderRadius: 0,
+                            padding: '0.08rem 0.38rem',
+                            whiteSpace: 'nowrap',
+                            color: clip.virality_score >= 85 ? '#ff6600' : clip.virality_score >= 70 ? '#00f0ff' : '#00ff66',
+                            background: clip.virality_score >= 85
+                              ? 'rgba(255, 102, 0, 0.14)'
+                              : clip.virality_score >= 70
+                              ? 'rgba(0, 240, 255, 0.14)'
+                              : 'rgba(0, 255, 102, 0.14)',
+                            border: `1.5px solid ${
+                              clip.virality_score >= 85
+                                ? '#ff6600'
+                                : clip.virality_score >= 70
+                                ? '#00f0ff'
+                                : '#00ff66'
+                            }`,
+                            boxShadow: `0 0 8px ${
+                              clip.virality_score >= 85
+                                ? 'rgba(255, 102, 0, 0.4)'
+                                : clip.virality_score >= 70
+                                ? 'rgba(0, 240, 255, 0.4)'
+                                : 'rgba(0, 255, 102, 0.4)'
+                            }`
                           }}>
                              {clip.virality_score}%
                           </span>
@@ -5376,8 +5392,7 @@ Transcript:
                           </div>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.35rem' }}>
-                          <div className={`score-badge ${clip.virality_score >= 90 ? 'score-high' : 'score-medium'}`}>
-                            <span></span>
+                          <div className={`score-badge ${clip.virality_score >= 85 ? 'score-high' : clip.virality_score >= 70 ? 'score-medium' : 'score-low'}`}>
                             <span>{t.results.viralityBadge(clip.virality_score)}</span>
                           </div>
                           {!!markedClips[`${clip.start_time}_${clip.end_time}`] && (
@@ -5386,12 +5401,14 @@ Transcript:
                               alignItems: 'center',
                               gap: '4px',
                               fontSize: '0.65rem',
-                              fontWeight: 'bold',
-                              color: 'var(--secondary)',
-                              background: 'rgba(255, 94, 58, 0.12)',
+                              fontWeight: 800,
+                              fontFamily: 'var(--font-mono)',
+                              color: '#ff00ff',
+                              background: 'rgba(255, 0, 255, 0.12)',
                               padding: '0.15rem 0.4rem',
-                              borderRadius: '4px',
-                              border: '1px solid var(--secondary)'
+                              borderRadius: 0,
+                              border: '1px solid #ff00ff',
+                              boxShadow: '0 0 6px rgba(255, 0, 255, 0.3)'
                             }}>
                               {t.results.markedBadge}
                             </div>
