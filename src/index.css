@@ -483,7 +483,7 @@ input[type="radio"]:checked::after {
 /* Sharp Cyber Buttons */
 .glowing-btn {
   background: var(--primary);
-  border: 1px solid var(--primary-hover);
+  border: 1.5px solid var(--primary);
   color: #000000;
   font-family: var(--font-mono) !important;
   font-weight: 700;
@@ -500,21 +500,24 @@ input[type="radio"]:checked::after {
   letter-spacing: 0.03em;
   text-transform: uppercase;
   border-radius: 0 !important;
+  outline: none;
 }
 
 .glowing-btn:hover:not(:disabled) {
   background: var(--primary-hover);
-  border-color: var(--primary-hover);
+  border: 1.5px solid #ffffff !important;
   color: #000000;
-  box-shadow: 0 0 24px rgba(255, 71, 255, 0.9);
+  box-shadow: 0 0 24px rgba(255, 71, 255, 0.9), 0 0 10px rgba(255, 255, 255, 0.6);
 }
 
 .glowing-btn:active:not(:disabled) {
   transform: translateY(0);
+  border-color: #ffffff;
 }
 
 .glowing-btn:disabled {
   background: var(--text-muted);
+  border: 1.5px solid transparent;
   box-shadow: none;
   cursor: not-allowed;
   opacity: 0.6;
