@@ -1839,9 +1839,9 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .aspect-card-btn {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1.5px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  background: #060608;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   padding: 0.75rem 0.4rem;
   display: flex;
   flex-direction: column;
@@ -1853,24 +1853,24 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .aspect-card-btn:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: #100f18;
+  border-color: #353048;
 }
 
 .aspect-card-btn.active {
-  background: rgba(168, 85, 247, 0.12);
-  border-color: var(--primary);
-  box-shadow: 0 0 16px rgba(168, 85, 247, 0.25);
+  background: rgba(255, 0, 255, 0.12);
+  border-color: #ff00ff;
+  box-shadow: 0 0 16px rgba(255, 0, 255, 0.3);
 }
 
 .aspect-icon-box {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px dashed rgba(255, 255, 255, 0.3);
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px dashed #353048;
+  border-radius: 0;
 }
 
 .aspect-card-btn.active .aspect-icon-box {
-  background: var(--primary);
+  background: #ff00ff;
   border-color: #fff;
 }
 
@@ -1895,7 +1895,7 @@ label[for="manual-subtitle-file"]:hover {
 .aspect-icon-box.ratio-169::after {
   content: '';
   background: rgba(255, 255, 255, 0.55);
-  border-radius: 1.5px;
+  border-radius: 0;
   transition: background 0.2s ease;
 }
 
@@ -1968,27 +1968,28 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .pill-btn {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #060608;
+  border: 1px solid #201e2c;
   color: var(--text-secondary);
   padding: 0.3rem 0.65rem;
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 0.75rem;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .pill-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: #100f18;
+  border-color: #353048;
   color: #fff;
 }
 
 .pill-btn.active {
-  background: var(--secondary);
-  border-color: var(--secondary);
-  color: #fff;
-  font-weight: 600;
-  box-shadow: 0 0 10px rgba(255, 94, 58, 0.3);
+  background: #ff00ff;
+  border-color: #ff00ff;
+  color: #000;
+  font-weight: 700;
+  box-shadow: 0 0 10px rgba(255, 0, 255, 0.35);
 }
 
 /* Studio Dedicated Font Section & Drag-and-Drop Dropzone */
@@ -2014,9 +2015,9 @@ label[for="manual-subtitle-file"]:hover {
   align-items: center;
   gap: 0.85rem;
   padding: 0.65rem 0.95rem;
-  background: rgba(56, 189, 248, 0.03);
-  border: 1.5px dashed rgba(56, 189, 248, 0.3);
-  border-radius: 9px;
+  background: #060608;
+  border: 1.5px dashed #272238;
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
@@ -2026,16 +2027,16 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .font-dropzone:hover {
-  background: rgba(56, 189, 248, 0.08);
-  border-color: rgba(56, 189, 248, 0.65);
-  box-shadow: 0 0 14px rgba(56, 189, 248, 0.15);
+  background: #0e0d16;
+  border-color: #ff00ff;
+  box-shadow: 0 0 14px rgba(255, 0, 255, 0.15);
 }
 
 .font-dropzone.drag-over {
-  background: rgba(56, 189, 248, 0.18) !important;
-  border-color: #38bdf8 !important;
+  background: #181524 !important;
+  border-color: #ff00ff !important;
   border-style: solid !important;
-  box-shadow: 0 0 20px rgba(56, 189, 248, 0.4) !important;
+  box-shadow: 0 0 20px rgba(255, 0, 255, 0.4) !important;
   transform: scale(1.008);
 }
 
@@ -2073,9 +2074,9 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .streamer-btn {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  background: #060608;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   padding: 0.6rem 0.5rem;
   color: var(--text-secondary);
   font-size: 0.76rem;
@@ -2085,7 +2086,8 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .streamer-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: #100f18;
+  border-color: #353048;
   color: #fff;
 }
 
@@ -2107,9 +2109,9 @@ label[for="manual-subtitle-file"]:hover {
   width: 100%;
   box-sizing: border-box;
   flex: 1;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  background: #060608;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   padding: 0.6rem 0.9rem;
   color: #fff;
   font-size: 0.85rem;
@@ -2117,17 +2119,23 @@ label[for="manual-subtitle-file"]:hover {
 
 .studio-text-input:focus {
   outline: none;
-  border-color: var(--primary);
+  border-color: #ff00ff;
+  box-shadow: 0 0 8px rgba(255, 0, 255, 0.25);
 }
 
 .studio-select {
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  background: #060608;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   padding: 0.55rem 0.85rem;
   color: #fff;
   font-size: 0.82rem;
   cursor: pointer;
+}
+
+.studio-select option {
+  background: #0a0a0f;
+  color: #ffffff;
 }
 
 /* Caption Styles Grid */
@@ -2138,9 +2146,9 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .caption-style-card {
-  background: rgba(0, 0, 0, 0.4);
-  border: 1.5px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  background: #060608;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   padding: 0.75rem 0.4rem;
   display: flex;
   flex-direction: column;
@@ -2151,13 +2159,14 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .caption-style-card:hover {
-  border-color: rgba(255, 255, 255, 0.25);
+  background: #100f18;
+  border-color: #353048;
 }
 
 .caption-style-card.active {
-  border-color: #ffd700;
-  box-shadow: 0 0 16px rgba(255, 215, 0, 0.25);
-  background: rgba(255, 215, 0, 0.06);
+  border-color: #ff00ff;
+  box-shadow: 0 0 16px rgba(255, 0, 255, 0.25);
+  background: rgba(255, 0, 255, 0.08);
 }
 
 .caption-preview-text {
@@ -2174,7 +2183,7 @@ label[for="manual-subtitle-file"]:hover {
 .pop-red    { color: #ff2e2e; text-shadow: 0 0 8px rgba(255, 46, 46, 0.6); }
 .pop-cyan   { color: #00f0ff; text-shadow: 0 0 8px rgba(0, 240, 255, 0.6); }
 .pop-gold   { color: #ffb800; text-shadow: 0 0 8px rgba(255, 184, 0, 0.6); }
-.pill-badge { background: rgba(0, 0, 0, 0.7); padding: 0.1rem 0.4rem; border-radius: 4px; }
+.pill-badge { background: rgba(0, 0, 0, 0.7); padding: 0.1rem 0.4rem; border-radius: 0; }
 
 .caption-style-sub {
   font-size: 0.65rem;
@@ -2195,21 +2204,22 @@ label[for="manual-subtitle-file"]:hover {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #060608;
+  border: 1px solid #201e2c;
   padding: 0.45rem 0.75rem;
-  border-radius: 8px;
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .batch-clip-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: #100f18;
+  border-color: #353048;
 }
 
 .batch-clip-item.selected {
-  border-color: var(--primary);
-  background: rgba(168, 85, 247, 0.08);
+  border-color: #ff00ff;
+  background: rgba(255, 0, 255, 0.08);
 }
 
 .batch-clip-title {
@@ -2239,26 +2249,25 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .batch-title-card-item {
-  background: rgba(15, 23, 42, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  background: #060608;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   padding: 0.65rem 0.8rem;
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
   transition: all 0.2s ease;
-  backdrop-filter: blur(8px);
 }
 
 .batch-title-card-item:hover {
-  background: rgba(15, 23, 42, 0.85);
-  border-color: rgba(168, 85, 247, 0.3);
+  background: #100f18;
+  border-color: #353048;
 }
 
 .batch-title-card-item.active-preview-border {
-  border-color: rgba(56, 189, 248, 0.6);
-  background: rgba(14, 116, 144, 0.12);
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
+  border-color: #ff00ff;
+  background: rgba(255, 0, 255, 0.08);
+  box-shadow: 0 0 12px rgba(255, 0, 255, 0.2);
 }
 
 .batch-title-card-header {
@@ -2434,11 +2443,11 @@ label[for="manual-subtitle-file"]:hover {
 /* Export Mode Switcher (Separate vs Merged) */
 .export-mode-group {
   position: relative;
-  background: var(--bg-surface) !important;
-  border: 1px solid var(--border-color) !important;
-  border-radius: 14px;
+  background: #0a0a0f !important;
+  border: 1px solid #201e2c !important;
+  border-radius: 0;
   padding: 1.1rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   transition: var(--transition-smooth);
 }
 
@@ -2454,25 +2463,24 @@ label[for="manual-subtitle-file"]:hover {
   flex-direction: column;
   text-align: left;
   padding: 0.85rem 1rem;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1.5px solid var(--border-color);
+  border-radius: 0;
+  background: #060608;
+  border: 1px solid #201e2c;
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .export-mode-btn:hover {
-  background: var(--bg-surface-hover);
-  border-color: rgba(255, 255, 255, 0.14);
-  transform: translateY(-1px);
+  background: #100f18;
+  border-color: #353048;
 }
 
 .export-mode-btn.active {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(59, 130, 246, 0.08) 100%);
-  border-color: var(--primary);
+  background: rgba(255, 0, 255, 0.1);
+  border-color: #ff00ff;
   color: #fff;
-  box-shadow: 0 0 16px rgba(139, 92, 246, 0.2);
+  box-shadow: 0 0 14px rgba(255, 0, 255, 0.25);
 }
 
 .mode-btn-content {
@@ -3492,12 +3500,10 @@ label[for="manual-subtitle-file"]:hover {
   margin-top: 2.5rem;
   margin-bottom: 3.5rem;
   padding: 2rem;
-  border-radius: 20px;
-  background: rgba(13, 17, 28, 0.85);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  border-radius: 0;
+  background: #08080c;
+  border: 1px solid #201e2c;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8);
   position: relative;
   overflow: visible;
 }
@@ -3521,7 +3527,7 @@ label[for="manual-subtitle-file"]:hover {
   align-items: center;
   flex-wrap: wrap;
   gap: 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid #201e2c;
   padding-bottom: 1.5rem;
   margin-bottom: 1.75rem;
 }
@@ -3575,10 +3581,10 @@ label[for="manual-subtitle-file"]:hover {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.04);
+  background: #0c0b14;
   padding: 0.45rem 0.85rem;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 0;
+  border: 1px solid #272238;
 }
 
 .preview-picker-label {
@@ -3599,7 +3605,7 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .preview-clip-select option {
-  background: #0d111c;
+  background: #0a0a0f;
   color: #ffffff;
 }
 
@@ -3636,15 +3642,16 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .studio-card-group {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 14px;
+  background: #0a0a0f;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   padding: 1.25rem 1.4rem;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
 
 .studio-card-group:hover {
-  border-color: rgba(255, 255, 255, 0.09);
+  background: #0c0b14;
+  border-color: #2e2942;
 }
 
 .group-header {
@@ -3670,29 +3677,30 @@ label[for="manual-subtitle-file"]:hover {
 .group-badge {
   font-size: 0.72rem;
   font-weight: 600;
-  background: rgba(59, 130, 246, 0.14);
+  background: rgba(59, 130, 246, 0.1);
   color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  border: 1px solid #201e2c;
   padding: 0.15rem 0.45rem;
-  border-radius: 6px;
+  border-radius: 0;
 }
 
 .group-badge.accent-badge {
-  background: rgba(168, 85, 247, 0.14);
-  color: #c084fc;
-  border-color: rgba(168, 85, 247, 0.35);
+  background: rgba(255, 0, 255, 0.08);
+  color: #ff00ff;
+  border-color: #3b194d;
 }
 
 .group-badge.success-badge {
-  background: rgba(34, 197, 94, 0.14);
+  background: rgba(34, 197, 94, 0.1);
   color: #4ade80;
-  border-color: rgba(34, 197, 94, 0.35);
+  border-color: #1e3a2b;
 }
 
 /* 9:16 Interactive Sliders Card */
 .position-sliders-card {
-  border: 1px solid rgba(168, 85, 247, 0.3) !important;
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.04) 0%, rgba(255, 94, 58, 0.04) 100%) !important;
+  border: 1px solid #201e2c !important;
+  background: #0a0a0f !important;
+  border-radius: 0 !important;
 }
 
 .slider-hint-text {
@@ -3703,9 +3711,9 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .slider-control-row {
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 10px;
+  background: #060608;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   padding: 0.85rem 1rem;
 }
 
@@ -3725,11 +3733,11 @@ label[for="manual-subtitle-file"]:hover {
 .slider-value-badge {
   font-size: 0.76rem;
   font-weight: 700;
-  color: var(--secondary);
-  background: rgba(255, 94, 58, 0.15);
-  border: 1px solid rgba(255, 94, 58, 0.3);
+  color: #ff00ff;
+  background: #0c0b14;
+  border: 1px solid #272238;
   padding: 0.15rem 0.55rem;
-  border-radius: 6px;
+  border-radius: 0;
 }
 
 .slider-input-wrapper {
@@ -3748,20 +3756,21 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .slider-quick-buttons button {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #0d0d14;
+  border: 1px solid #272238;
   color: var(--text-secondary);
   font-size: 0.7rem;
   font-weight: 600;
   padding: 0.25rem 0.5rem;
-  border-radius: 6px;
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
 }
 
 .slider-quick-buttons button:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: #181524;
+  border-color: #ff00ff;
   color: #ffffff;
 }
 
@@ -3813,14 +3822,15 @@ label[for="manual-subtitle-file"]:hover {
   font-size: 0.68rem;
   font-weight: 600;
   color: #4ade80;
-  background: rgba(34, 197, 94, 0.12);
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  background: #0c0b14;
+  border: 1px solid #1e3a2b;
   padding: 0.1rem 0.4rem;
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 .real-preview-container {
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.15);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 0 1px #201e2c;
+  border-radius: 0;
 }
 
 .real-frame-bg-layer {
@@ -3863,13 +3873,13 @@ label[for="manual-subtitle-file"]:hover {
 .raw-download-progress-card {
   margin-top: 0.75rem;
   padding: 0.75rem 1rem;
-  background: rgba(15, 23, 42, 0.95);
-  border: 1px solid rgba(59, 130, 246, 0.5);
-  border-radius: 10px;
+  background: #0a0a0f;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 12px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
   animation: fadeIn 0.2s ease;
 }
 
@@ -3896,17 +3906,18 @@ label[for="manual-subtitle-file"]:hover {
 .progress-track {
   width: 100%;
   height: 7px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  background: #060608;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   overflow: hidden;
 }
 
 .progress-fill-bar {
   height: 100%;
-  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
-  border-radius: 4px;
+  background: #ff00ff;
+  border-radius: 0;
   transition: width 0.3s ease;
-  box-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
+  box-shadow: 0 0 8px rgba(255, 0, 255, 0.6);
 }
 
 .progress-card-meta {
@@ -3923,10 +3934,10 @@ label[for="manual-subtitle-file"]:hover {
   justify-content: space-between;
   gap: 0.5rem;
   margin-bottom: 0.75rem;
-  background: rgba(0, 0, 0, 0.4);
+  background: #060608;
   padding: 0.4rem 0.6rem;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  border: 1px solid #201e2c;
 }
 
 .frame-ctrl-label {
@@ -3946,39 +3957,42 @@ label[for="manual-subtitle-file"]:hover {
   padding: 0.2rem 0.5rem;
   font-size: 0.68rem;
   font-weight: 600;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0;
+  background: #0c0b14;
+  border: 1px solid #201e2c;
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .frame-pill:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: #181524;
+  border-color: #2e2942;
   color: #fff;
 }
 
 .frame-pill.active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
-  box-shadow: 0 0 8px rgba(139, 92, 246, 0.4);
+  background: #ff00ff;
+  border-color: #ff00ff;
+  color: #000;
+  font-weight: 800;
+  box-shadow: 0 0 8px rgba(255, 0, 255, 0.4);
 }
 
 .frame-refresh-btn {
   padding: 0.2rem 0.45rem;
   font-size: 0.72rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #0c0b14;
+  border: 1px solid #201e2c;
   color: var(--text-muted);
-  border-radius: 6px;
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .frame-refresh-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: #181524;
+  border-color: #ff00ff;
   color: #fff;
 }
 
@@ -3989,19 +4003,18 @@ label[for="manual-subtitle-file"]:hover {
   left: 8px;
   right: 8px;
   z-index: 25;
-  background: rgba(13, 17, 23, 0.85);
-  backdrop-filter: blur(4px);
-  border: 1px solid rgba(139, 92, 246, 0.4);
-  border-radius: 8px;
+  background: #0a0a0f;
+  border: 1px solid #ff00ff;
+  border-radius: 0;
   padding: 0.35rem 0.65rem;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   font-size: 0.72rem;
-  color: #c4b5fd;
+  color: #ff00ff;
   font-weight: 600;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
   animation: fadeIn 0.2s ease;
 }
 
@@ -4049,9 +4062,9 @@ label[for="manual-subtitle-file"]:hover {
 .studio-bottom-action-bar {
   margin-top: 2rem;
   padding: 1.25rem 1.75rem;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
+  background: #0a0a0f;
+  border: 1px solid #272238;
+  border-radius: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -4085,7 +4098,7 @@ label[for="manual-subtitle-file"]:hover {
   padding: 0.85rem 2.25rem;
   font-size: 0.95rem;
   font-weight: 700;
-  border-radius: 12px;
+  border-radius: 0;
 }
 
 .big-render-cta:disabled {
@@ -4093,7 +4106,8 @@ label[for="manual-subtitle-file"]:hover {
   cursor: not-allowed;
   filter: grayscale(1);
   box-shadow: none !important;
-  background: rgba(255, 255, 255, 0.08) !important;
+  background: #111116 !important;
+  border: 1px solid #201e2c !important;
   color: var(--text-muted) !important;
   pointer-events: none;
 }
@@ -4101,11 +4115,11 @@ label[for="manual-subtitle-file"]:hover {
 /* Inline Batch Render Card (under Live Preview) */
 .inline-batch-card {
   margin-top: 1.25rem;
-  background: rgba(13, 17, 23, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
+  background: #0a0a0f;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   padding: 1.15rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
   animation: fadeIn 0.25s ease;
   width: 100%;
   box-sizing: border-box;
@@ -4260,14 +4274,14 @@ label[for="manual-subtitle-file"]:hover {
 /* Studio Player Controls (Outside preview clip, YouTube style) */
 .studio-player-controls-card {
   margin-top: 0.85rem;
-  background: rgba(13, 17, 23, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
+  background: #0a0a0f;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   padding: 0.65rem 0.85rem;
   width: 100%;
   max-width: 320px;
   box-sizing: border-box;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
 }
 
 .player-timeline-row {
@@ -4291,12 +4305,12 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .player-ctrl-btn {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #060608;
+  border: 1px solid #201e2c;
   color: #ffffff;
   width: 30px;
   height: 30px;
-  border-radius: 7px;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4307,8 +4321,9 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .player-ctrl-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.05);
+  background: #181524;
+  border-color: #ff00ff;
+  color: #ff00ff;
 }
 
 .player-time-badge {
@@ -4320,11 +4335,11 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .player-loop-toggle {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #060608;
+  border: 1px solid #201e2c;
   color: var(--text-muted);
   padding: 0.22rem 0.55rem;
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
@@ -4332,18 +4347,18 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .player-loop-toggle.active {
-  background: rgba(255, 94, 58, 0.2);
-  color: #ff5e3a;
-  border-color: rgba(255, 94, 58, 0.4);
+  background: rgba(255, 0, 255, 0.15);
+  color: #ff00ff;
+  border-color: #ff00ff;
 }
 
 /* Bottom Full-Width Batch Dashboard Card */
 .bottom-batch-dashboard-card {
-  background: rgba(13, 17, 23, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 16px;
+  background: #0a0a0f;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   padding: 1.35rem 1.65rem;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8);
   animation: fadeIn 0.25s ease;
   width: 100%;
   box-sizing: border-box;
@@ -4384,14 +4399,14 @@ label[for="manual-subtitle-file"]:hover {
 /* Studio Render History & Specs Card (under player controls) */
 .studio-render-history-card {
   margin-top: 0.85rem;
-  background: rgba(13, 17, 23, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  background: #0a0a0f;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   padding: 0.75rem 0.95rem;
   width: 100%;
   max-width: 320px;
   box-sizing: border-box;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
 }
 
 .history-card-header {
@@ -4400,7 +4415,7 @@ label[for="manual-subtitle-file"]:hover {
   align-items: center;
   margin-bottom: 0.6rem;
   padding-bottom: 0.4rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid #201e2c;
 }
 
 .history-card-title {
@@ -4413,10 +4428,10 @@ label[for="manual-subtitle-file"]:hover {
   font-size: 0.68rem;
   font-weight: 700;
   color: #38bdf8;
-  background: rgba(56, 189, 248, 0.12);
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: #0c0b14;
+  border: 1px solid #1a364d;
   padding: 0.1rem 0.45rem;
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 .history-info-grid {
@@ -4458,9 +4473,9 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .hardware-option-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  background: #060608;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   padding: 0.65rem 0.85rem;
   display: flex;
   flex-direction: column;
@@ -4473,15 +4488,14 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .hardware-option-card:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(56, 189, 248, 0.35);
-  transform: translateY(-1px);
+  background: #0c0b14;
+  border-color: #2e2942;
 }
 
 .hardware-option-card.active {
-  background: rgba(56, 189, 248, 0.09);
-  border-color: #38bdf8;
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.2);
+  background: rgba(255, 0, 255, 0.08);
+  border-color: #ff00ff;
+  box-shadow: 0 0 16px rgba(255, 0, 255, 0.2);
 }
 
 .hw-card-top {
@@ -4494,16 +4508,16 @@ label[for="manual-subtitle-file"]:hover {
 .hw-radio-dot {
   width: 13px;
   height: 13px;
-  border-radius: 50%;
+  border-radius: 0;
   border: 2px solid rgba(255, 255, 255, 0.3);
   transition: all 0.2s ease;
   flex-shrink: 0;
 }
 
 .hardware-option-card.active .hw-radio-dot {
-  border-color: #38bdf8;
-  background: #38bdf8;
-  box-shadow: 0 0 8px #38bdf8;
+  border-color: #ff00ff;
+  background: #ff00ff;
+  box-shadow: 0 0 8px #ff00ff;
 }
 
 .hw-card-name {
@@ -4517,7 +4531,7 @@ label[for="manual-subtitle-file"]:hover {
   font-size: 0.65rem;
   font-weight: 700;
   padding: 2px 7px;
-  border-radius: 9999px;
+  border-radius: 0;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   white-space: nowrap;
@@ -4530,9 +4544,9 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .hw-status-pill.inactive {
-  background: rgba(148, 163, 184, 0.1);
+  background: #0c0b14;
   color: #94a3b8;
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  border: 1px solid #201e2c;
 }
 
 .hw-card-sub {
@@ -4640,32 +4654,32 @@ label[for="manual-subtitle-file"]:hover {
 
 /* Batch Queue Card in Preview Sidebar (under Render Specs & History) */
 .studio-batch-queue-card {
-  background: rgba(13, 17, 23, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
+  background: #0a0a0f;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   padding: 0.85rem 1rem;
   width: 100%;
   max-width: 320px;
   box-sizing: border-box;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
   animation: fadeIn 0.2s ease;
   transition: all 0.3s ease;
 }
 
 .studio-batch-queue-card.is-processing {
-  border: 1px solid rgba(255, 94, 58, 0.6);
-  box-shadow: 0 0 25px rgba(255, 94, 58, 0.3), 0 8px 32px rgba(0, 0, 0, 0.6);
+  border: 1px solid #ff00ff;
+  box-shadow: 0 0 25px rgba(255, 0, 255, 0.3), 0 8px 32px rgba(0, 0, 0, 0.8);
   animation: studioQueuePulse 2.2s infinite alternate ease-in-out;
 }
 
 @keyframes studioQueuePulse {
   0% {
-    border-color: rgba(255, 94, 58, 0.45);
-    box-shadow: 0 0 16px rgba(255, 94, 58, 0.2), 0 6px 24px rgba(0, 0, 0, 0.6);
+    border-color: rgba(255, 0, 255, 0.45);
+    box-shadow: 0 0 16px rgba(255, 0, 255, 0.2), 0 6px 24px rgba(0, 0, 0, 0.6);
   }
   100% {
-    border-color: rgba(255, 42, 95, 0.85);
-    box-shadow: 0 0 32px rgba(255, 42, 95, 0.45), 0 10px 36px rgba(0, 0, 0, 0.75);
+    border-color: #ff00ff;
+    box-shadow: 0 0 32px rgba(255, 0, 255, 0.45), 0 10px 36px rgba(0, 0, 0, 0.75);
   }
 }
 
@@ -4676,10 +4690,10 @@ label[for="manual-subtitle-file"]:hover {
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.04em;
-  color: #ff5e3a;
-  background: rgba(255, 94, 58, 0.12);
-  border: 1px solid rgba(255, 94, 58, 0.35);
-  border-radius: 6px;
+  color: #ff00ff;
+  background: #0c0b14;
+  border: 1px solid #3b194d;
+  border-radius: 0;
   padding: 0.15rem 0.45rem;
   animation: pulseIndicator 1.5s infinite alternate ease-in-out;
 }
@@ -4694,24 +4708,24 @@ label[for="manual-subtitle-file"]:hover {
   display: inline-flex;
   align-items: center;
   gap: 0.15rem;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 6px;
+  background: #060608;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   padding: 0.1rem 0.35rem;
   transition: all 0.15s ease;
 }
 
 .slider-input-badge-wrap:focus-within {
-  border-color: #38bdf8;
-  background: rgba(56, 189, 248, 0.12);
-  box-shadow: 0 0 8px rgba(56, 189, 248, 0.3);
+  border-color: #ff00ff;
+  background: #0c0b14;
+  box-shadow: 0 0 8px rgba(255, 0, 255, 0.3);
 }
 
 .slider-number-input {
   width: 44px;
   background: transparent;
   border: none;
-  color: #38bdf8;
+  color: #ff00ff;
   font-family: 'Outfit', monospace, sans-serif;
   font-weight: 700;
   font-size: 0.74rem;
@@ -4740,7 +4754,7 @@ label[for="manual-subtitle-file"]:hover {
   align-items: center;
   margin-bottom: 0.5rem;
   padding-bottom: 0.35rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid #201e2c;
 }
 
 .studio-batch-queue-card .batch-queue-title {
@@ -5099,9 +5113,9 @@ label[for="manual-subtitle-file"]:hover {
 }
 
 .hook-banner-preview-box {
-  background: rgba(0, 0, 0, 0.32);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 8px;
+  background: #060608;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   padding: 0.6rem 0.8rem;
   display: flex;
   flex-direction: column;
@@ -5136,7 +5150,7 @@ label[for="manual-subtitle-file"]:hover {
   flex-direction: column;
   gap: 0.25rem;
   padding-top: 0.35rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid #201e2c;
 }
 
 .hook-combined-result .combined-label {
@@ -5177,9 +5191,9 @@ label[for="manual-subtitle-file"]:hover {
 
 /* Subtitles Visibility Disabled Styles */
 .subtitles-disabled-notice-box {
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.28);
-  border-radius: 8px;
+  background: #130a0a;
+  border: 1px solid #451a1a;
+  border-radius: 0;
   padding: 0.55rem 0.8rem;
   font-size: 0.76rem;
   color: #fca5a5;
@@ -5197,12 +5211,12 @@ label[for="manual-subtitle-file"]:hover {
 
 /* Filename Option Styles */
 .filename-preview-box {
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  border-radius: 8px;
+  background: #060608;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   padding: 0.7rem 0.85rem;
   margin-top: 0.65rem;
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.06);
+  box-shadow: none;
 }
 
 .filename-preview-header {
@@ -5224,10 +5238,10 @@ label[for="manual-subtitle-file"]:hover {
   font-size: 0.68rem;
   font-weight: 700;
   padding: 0.1rem 0.45rem;
-  border-radius: 4px;
-  background: rgba(56, 189, 248, 0.14);
+  border-radius: 0;
+  background: #0c0b14;
   color: #38bdf8;
-  border: 1px solid rgba(56, 189, 248, 0.25);
+  border: 1px solid #1a364d;
 }
 
 .filename-preview-display {
@@ -5235,9 +5249,9 @@ label[for="manual-subtitle-file"]:hover {
   align-items: center;
   gap: 0.45rem;
   padding: 0.45rem 0.65rem;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
+  background: #000000;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 0.82rem;
   color: #ffffff;
@@ -5300,10 +5314,10 @@ label[for="manual-subtitle-file"]:hover {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  background: #090d16;
-  border-radius: 12px;
+  background: #000000;
+  border-radius: 0;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid #201e2c;
 }
 
 .trimmer-player-wrapper iframe,
