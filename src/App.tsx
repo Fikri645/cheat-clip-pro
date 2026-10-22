@@ -2888,57 +2888,6 @@ Transcript:
           {/* YouTube input mode */}
           {sourceMode === 'youtube' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', width: '100%' }}>
-              {subtitlesSource === 'youtube' && (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: '0.65rem',
-                  padding: '0.65rem 0.95rem',
-                  background: '#0d0c15',
-                  border: '1px solid rgba(168, 85, 247, 0.4)',
-                  fontFamily: 'var(--font-mono)'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-                    <span style={{ color: '#ff00ff', fontWeight: 800, fontSize: '0.8rem' }}>&gt;_ TARGET TRANSCRIPT:</span>
-                    <span style={{ 
-                      background: 'rgba(255, 0, 255, 0.08)', 
-                      color: '#f8fafc', 
-                      padding: '0.15rem 0.6rem', 
-                      border: '1.5px solid #ff00ff',
-                      fontSize: '0.82rem',
-                      fontWeight: 800,
-                      boxShadow: '0 0 10px rgba(255, 0, 255, 0.3)'
-                    }}>
-                      {transcriptLanguage === 'en' ? '[EN] ENGLISH' : '[ID] INDONESIA'}
-                    </span>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>
-                      // Pastikan bahasa audio video sesuai sebelum klik Hack Clips.
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const next = transcriptLanguage === 'en' ? 'id' : 'en';
-                      setTranscriptLanguage(next);
-                      localStorage.setItem('cheat_clip_transcript_language', next);
-                    }}
-                    style={{
-                      background: '#0a0a0f',
-                      border: '1px solid #ff00ff',
-                      color: '#ff00ff',
-                      fontSize: '0.75rem',
-                      padding: '0.3rem 0.75rem',
-                      cursor: 'pointer',
-                      fontFamily: 'var(--font-mono)',
-                      fontWeight: 700
-                    }}
-                  >
-                    [ GANTI KE {transcriptLanguage === 'en' ? '[ID] INDONESIA' : '[EN] ENGLISH'} ]
-                  </button>
-                </div>
-              )}
               <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>{t.form.urlLabel}</label>
               <div className="form-main-input-row" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                 <input
