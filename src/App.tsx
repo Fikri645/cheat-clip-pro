@@ -4713,7 +4713,8 @@ Transcript:
 
           {/* Dashboard Grid for Active Video */}
           {result && (
-            <main className="dashboard-grid">
+            <>
+              <main className="dashboard-grid">
           {/* Left panel: Player + Heatmap */}
           <div className="sticky-player-panel" ref={leftPanelRef}>
             <div className="glass-panel" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -5563,52 +5564,41 @@ Transcript:
               )}
             </div>
           </div>
+        </main>
 
-          {/* Bottom Workflow Action Bar */}
-          <div style={{
-            gridColumn: '1 / -1',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '1rem 1.25rem',
-            background: '#0c0b14',
-            border: '1px solid #272238',
-            fontFamily: 'var(--font-mono)',
-            marginTop: '0.75rem',
-            flexWrap: 'wrap',
-            gap: '1rem'
-          }}>
+        {/* Bottom Workflow Action Bar */}
+        <div className="bottom-workflow-action-bar">
+          <button
+            type="button"
+            className="btn-confirm-cancel"
+            onClick={() => setWorkflowTab('source')}
+            style={{
+              padding: '0.65rem 1.25rem',
+              fontFamily: 'var(--font-mono)',
+              background: '#141220',
+              border: '1px solid #272238',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer'
+            }}
+          >
+            [ ⟵ 01 // KEMBALI KE SUMBER / EDIT ]
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              {markedClipsList.length} klip dipilih untuk dirender
+            </span>
             <button
               type="button"
-              className="btn-confirm-cancel"
-              onClick={() => setWorkflowTab('source')}
-              style={{
-                padding: '0.65rem 1.25rem',
-                fontFamily: 'var(--font-mono)',
-                background: '#141220',
-                border: '1px solid #272238',
-                color: 'var(--text-secondary)',
-                cursor: 'pointer'
-              }}
+              className="glowing-btn"
+              onClick={() => setWorkflowTab('clipper')}
+              style={{ padding: '0.65rem 1.6rem' }}
             >
-              [ ⟵ 01 // KEMBALI KE SUMBER / EDIT ]
+              [ 03 // BUKA AUTO CLIPPER STUDIO ➔ ]
             </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                {markedClipsList.length} klip dipilih untuk dirender
-              </span>
-              <button
-                type="button"
-                className="glowing-btn"
-                onClick={() => setWorkflowTab('clipper')}
-                style={{ padding: '0.65rem 1.6rem' }}
-              >
-                [ 03 // BUKA AUTO CLIPPER STUDIO ➔ ]
-              </button>
-            </div>
           </div>
-        </main>
-      )}
+        </div>
+      </>
+    )}
 
       {/* If no video selected and no history in Tab 02 */}
       {!result && history.length === 0 && (
