@@ -1,0 +1,452 @@
+﻿/* ==========================================================================
+   Tab 03 â€” BGM, Watermark, Subtitles & Filename Controls
+   ========================================================================== */
+/* ==========================================================================
+   Background Music (BGM) & Watermark Controls
+   ========================================================================== */
+
+.bgm-dropzone,
+.bgm-upload-dropzone {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1.5px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.bgm-dropzone:hover,
+.bgm-upload-dropzone:hover {
+  background: rgba(168, 85, 247, 0.06);
+  border-color: rgba(168, 85, 247, 0.45);
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.15);
+}
+
+.bgm-dropzone.drag-over,
+.bgm-upload-dropzone.drag-over {
+  background: rgba(168, 85, 247, 0.14) !important;
+  border-color: #c084fc !important;
+  border-style: solid !important;
+  box-shadow: 0 0 24px rgba(168, 85, 247, 0.35) !important;
+  transform: scale(1.008);
+}
+
+.dropzone-icon {
+  font-size: 1.7rem;
+  flex-shrink: 0;
+}
+
+.dropzone-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.dropzone-main-text {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.dropzone-sub-text {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.bgm-active-file-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 0.9rem;
+  background: rgba(168, 85, 247, 0.08);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  border-radius: 0;
+  gap: 0.8rem;
+}
+
+.bgm-info {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.bgm-icon {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.bgm-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.bgm-filename {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bgm-status-tag {
+  font-size: 0.68rem;
+  color: #10b981;
+  font-weight: 600;
+}
+
+.bgm-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.bgm-preview-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  font-size: 0.82rem;
+  width: 30px;
+  height: 30px;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.bgm-preview-btn:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 0 10px var(--primary-glow);
+}
+
+.bgm-remove-btn {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  font-size: 0.82rem;
+  width: 30px;
+  height: 30px;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.bgm-remove-btn:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: #ef4444;
+  color: #ffffff;
+}
+
+.bgm-hint-text {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 0.4rem;
+  line-height: 1.4;
+}
+
+/* Watermark styles */
+.watermark-controls-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.65rem;
+}
+
+.wireframe-watermark-overlay {
+  position: absolute;
+  z-index: 25;
+  transition: opacity 0.15s ease;
+  user-select: none;
+  border-radius: 0;
+  pointer-events: none;
+}
+
+.wireframe-watermark-overlay img {
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.8));
+  user-select: none;
+}
+
+.wireframe-watermark-overlay .wm-text-badge {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #ffffff;
+  text-shadow: 0 0 3px #000, 0 2px 4px rgba(0, 0, 0, 0.95);
+  padding: 3px 10px;
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  white-space: nowrap;
+  user-select: none;
+  backdrop-filter: blur(4px);
+}
+
+/* ==========================================================================
+   Hook Prefix / Suffix, Subtitle Visibility, and Filename Option Styles
+   ========================================================================== */
+
+.hook-prefix-suffix-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+
+@media (max-width: 600px) {
+  .hook-prefix-suffix-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hook-input-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.hook-input-label {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.hook-banner-preview-box {
+  background: #060608;
+  border: 1px solid #201e2c;
+  border-radius: 0;
+  padding: 0.6rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.2rem;
+}
+
+.hook-base-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.72rem;
+  overflow: hidden;
+}
+
+.hook-base-badge .badge-tag {
+  color: var(--text-muted);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.hook-base-badge .badge-text {
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 400;
+}
+
+.hook-combined-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid #201e2c;
+}
+
+.hook-combined-result .combined-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--primary);
+}
+
+.hook-combined-result .combined-text {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #ffffff;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.pfx-highlight {
+  color: #38bdf8;
+  font-weight: 800;
+}
+
+.base-highlight {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.sfx-highlight {
+  color: #f59e0b;
+  font-weight: 800;
+}
+
+.ext-highlight {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+/* Subtitles Visibility Disabled Styles */
+.subtitles-disabled-notice-box {
+  background: #130a0a;
+  border: 1px solid #451a1a;
+  border-radius: 0;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.76rem;
+  color: #fca5a5;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  line-height: 1.4;
+}
+
+.subtitles-dimmed {
+  opacity: 0.5;
+  pointer-events: auto;
+  transition: opacity 0.2s ease;
+}
+
+/* Filename Option Styles */
+.filename-preview-box {
+  background: #060608;
+  border: 1px solid #201e2c;
+  border-radius: 0;
+  padding: 0.7rem 0.85rem;
+  margin-top: 0.65rem;
+  box-shadow: none;
+}
+
+.filename-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.45rem;
+}
+
+.filename-preview-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #38bdf8;
+}
+
+.filename-preview-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 0;
+  background: #0c0b14;
+  color: #38bdf8;
+  border: 1px solid #1a364d;
+}
+
+.filename-preview-display {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.65rem;
+  background: #000000;
+  border: 1px solid #201e2c;
+  border-radius: 0;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.82rem;
+  color: #ffffff;
+  word-break: break-all;
+}
+
+.filename-preview-display .fn-icon {
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.filename-preview-display .fn-text {
+  flex: 1;
+  word-break: break-all;
+}
+
+.filename-preview-tip {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 0.45rem;
+  margin-bottom: 0;
+  line-height: 1.35;
+}
+
+/* ==========================================================================
+   Clip Trimmer & Context Editor Modal Styles
+   ========================================================================== */
+.clip-trimmer-modal {
+  animation: trimmerModalScaleIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes trimmerModalScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.clip-trimmer-modal button:hover {
+  filter: brightness(1.12);
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.clip-trimmer-modal button:active {
+  transform: scale(0.97);
+}
+
+@media (max-width: 768px) {
+  .clip-trimmer-modal {
+    max-height: 96vh !important;
+    padding: 0.5rem !important;
+  }
+}
+
+.trimmer-player-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000000;
+  border-radius: 0;
+  overflow: hidden;
+  border: 1px solid #201e2c;
+}
+
+.trimmer-player-wrapper iframe,
+.trimmer-player-wrapper #trimmer-yt-player-container iframe,
+.trimmer-player-wrapper #trimmer-yt-iframe-slot iframe {
+  width: 100% !important;
+  height: 100% !important;
+  border: none !important;
+  display: block !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+}
+
+
+
+

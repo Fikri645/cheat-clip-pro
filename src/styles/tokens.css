@@ -1,0 +1,75 @@
+:root {
+  /* ==========================================================================
+     CHEAT CLIP PRO - DESIGN SYSTEM TOKENS (Cyberpunk Brutalist)
+     ========================================================================== */
+
+  /* --- TYPOGRAPHY (Strict Single Source of Truth) --- */
+  --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  font-weight: 400;
+
+  color-scheme: dark;
+  color: #f5f5f7;
+  background-color: #060608;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* --- SURFACES (Deep Pitch Black & Dark Charcoal) --- */
+  --bg-main: #060608;          /* Deepest solid pitch black */
+  --bg-surface: #0a0a0f;       /* Solid charcoal terminal card surface */
+  --bg-surface-elevated: #0c0b14; /* Elevated card surface */
+  --bg-surface-hover: #121118; /* Interactive hover card surface */
+  --bg-input: #08080c;         /* Input field background */
+
+  /* --- BORDERS & ACCENTS --- */
+  --border-color: #201e2c;     /* Subtle precision cyber border */
+  --border-muted: #181524;     /* Muted secondary border */
+  --border-active: #2e2942;    /* Active card border */
+  --border-glow: rgba(255, 0, 255, 0.4);
+  --border-color-glow: rgba(255, 0, 255, 0.5);
+
+  /* --- PRIMARY & BRAND NEONS --- */
+  --primary: #ff00ff;          /* True Pure Neon Magenta */
+  --primary-hover: #ff33ff;    /* Bright Magenta highlight */
+  --primary-glow: rgba(255, 0, 255, 0.5);
+
+  --secondary: #e000e0;        /* Deep saturated magenta */
+  --secondary-glow: rgba(224, 0, 224, 0.4);
+
+  /* --- SATURATED NEON TIERS & STATUSES --- */
+  --neon-cyan: #00f0ff;        /* Electric Cyan (Timestamps / Med-tier) */
+  --neon-cyan-glow: rgba(0, 240, 255, 0.45);
+
+  --neon-orange: #ff6600;      /* Fire Orange (High-tier Virality / Terbakar) */
+  --neon-orange-glow: rgba(255, 102, 0, 0.45);
+
+  --neon-green: #00ff66;       /* Neon Lime (Low-tier Virality / JSON Download) */
+  --neon-green-glow: rgba(0, 255, 102, 0.45);
+  --accent: #00ff66;
+  --accent-glow: rgba(0, 255, 102, 0.35);
+
+  --neon-yellow: #ffea00;      /* Electric Amber / Yellow (SRT / Notices) */
+  --neon-yellow-glow: rgba(255, 234, 0, 0.45);
+
+  --neon-red: #ff3366;         /* Crimson / Danger / Unmark */
+  --neon-red-glow: rgba(255, 51, 102, 0.45);
+
+  --accent-red: #ff1e27;       /* Terminal Red */
+  --accent-red-glow: rgba(255, 30, 39, 0.35);
+
+  /* --- TEXT CONTRAST TOKENS --- */
+  --text-primary: #f8fafc;     /* High contrast white */
+  --text-secondary: #94a3b8;   /* Readable muted text */
+  --text-muted: #64748b;       /* Dim labels & hints */
+  --text-disabled: #475569;    /* Disabled text */
+
+  /* --- MOTION --- */
+  --transition-fast: all 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-smooth: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
