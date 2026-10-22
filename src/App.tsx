@@ -5201,18 +5201,20 @@ Transcript:
                       onClick={() => toggleAllMarkedClips()}
                       title={result.clips.every(clip => !!markedClips[`${clip.start_time}_${clip.end_time}`]) ? t.results.unmarkAllClips : t.results.markAllClips}
                       style={{
-                        background: result.clips.every(clip => !!markedClips[`${clip.start_time}_${clip.end_time}`]) ? 'rgba(239, 68, 68, 0.12)' : 'rgba(168, 85, 247, 0.12)',
-                        border: result.clips.every(clip => !!markedClips[`${clip.start_time}_${clip.end_time}`]) ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid rgba(168, 85, 247, 0.35)',
-                        color: result.clips.every(clip => !!markedClips[`${clip.start_time}_${clip.end_time}`]) ? '#f87171' : 'var(--primary)',
-                        borderRadius: '5px',
-                        padding: '0.2rem 0.55rem',
+                        background: result.clips.every(clip => !!markedClips[`${clip.start_time}_${clip.end_time}`]) ? 'rgba(255, 51, 102, 0.12)' : 'rgba(176, 38, 255, 0.12)',
+                        border: result.clips.every(clip => !!markedClips[`${clip.start_time}_${clip.end_time}`]) ? '1.5px solid #ff3366' : '1.5px solid #b026ff',
+                        color: result.clips.every(clip => !!markedClips[`${clip.start_time}_${clip.end_time}`]) ? '#ff3366' : '#c084fc',
+                        borderRadius: 0,
+                        padding: '0.28rem 0.65rem',
                         fontSize: '0.74rem',
-                        fontWeight: 600,
+                        fontWeight: 700,
+                        fontFamily: 'var(--font-mono)',
                         cursor: 'pointer',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '0.3rem',
-                        transition: 'var(--transition-smooth)'
+                        transition: 'var(--transition-smooth)',
+                        boxShadow: result.clips.every(clip => !!markedClips[`${clip.start_time}_${clip.end_time}`]) ? '0 0 8px rgba(255, 51, 102, 0.25)' : '0 0 8px rgba(176, 38, 255, 0.25)'
                       }}
                     >
                       {result.clips.every(clip => !!markedClips[`${clip.start_time}_${clip.end_time}`])
@@ -5221,49 +5223,40 @@ Transcript:
                     </button>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '0.55rem', alignItems: 'center', flexWrap: 'wrap' }}>
                   <div style={{ position: 'relative', display: 'inline-block' }}>
                     <button
                       type="button"
-                      className="action-link-btn"
+                      className="toolbar-action-btn toolbar-btn-timestamps"
                       onClick={(e) => toggleTimestampMenu('toolbar', e)}
                       title={t.results.copyAllTimestampsTooltip}
-                      style={{ background: 'none', border: 'none', color: 'var(--secondary)', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
                     >
                       {t.results.copyAllTimestamps} ▾
                     </button>
                     {copyTimestampMenuTarget === 'toolbar' && renderTimestampFormatMenu('left')}
                   </div>
-                  <span style={{ color: 'var(--border-color)' }}>|</span>
                   <button
                     type="button"
-                    className="action-link-btn"
+                    className="toolbar-action-btn toolbar-btn-copy-md"
                     onClick={handleCopyAllMarkdown}
-                    style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
                   >
                     {t.results.copyAllMd}
                   </button>
-                  <span style={{ color: 'var(--border-color)' }}>|</span>
                   <button
                     type="button"
-                    className="action-link-btn"
+                    className="toolbar-action-btn toolbar-btn-json"
                     onClick={handleExportJSON}
-                    style={{ background: 'none', border: 'none', color: 'var(--secondary)', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
                   >
                     {t.results.downloadJson}
                   </button>
                   {result.transcript && (
-                    <>
-                      <span style={{ color: 'var(--border-color)' }}>|</span>
-                      <button
-                        type="button"
-                        className="action-link-btn"
-                        onClick={handleExportSRT}
-                        style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
-                      >
-                        {t.results.downloadSrt}
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      className="toolbar-action-btn toolbar-btn-srt"
+                      onClick={handleExportSRT}
+                    >
+                      {t.results.downloadSrt}
+                    </button>
                   )}
                 </div>
               </div>

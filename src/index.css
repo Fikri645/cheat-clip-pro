@@ -1112,11 +1112,11 @@ input[type="radio"]:checked::after {
   top: calc(100% + 6px);
   min-width: 290px;
   max-width: 340px;
-  background: #0e1526;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
+  background: #0a0a0f;
+  border: 1px solid #00f0ff;
+  border-radius: 0;
   padding: 0.5rem;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.75), 0 0 20px rgba(255, 94, 58, 0.12);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.85), 0 0 16px rgba(0, 240, 255, 0.25);
   z-index: 9999;
   display: flex;
   flex-direction: column;
@@ -1128,9 +1128,9 @@ input[type="radio"]:checked::after {
 
 .timestamp-scope-selector {
   display: flex;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  background: #060608;
+  border: 1px solid #201e2c;
+  border-radius: 0;
   padding: 3px;
   gap: 4px;
   margin-bottom: 0.25rem;
@@ -1145,7 +1145,7 @@ input[type="radio"]:checked::after {
   padding: 0.35rem 0.5rem;
   font-size: 0.75rem;
   font-weight: 600;
-  border-radius: 6px;
+  border-radius: 0;
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-secondary);
@@ -1160,10 +1160,10 @@ input[type="radio"]:checked::after {
 }
 
 .timestamp-scope-btn.active {
-  background: rgba(255, 94, 58, 0.15);
-  border-color: rgba(255, 94, 58, 0.45);
-  color: var(--secondary);
-  box-shadow: 0 2px 8px rgba(255, 94, 58, 0.15);
+  background: rgba(0, 240, 255, 0.15);
+  border-color: #00f0ff;
+  color: #00f0ff;
+  box-shadow: 0 2px 8px rgba(0, 240, 255, 0.25);
 }
 
 .timestamp-scope-btn.active.scope-marked {
@@ -1177,13 +1177,13 @@ input[type="radio"]:checked::after {
   font-size: 0.68rem;
   font-weight: 700;
   padding: 1px 6px;
-  border-radius: 10px;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.08);
   color: inherit;
 }
 
 .timestamp-scope-btn.active .timestamp-scope-count {
-  background: rgba(255, 94, 58, 0.25);
+  background: rgba(0, 240, 255, 0.3);
   color: #fff;
 }
 
@@ -1197,7 +1197,7 @@ input[type="radio"]:checked::after {
   color: #fbbf24;
   background: rgba(245, 158, 11, 0.1);
   border: 1px dashed rgba(245, 158, 11, 0.3);
-  border-radius: 6px;
+  border-radius: 0;
   padding: 0.4rem 0.6rem;
   margin-bottom: 0.25rem;
   line-height: 1.35;
@@ -1209,7 +1209,7 @@ input[type="radio"]:checked::after {
   align-items: flex-start;
   gap: 0.15rem;
   padding: 0.5rem 0.65rem;
-  border-radius: 6px;
+  border-radius: 0;
   border: none;
   background: transparent;
   color: var(--text-primary);
@@ -1221,6 +1221,91 @@ input[type="radio"]:checked::after {
 
 .timestamp-menu-item:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.06);
+}
+
+/* Clips Toolbar Action Buttons (Saturated Neon Theme, Boxed Borders) */
+.toolbar-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.65rem;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  font-weight: 700;
+  border-radius: 0 !important;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  outline: none;
+}
+
+.toolbar-action-btn:hover {
+  transform: translateY(-1px);
+}
+
+.toolbar-action-btn:active {
+  transform: translateY(0);
+}
+
+/* 1. Copy Timestamps: Bright Neon Cyan / Electric Blue */
+.toolbar-btn-timestamps {
+  background: rgba(0, 240, 255, 0.08);
+  border: 1.5px solid #00f0ff;
+  color: #00f0ff;
+  box-shadow: 0 0 6px rgba(0, 240, 255, 0.18);
+}
+
+.toolbar-btn-timestamps:hover {
+  background: rgba(0, 240, 255, 0.22);
+  border-color: #00f0ff;
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.55);
+}
+
+/* 2. Copy All Markdown: Bright Neon Magenta / Fuchsia */
+.toolbar-btn-copy-md {
+  background: rgba(255, 0, 160, 0.08);
+  border: 1.5px solid #ff00a0;
+  color: #ff00a0;
+  box-shadow: 0 0 6px rgba(255, 0, 160, 0.18);
+}
+
+.toolbar-btn-copy-md:hover {
+  background: rgba(255, 0, 160, 0.22);
+  border-color: #ff00a0;
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(255, 0, 160, 0.55);
+}
+
+/* 3. Download JSON: Bright Neon Lime / Emerald */
+.toolbar-btn-json {
+  background: rgba(0, 255, 102, 0.08);
+  border: 1.5px solid #00ff66;
+  color: #00ff66;
+  box-shadow: 0 0 6px rgba(0, 255, 102, 0.18);
+}
+
+.toolbar-btn-json:hover {
+  background: rgba(0, 255, 102, 0.22);
+  border-color: #00ff66;
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(0, 255, 102, 0.55);
+}
+
+/* 4. Download SRT: Bright Neon Yellow / Electric Amber */
+.toolbar-btn-srt {
+  background: rgba(255, 234, 0, 0.08);
+  border: 1.5px solid #ffea00;
+  color: #ffea00;
+  box-shadow: 0 0 6px rgba(255, 234, 0, 0.18);
+}
+
+.toolbar-btn-srt:hover {
+  background: rgba(255, 234, 0, 0.22);
+  border-color: #ffea00;
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(255, 234, 0, 0.55);
 }
 
 .transcript-box {
