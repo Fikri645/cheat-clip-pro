@@ -2558,68 +2558,43 @@ Transcript:
       {/* Full-Width Cyber Header Bar (johansa.com style - Edge-to-Edge Solid Dark) */}
       <div className="app-header-wrapper">
         <div className="app-header-inner">
-          <header className="app-header" style={{ borderBottom: 'none', padding: 0 }}>
-            <div className="header-logo" style={{ display: 'flex', alignItems: 'center' }}>
+          <header className="app-header">
+            <div className="header-logo">
               <div>
-                <div className="logo-title-row" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
-                  <span className="prompt-marker" style={{
-                    color: '#ff00ff',
-                    fontFamily: 'var(--font-mono)',
-                    fontWeight: 900,
-                    fontSize: '1.45rem',
-                    lineHeight: 1,
-                    letterSpacing: '-0.02em',
-                    userSelect: 'none',
-                    textShadow: '0 0 10px rgba(255, 0, 255, 0.45)',
-                    marginRight: '0.1rem'
-                  }}>
+                <div className="logo-title-row">
+                  <span className="prompt-marker">
                     &gt;_
                   </span>
-                  <h1 className="logo-title" style={{ fontFamily: 'var(--font-mono)', fontSize: '1.35rem', fontWeight: 900, color: '#f8fafc', letterSpacing: '-0.02em', margin: 0, display: 'inline-flex', alignItems: 'center' }}>
-                    JOHANSA <span style={{ color: 'var(--text-muted)', fontWeight: 500, margin: '0 0.35rem' }}>//</span> CHEAT CLIP
+                  <h1 className="logo-title">
+                    JOHANSA <span className="logo-title-separator">//</span> CHEAT CLIP
                   </h1>
-                  <span className="pro-badge" title="Cheat Clip Pro Edition" style={{ background: 'rgba(255, 0, 255, 0.1)', border: '1px solid #ff00ff', color: '#ff00ff', fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '0.7rem', padding: '0.15rem 0.45rem', display: 'inline-flex', alignItems: 'center' }}>
+                  <span className="pro-badge" title="Cheat Clip Pro Edition">
                     PRO
                   </span>
-                  <span className="status-dot" title="Online" style={{ display: 'inline-block', width: '8px', height: '8px', background: '#ff00ff', boxShadow: '0 0 10px #ff00ff', flexShrink: 0 }}></span>
+                  <span className="status-dot" title="Online"></span>
                 </div>
-                <p className="header-subtitle" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                <p className="header-subtitle">
                   &gt; {t.header.subtitle}
                 </p>
               </div>
             </div>
-            <div className="header-nav" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div className="header-nav">
               <button
                 type="button"
-                className="cookie-header-btn"
+                className={`header-nav-btn${hasCookies ? ' cookies-active' : ''}`}
                 onClick={() => setIsCookiesModalOpen(true)}
-                style={{
-                  padding: '0.45rem 0.85rem',
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  fontFamily: 'var(--font-mono)',
-                  background: hasCookies ? 'rgba(34, 197, 94, 0.12)' : '#0d0d14',
-                  border: hasCookies ? '1px solid rgba(34, 197, 94, 0.45)' : '1px solid #272238',
-                  color: hasCookies ? '#4ade80' : 'var(--text-secondary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.45rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  boxShadow: hasCookies ? '0 0 10px rgba(34, 197, 94, 0.15)' : 'none'
-                }}
                 title={hasCookies ? t.header.cookiesTooltipActive : t.header.cookiesTooltipSetup}
               >
                 <span>[*] {t.header.cookiesBtn}</span>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                <span>
                   {hasCookies ? (
                     <>
-                      <span style={{ color: '#22c55e', fontSize: '0.85rem' }}>✓</span>
+                      <span className="cookie-status-icon">✓</span>
                       <span>{t.header.cookiesStatusActive}</span>
                     </>
                   ) : (
                     <>
-                      <span style={{ opacity: 0.5 }}>○</span>
+                      <span className="cookie-status-icon inactive">○</span>
                       <span>{t.header.cookiesStatusSetup}</span>
                     </>
                   )}
@@ -2628,23 +2603,9 @@ Transcript:
               {allowAppUpdates && (
                 <button
                   type="button"
-                  className="cookie-header-btn"
+                  className="header-nav-btn"
                   onClick={() => setShowGlobalClearModal(true)}
                   disabled={isClearingGlobalTemp}
-                  style={{
-                    padding: '0.45rem 0.85rem',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    fontFamily: 'var(--font-mono)',
-                    background: '#0d0d14',
-                    border: '1px solid #272238',
-                    color: 'var(--text-secondary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.4rem',
-                    cursor: isClearingGlobalTemp ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
                   title={t.header.clearTempTooltip}
                 >
                   <span>[x] {isClearingGlobalTemp ? t.header.clearingTempBtn : t.header.clearTempBtn}</span>
@@ -2653,22 +2614,8 @@ Transcript:
               {allowAppUpdates && (
                 <button
                   type="button"
-                  className="cookie-header-btn"
+                  className="header-nav-btn"
                   onClick={() => setIsUpdateModalOpen(true)}
-                  style={{
-                    padding: '0.45rem 0.85rem',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    fontFamily: 'var(--font-mono)',
-                    background: '#0d0d14',
-                    border: '1px solid #272238',
-                    color: 'var(--text-secondary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.4rem',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
                   title={t.header.updateBtnTooltip}
                 >
                   <span>[~] {t.header.updateBtn}</span>
@@ -2679,15 +2626,7 @@ Transcript:
                 href="https://tako.id/johansa"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="glowing-btn"
-                style={{
-                  padding: '0.45rem 0.95rem',
-                  fontSize: '0.8rem',
-                  textDecoration: 'none',
-                  background: 'rgba(255, 0, 255, 0.08)',
-                  border: '1px solid #ff00ff',
-                  color: '#ff00ff'
-                }}
+                className="header-nav-btn support-btn"
               >
                 [$] {t.header.supportProject}
               </a>
@@ -2749,7 +2688,7 @@ Transcript:
             <span className="workflow-tab-dot"></span>
             <span>03 // AUTO CLIPPER</span>
             {markedClipsList.length > 0 && (
-              <span className="workflow-tab-count" style={{ background: 'rgba(0, 255, 102, 0.15)', color: '#00ff66', border: '1px solid #00ff66', boxShadow: '0 0 8px rgba(0, 255, 102, 0.35)' }}>
+              <span className="workflow-tab-count">
                 [{markedClipsList.length} READY]
               </span>
             )}
@@ -2759,9 +2698,9 @@ Transcript:
         {result && workflowTab !== 'clips' && (
           <div className="active-video-banner">
             <div className="active-video-info">
-              <span style={{ color: 'var(--primary)', fontWeight: 800, textShadow: '0 0 10px var(--primary-glow)' }}>&gt;_ ACTIVE VIDEO:</span>
-              <span style={{ color: '#ffffff', fontWeight: 600, fontSize: '0.88rem' }}>{result.title}</span>
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>[{result.clips?.length || 0} klip tersedia]</span>
+              <span className="studio-tab-preview-title">&gt;_ ACTIVE VIDEO:</span>
+              <span className="studio-tab-preview-name">{result.title}</span>
+              <span className="studio-tab-preview-count">[{result.clips?.length || 0} klip tersedia]</span>
             </div>
             <div className="active-video-actions">
               <button
@@ -5048,58 +4987,14 @@ Transcript:
                             {idx + 1}. {clip.title}
                           </span>
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.15rem', flexShrink: 0 }}>
-                          <span style={{
-                            fontSize: '0.68rem',
-                            fontWeight: 800,
-                            fontFamily: 'var(--font-mono)',
-                            borderRadius: 0,
-                            padding: '0.08rem 0.38rem',
-                            whiteSpace: 'nowrap',
-                            color: clip.virality_score >= 85 ? '#ff6600' : clip.virality_score >= 70 ? '#00f0ff' : '#00ff66',
-                            background: clip.virality_score >= 85
-                              ? 'rgba(255, 102, 0, 0.14)'
-                              : clip.virality_score >= 70
-                              ? 'rgba(0, 240, 255, 0.14)'
-                              : 'rgba(0, 255, 102, 0.14)',
-                            border: `1.5px solid ${
-                              clip.virality_score >= 85
-                                ? '#ff6600'
-                                : clip.virality_score >= 70
-                                ? '#00f0ff'
-                                : '#00ff66'
-                            }`,
-                            boxShadow: `0 0 8px ${
-                              clip.virality_score >= 85
-                                ? 'rgba(255, 102, 0, 0.4)'
-                                : clip.virality_score >= 70
-                                ? 'rgba(0, 240, 255, 0.4)'
-                                : 'rgba(0, 255, 102, 0.4)'
-                            }`
-                          }}>
+                        <div className="sidebar-clip-item-right">
+                          <span className={`virality-mini-badge ${clip.virality_score >= 85 ? 'score-high' : clip.virality_score >= 70 ? 'score-mid' : 'score-low'}`}>
                              {clip.virality_score}%
                           </span>
                           <span
                             onClick={(e) => handleCopyTimestamp(clip, e)}
                             title={t.results.copyTimestampTooltip}
-                            style={{
-                              color: 'var(--text-muted)',
-                              fontFamily: 'monospace',
-                              fontSize: '0.68rem',
-                              whiteSpace: 'nowrap',
-                              cursor: 'pointer',
-                              padding: '1px 4px',
-                              borderRadius: '3px',
-                              transition: 'all 0.15s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.color = 'var(--secondary)';
-                              e.currentTarget.style.background = 'rgba(255, 94, 58, 0.15)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.color = 'var(--text-muted)';
-                              e.currentTarget.style.background = 'transparent';
-                            }}
+                            className="virality-mini-ts"
                           >
                              {formatSeconds(clip.start_time)} – {formatSeconds(clip.end_time)}
                           </span>
@@ -5327,35 +5222,13 @@ Transcript:
                                 e.stopPropagation();
                                 handleCopyText(clip.title, 'Title');
                               }}
-                              style={{
-                                background: 'rgba(255, 255, 255, 0.05)',
-                                border: '1px solid var(--border-color)',
-                                cursor: 'pointer',
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                                fontSize: '0.7rem',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '2px',
-                                color: 'var(--text-secondary)',
-                                transition: 'var(--transition-smooth)'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = 'rgba(168, 85, 247, 0.15)';
-                                e.currentTarget.style.color = 'var(--primary)';
-                                e.currentTarget.style.borderColor = 'rgba(168, 85, 247, 0.3)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                                e.currentTarget.style.color = 'var(--text-secondary)';
-                                e.currentTarget.style.borderColor = 'var(--border-color)';
-                              }}
+                              className="copy-title-btn"
                               title={t.results.copyTitleTooltip}
                             >
                               // {t.results.copyMini}
                             </button>
                           </div>
-                          <div className="score-meta" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <div className="score-meta">
                             <span
                               className="timestamp-pill"
                               onClick={(e) => handleCopyTimestamp(clip, e)}
@@ -5516,30 +5389,8 @@ Transcript:
                           return (
                             <button
                               type="button"
-                              className="form-input"
+                              className={`clip-dl-btn ${isReady ? 'state-ready' : 'state-downloading'}`}
                               disabled={isDl}
-                              style={{
-                                width: 'auto',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.35rem',
-                                padding: '0.45rem 0.9rem',
-                                fontSize: '0.78rem',
-                                borderRadius: 0,
-                                whiteSpace: 'nowrap',
-                                cursor: isDl ? 'not-allowed' : 'pointer',
-                                background: isReady
-                                  ? 'rgba(0, 255, 102, 0.15)'
-                                  : 'rgba(0, 229, 255, 0.15)',
-                                border: isReady
-                                  ? '1px solid #00ff66'
-                                  : '1px solid #00e5ff',
-                                color: isReady
-                                  ? '#00ff66'
-                                  : '#00e5ff',
-                                fontWeight: 700,
-                                transition: 'var(--transition-smooth)'
-                              }}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setTrimmerClip(clip);

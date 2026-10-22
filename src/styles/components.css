@@ -1,0 +1,387 @@
+/* ==========================================================================
+   CHEAT CLIP PRO — Shared Semantic Component Classes
+   Replaces inline style={{ }} patterns throughout App.tsx & components
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   APP HEADER — Logo, Prompt Marker, Pro Badge, Status Dot
+   -------------------------------------------------------------------------- */
+
+.prompt-marker {
+  color: var(--primary);
+  font-family: var(--font-mono);
+  font-weight: 900;
+  font-size: 1.45rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  user-select: none;
+  text-shadow: 0 0 10px rgba(255, 0, 255, 0.45);
+  margin-right: 0.1rem;
+}
+
+.logo-title {
+  font-family: var(--font-mono) !important;
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.logo-title-separator {
+  color: var(--text-muted);
+  font-weight: 500;
+  margin: 0 0.35rem;
+}
+
+.pro-badge {
+  background: rgba(255, 0, 255, 0.1);
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.45rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--primary);
+  box-shadow: 0 0 10px var(--primary);
+  flex-shrink: 0;
+}
+
+.header-subtitle {
+  font-family: var(--font-mono) !important;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+.logo-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+/* --------------------------------------------------------------------------
+   HEADER NAV BUTTONS — Base, Cookie active/inactive, Clear, Update, Support
+   -------------------------------------------------------------------------- */
+
+/* Base header button — all share this */
+.header-nav-btn {
+  padding: 0.45rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  background: #0d0d14;
+  border: 1px solid #272238;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.header-nav-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.header-nav-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* Cookies button — active (has cookies set) */
+.header-nav-btn.cookies-active {
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.45);
+  color: #4ade80;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.15);
+}
+
+.header-nav-btn.cookies-active:hover {
+  border-color: #4ade80;
+  color: #4ade80;
+}
+
+/* Support / donate button */
+.header-nav-btn.support-btn {
+  background: rgba(255, 0, 255, 0.08);
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.header-nav-btn.support-btn:hover {
+  background: rgba(255, 0, 255, 0.18);
+  box-shadow: 0 0 12px rgba(255, 0, 255, 0.3);
+}
+
+/* Cookie status indicator */
+.cookie-status-icon {
+  font-size: 0.85rem;
+  color: #22c55e;
+}
+
+.cookie-status-icon.inactive {
+  opacity: 0.5;
+  color: inherit;
+}
+
+/* --------------------------------------------------------------------------
+   WORKFLOW TAB COUNTER BADGES
+   -------------------------------------------------------------------------- */
+
+.workflow-tab-count {
+  background: rgba(0, 255, 102, 0.15);
+  color: var(--neon-green);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+}
+
+/* --------------------------------------------------------------------------
+   VIRALITY SCORE MINI-BADGE (inside sidebar clip picker)
+   Tiered 3-color neon system: high=orange, mid=cyan, low=green
+   -------------------------------------------------------------------------- */
+
+.virality-mini-badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  padding: 0.08rem 0.38rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.virality-mini-badge.score-high {
+  color: var(--neon-orange);
+  background: rgba(255, 102, 0, 0.14);
+  border: 1.5px solid var(--neon-orange);
+  box-shadow: 0 0 8px rgba(255, 102, 0, 0.4);
+}
+
+.virality-mini-badge.score-mid {
+  color: var(--neon-cyan);
+  background: rgba(0, 240, 255, 0.14);
+  border: 1.5px solid var(--neon-cyan);
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+}
+
+.virality-mini-badge.score-low {
+  color: var(--neon-green);
+  background: rgba(0, 255, 102, 0.14);
+  border: 1.5px solid var(--neon-green);
+  box-shadow: 0 0 8px rgba(0, 255, 102, 0.4);
+}
+
+/* Timestamp under mini-badge */
+.virality-mini-ts {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  white-space: nowrap;
+  cursor: pointer;
+  padding: 1px 4px;
+  transition: all 0.15s ease;
+}
+
+.virality-mini-ts:hover {
+  color: var(--neon-cyan);
+  background: rgba(0, 240, 255, 0.1);
+}
+
+/* Sidebar clip item layout */
+.sidebar-clip-item-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+
+/* --------------------------------------------------------------------------
+   CLIP DOWNLOAD BUTTON — ready vs. downloading states
+   -------------------------------------------------------------------------- */
+
+.clip-dl-btn {
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.clip-dl-btn.state-ready {
+  background: rgba(0, 255, 102, 0.15);
+  border: 1px solid var(--neon-green);
+  color: var(--neon-green);
+}
+
+.clip-dl-btn.state-downloading {
+  background: rgba(0, 229, 255, 0.15);
+  border: 1px solid #00e5ff;
+  color: #00e5ff;
+  cursor: not-allowed;
+}
+
+.clip-dl-btn.state-ready:hover {
+  background: rgba(0, 255, 102, 0.25);
+  box-shadow: 0 0 10px rgba(0, 255, 102, 0.35);
+}
+
+/* --------------------------------------------------------------------------
+   SCORE META ROW — clip card score + timestamp row
+   -------------------------------------------------------------------------- */
+
+.score-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* --------------------------------------------------------------------------
+   COPY TITLE MINI BUTTON — inside clip card header
+   -------------------------------------------------------------------------- */
+
+.copy-title-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 0.2rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  flex-shrink: 0;
+}
+
+.copy-title-btn:hover {
+  background: rgba(168, 85, 247, 0.15);
+  color: var(--primary);
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+/* --------------------------------------------------------------------------
+   WORKFLOW TAB PREVIEW LABELS (studio section)
+   -------------------------------------------------------------------------- */
+
+.studio-tab-preview-title {
+  color: var(--primary);
+  font-weight: 800;
+  text-shadow: 0 0 10px var(--primary);
+}
+
+.studio-tab-preview-name {
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.studio-tab-preview-count {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+/* --------------------------------------------------------------------------
+   GENERIC LAYOUT UTILITY CLASSES (replacing common flex inline styles)
+   -------------------------------------------------------------------------- */
+
+.flex-row {
+  display: flex;
+  align-items: center;
+}
+
+.flex-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* --------------------------------------------------------------------------
+   FORM ROW LABEL — label above form group
+   -------------------------------------------------------------------------- */
+
+.form-row-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 0.35rem;
+}
+
+/* --------------------------------------------------------------------------
+   FORM ROW + INPUT DIVIDER
+   -------------------------------------------------------------------------- */
+
+.row-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 0.15rem 0;
+}
+
+/* --------------------------------------------------------------------------
+   SUMMARY PANEL VALUES (inside result summary sidebar)
+   -------------------------------------------------------------------------- */
+
+.summary-value-primary {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.summary-value-accent {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.summary-value-green {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--neon-green);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.summary-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.summary-row-header {
+  padding: 0.2rem 0.6rem 0.15rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}

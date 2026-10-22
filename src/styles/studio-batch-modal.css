@@ -1,0 +1,178 @@
+﻿/* ==========================================================================
+   Tab 03 â€” Batch Progress Modal
+   ========================================================================== */
+/* ============================================================
+   Batch Progress Modal Styles
+   ============================================================ */
+.batch-progress-card {
+  background: linear-gradient(180deg, #181a29 0%, #0e101c 100%);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: 0;
+  width: 100%;
+  max-width: 680px;
+  padding: 1.75rem;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(168, 85, 247, 0.2);
+  animation: modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.batch-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+}
+
+.batch-progress-header h3 {
+  font-size: 1.25rem;
+  font-family: var(--font-mono) !important;
+  margin: 0;
+  color: #fff;
+}
+
+.batch-subtitle {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0.25rem 0 0 0;
+}
+
+.batch-overall-bar-wrap {
+  margin-bottom: 1.5rem;
+}
+
+.batch-overall-bar {
+  height: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.batch-overall-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 100%);
+  transition: width 0.4s ease;
+  box-shadow: 0 0 12px rgba(255, 94, 58, 0.5);
+}
+
+.batch-overall-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-top: 0.4rem;
+}
+
+.batch-render-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-height: 280px;
+  overflow-y: auto;
+  margin-bottom: 1.5rem;
+}
+
+.batch-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0.65rem 1rem;
+  border-radius: 0;
+}
+
+.batch-item-col-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: 65%;
+}
+
+.batch-item-num {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.batch-item-text {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 0;
+}
+
+.status-badge.pending {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+}
+
+.status-badge.active {
+  background: rgba(255, 94, 58, 0.15);
+  color: var(--secondary);
+  border: 1px solid rgba(255, 94, 58, 0.3);
+  animation: pulse 1.5s infinite;
+}
+
+.status-badge.success {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-badge.error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.completed-action-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-download-clip {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  text-decoration: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.25rem 0.65rem;
+  border-radius: 0;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.btn-download-clip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.5);
+}
+
+.batch-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.85rem;
+}
+
+.batch-zip-download-btn {
+  padding: 0.65rem 1.25rem;
+  font-size: 0.85rem;
+  text-decoration: none;
+  border-radius: 0;
+}
+
+.rendering-in-progress-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
