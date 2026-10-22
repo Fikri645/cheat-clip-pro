@@ -2890,17 +2890,94 @@ Transcript:
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', width: '100%' }}>
               <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>{t.form.urlLabel}</label>
               <div className="form-main-input-row" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <input
-                  id="youtube-url-input"
-                  type="text"
-                  className="form-input"
-                  style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: '0.9rem', fontWeight: 400 }}
-                  placeholder={t.form.urlPlaceholder}
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  disabled={loading}
-                  required={sourceMode === 'youtube'}
-                />
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'stretch',
+                    position: 'relative',
+                    flex: 1,
+                    height: '48px',
+                    background: '#060608',
+                    border: '1px solid rgba(255, 0, 255, 0.35)',
+                    boxShadow: '0 0 8px rgba(255, 0, 255, 0.15)',
+                    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+                  }}
+                  className="hacker-api-key-container"
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '0 0.85rem',
+                      background: 'rgba(255, 0, 255, 0.08)',
+                      borderRight: '1px solid rgba(255, 0, 255, 0.25)',
+                      color: '#ff00ff',
+                      fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      letterSpacing: '0.05em',
+                      userSelect: 'none',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    LINK &gt;
+                  </div>
+                  <input
+                    id="youtube-url-input"
+                    type="text"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    disabled={loading}
+                    placeholder={t.form.urlPlaceholder}
+                    autoComplete="off"
+                    spellCheck={false}
+                    required={sourceMode === 'youtube'}
+                    style={{
+                      flex: 1,
+                      height: '100%',
+                      background: 'transparent',
+                      border: 'none',
+                      outline: 'none',
+                      padding: '0 0.85rem',
+                      fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                      fontSize: '0.88rem',
+                      fontWeight: 400,
+                      color: '#ffffff',
+                      caretColor: '#ff00ff',
+                    }}
+                  />
+                  {url && !loading && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '0 0.35rem',
+                        background: 'rgba(255, 255, 255, 0.02)',
+                        borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setUrl('')}
+                        title="Clear URL"
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'rgba(255, 255, 255, 0.4)',
+                          cursor: 'pointer',
+                          fontFamily: "'JetBrains Mono', monospace",
+                          fontSize: '0.75rem',
+                          padding: '0.3rem 0.5rem',
+                          transition: 'color 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = '#ff1e27')}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255, 255, 255, 0.4)')}
+                      >
+                        [X]
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <button
                   id="analyze-btn"
                   type="submit"
@@ -2933,17 +3010,94 @@ Transcript:
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
               <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>{t.form.gdriveUrlLabel}</label>
               <div className="form-main-input-row" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <input
-                  id="gdrive-url-input"
-                  type="text"
-                  className="form-input"
-                  style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: '0.9rem', fontWeight: 400 }}
-                  placeholder={t.form.gdriveUrlPlaceholder}
-                  value={gdriveUrl}
-                  onChange={(e) => setGdriveUrl(e.target.value)}
-                  disabled={loading}
-                  required={sourceMode === 'gdrive'}
-                />
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'stretch',
+                    position: 'relative',
+                    flex: 1,
+                    height: '48px',
+                    background: '#060608',
+                    border: '1px solid rgba(255, 0, 255, 0.35)',
+                    boxShadow: '0 0 8px rgba(255, 0, 255, 0.15)',
+                    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+                  }}
+                  className="hacker-api-key-container"
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '0 0.85rem',
+                      background: 'rgba(255, 0, 255, 0.08)',
+                      borderRight: '1px solid rgba(255, 0, 255, 0.25)',
+                      color: '#ff00ff',
+                      fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      letterSpacing: '0.05em',
+                      userSelect: 'none',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    LINK &gt;
+                  </div>
+                  <input
+                    id="gdrive-url-input"
+                    type="text"
+                    value={gdriveUrl}
+                    onChange={(e) => setGdriveUrl(e.target.value)}
+                    disabled={loading}
+                    placeholder={t.form.gdriveUrlPlaceholder}
+                    autoComplete="off"
+                    spellCheck={false}
+                    required={sourceMode === 'gdrive'}
+                    style={{
+                      flex: 1,
+                      height: '100%',
+                      background: 'transparent',
+                      border: 'none',
+                      outline: 'none',
+                      padding: '0 0.85rem',
+                      fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                      fontSize: '0.88rem',
+                      fontWeight: 400,
+                      color: '#ffffff',
+                      caretColor: '#ff00ff',
+                    }}
+                  />
+                  {gdriveUrl && !loading && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '0 0.35rem',
+                        background: 'rgba(255, 255, 255, 0.02)',
+                        borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setGdriveUrl('')}
+                        title="Clear URL"
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'rgba(255, 255, 255, 0.4)',
+                          cursor: 'pointer',
+                          fontFamily: "'JetBrains Mono', monospace",
+                          fontSize: '0.75rem',
+                          padding: '0.3rem 0.5rem',
+                          transition: 'color 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = '#ff1e27')}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255, 255, 255, 0.4)')}
+                      >
+                        [X]
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <button
                   id="analyze-gdrive-btn"
                   type="submit"

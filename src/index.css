@@ -481,7 +481,7 @@ input[type="radio"]:checked::after {
 
 .glowing-btn:hover:not(:disabled) {
   background: var(--primary-hover);
-  border-color: #ffffff;
+  border-color: var(--primary-hover);
   color: #000000;
   box-shadow: 0 0 24px rgba(255, 71, 255, 0.9);
 }
