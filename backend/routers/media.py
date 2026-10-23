@@ -148,7 +148,10 @@ def _find_video_file_on_disk(file_name: str) -> Optional[Path]:
     all_files: list[Path] = []
     for d in [UPLOADS_DIR, TEMP_DIR, EXPORTS_DIR]:
         if d.exists():
-            all_files.extend([f for f in d.iterdir() if f.is_file() and _is_safe_path(f)])
+            all_files.extend([
+                f for f in d.iterdir()
+                if f.is_file() and _is_safe_path(f) and not f.name.startswith("yt_audio_")
+            ])
 
     # Prioritize real video files over raw audio / temp clips
     video_exts = {".mp4", ".webm", ".mov", ".mkv", ".avi", ".m4v"}
