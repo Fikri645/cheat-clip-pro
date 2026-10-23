@@ -1,0 +1,109 @@
+/* ==========================================================================
+   HeatmapTimeline.module.css
+   Scoped styles for Virality Heatmap & Video Timeline
+   ========================================================================== */
+
+.container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.topRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.titleGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.naBadge {
+  font-size: 0.62rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-surface-elevated);
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border-color);
+}
+
+.canvasCard {
+  position: relative;
+  background: var(--bg-main);
+  border: 1px solid var(--border-color);
+  padding: 2px;
+  overflow: hidden;
+}
+
+.svg {
+  cursor: pointer;
+  display: block;
+}
+
+.tooltip {
+  position: absolute;
+  top: 4px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-color);
+  padding: 2px 6px;
+  font-size: 0.65rem;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+  z-index: 10;
+}
+
+.tooltipTime {
+  font-weight: 700;
+}
+
+.tooltipInterest {
+  color: var(--secondary);
+  font-size: 0.6rem;
+}
+
+.footerRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.legendGroup {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dotPrimary {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--primary);
+  box-shadow: 0 0 6px var(--primary-glow);
+}
+
+.boxClip {
+  width: 8px;
+  height: 8px;
+  border: 1px dashed var(--secondary);
+  background: rgba(255, 0, 255, 0.12);
+}

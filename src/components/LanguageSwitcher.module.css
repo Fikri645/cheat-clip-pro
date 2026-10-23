@@ -1,0 +1,43 @@
+/* ==========================================================================
+   LanguageSwitcher.module.css
+   Scoped Cyberpunk Brutalist Language Switcher
+   ========================================================================== */
+
+.switcher {
+  display: inline-flex;
+  align-items: stretch;
+  height: 32px;
+  box-sizing: border-box;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  user-select: none;
+  font-family: var(--font-mono);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 0.75rem;
+  height: 100%;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: var(--transition-fast);
+}
+
+.btn:hover:not(.active) {
+  color: var(--text-primary);
+  background: var(--bg-surface-elevated);
+}
+
+.active {
+  background: var(--primary);
+  color: #000;
+  box-shadow: 0 0 10px var(--primary-glow);
+}

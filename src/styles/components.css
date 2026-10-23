@@ -166,10 +166,10 @@
 }
 
 .virality-mini-badge.score-high {
-  color: var(--neon-orange);
-  background: rgba(255, 102, 0, 0.14);
-  border: 1.5px solid var(--neon-orange);
-  box-shadow: 0 0 8px rgba(255, 102, 0, 0.4);
+  color: var(--neon-green);
+  background: rgba(0, 255, 102, 0.14);
+  border: 1.5px solid var(--neon-green);
+  box-shadow: 0 0 8px rgba(0, 255, 102, 0.4);
 }
 
 .virality-mini-badge.score-mid {
@@ -180,10 +180,10 @@
 }
 
 .virality-mini-badge.score-low {
-  color: var(--neon-green);
-  background: rgba(0, 255, 102, 0.14);
-  border: 1.5px solid var(--neon-green);
-  box-shadow: 0 0 8px rgba(0, 255, 102, 0.4);
+  color: #ff1e27;
+  background: rgba(255, 30, 39, 0.14);
+  border: 1.5px solid #ff1e27;
+  box-shadow: 0 0 8px rgba(255, 30, 39, 0.4);
 }
 
 /* Timestamp under mini-badge */
@@ -385,3 +385,8 @@
   font-weight: 700;
   color: var(--text-muted);
 }
+
+/* --------------------------------------------------------------------------
+   LANGUAGE SWITCHER (Migrated to LanguageSwitcher.module.css)
+   -------------------------------------------------------------------------- */
+

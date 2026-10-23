@@ -1,0 +1,420 @@
+/* ==========================================================================
+   CLIP TRIMMER & CONTEXT EDITOR MODAL
+   Cyberpunk Brutalist Precision Audio-Video Editor
+   ========================================================================== */
+
+.clip-trimmer-modal {
+  width: 100%;
+  max-width: 1040px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-surface);
+  border: 1px solid var(--primary);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.9), 0 0 25px var(--primary-glow);
+  animation: trimmerModalScaleIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes trimmerModalScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .clip-trimmer-modal {
+    max-height: 96vh;
+    padding: 0.5rem;
+  }
+}
+
+.trimmer-header {
+  padding: 0.9rem 1.4rem;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-surface-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.trimmer-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.trimmer-title {
+  font-size: 1.2rem;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.trimmer-limit-pill {
+  font-size: 0.68rem;
+  padding: 0.15rem 0.55rem;
+  background: rgba(255, 0, 255, 0.12);
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.trimmer-close-btn {
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  background: var(--bg-main);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  padding: 0.3rem 0.6rem;
+  transition: var(--transition-fast);
+}
+
+.trimmer-close-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.trimmer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.1rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+/* Title Input Row */
+.trimmer-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--bg-main);
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--border-color);
+}
+
+.trimmer-name-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.trimmer-name-input {
+  flex: 1;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.82rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.trimmer-name-input:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+/* Two-column Preview Grid */
+.trimmer-preview-grid {
+  display: grid;
+  grid-templateColumns: minmax(300px, 1.25fr) minmax(260px, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .trimmer-preview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.trimmer-player-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000000;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.trimmer-player-wrapper iframe,
+.trimmer-player-wrapper #trimmer-yt-player-container iframe,
+.trimmer-player-wrapper #trimmer-yt-iframe-slot iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.trimmer-player-loader {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.trimmer-player-loader-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.9rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+/* Player Transport Bar */
+.trimmer-transport-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-main);
+  padding: 0.5rem 0.85rem;
+  border: 1px solid var(--border-color);
+  gap: 0.5rem;
+}
+
+.trimmer-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.35rem 0.65rem;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.trimmer-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.trimmer-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.trimmer-btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #000;
+  font-weight: 800;
+  box-shadow: 0 0 12px var(--primary-glow);
+}
+
+.trimmer-btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+  color: #000;
+  box-shadow: 0 0 18px var(--primary-glow);
+}
+
+/* Metric Cards */
+.trimmer-metrics-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-color);
+  padding: 0.9rem 1.1rem;
+}
+
+.trimmer-metric-chip {
+  padding: 0.25rem 0.55rem;
+  background: var(--bg-main);
+  border: 1px solid var(--border-color);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Timeline & Range Sliders */
+.trimmer-timeline-box {
+  background: var(--bg-main);
+  border: 1px solid var(--border-color);
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.trimmer-timeline-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.trimmer-slider-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.trimmer-range-input {
+  width: 100%;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+/* Transcript Box */
+.trimmer-transcript-box {
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--bg-main);
+  border: 1px solid var(--border-color);
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.trimmer-transcript-line {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  display: flex;
+  gap: 0.65rem;
+  cursor: pointer;
+  padding: 0.25rem 0.4rem;
+  transition: var(--transition-fast);
+}
+
+.trimmer-transcript-line:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.trimmer-transcript-line.active {
+  background: rgba(255, 0, 255, 0.08);
+  border-left: 2px solid var(--primary);
+  color: var(--text-primary);
+}
+
+.trimmer-transcript-time {
+  font-family: var(--font-mono);
+  color: var(--neon-cyan);
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+/* Footer Action Bar */
+.trimmer-footer {
+  padding: 0.85rem 1.4rem;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-surface-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.trimmer-reset-btn {
+  background: var(--bg-main);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  border-radius: 0;
+  padding: 0.5rem 0.95rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: var(--transition-fast);
+}
+
+.trimmer-reset-btn:hover:not(:disabled) {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+.trimmer-reset-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.trimmer-close-footer-btn {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  border-radius: 0;
+  padding: 0.5rem 0.95rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.trimmer-close-footer-btn:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+.trimmer-download-btn {
+  padding: 0.55rem 1.4rem;
+  font-size: 0.84rem;
+  border-radius: 0;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  background: var(--primary);
+  color: #000;
+  border: 1px solid var(--primary);
+  box-shadow: 0 0 16px var(--primary-glow);
+  transition: var(--transition-fast);
+}
+
+.trimmer-download-btn:hover:not(:disabled) {
+  filter: brightness(1.15);
+  box-shadow: 0 0 22px var(--primary-glow);
+}
+
+.trimmer-download-btn.is-success {
+  background: var(--status-success);
+  border-color: var(--status-success);
+  box-shadow: 0 0 16px var(--status-success-glow);
+}
+
+.trimmer-download-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+

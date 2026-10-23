@@ -9,7 +9,7 @@ export interface ClientRenderOptions {
   videoSourceUrl: string; // URL or Blob URL of the source clip
   startTime?: number;
   endTime?: number;
-  aspectRatio: '9:16' | '1:1' | '16:9' | '4:5';
+  aspectRatio: '9:16' | '1:1' | '16:9' | '4:5' | '4:3';
   backgroundStyle: 'blur' | 'black' | 'fit' | 'crop';
   titleText?: string;
   titlePosition?: 'top' | 'center' | 'bottom';
@@ -98,16 +98,32 @@ export async function renderClipClientSide(options: ClientRenderOptions): Promis
   let targetWidth = 1080;
   let targetHeight = 1920;
 
+  let lastFfmpegLog = '';
+  const logHandler = ({ message }: { message: string }) => {
+    lastFfmpegLog = message;
+    console.debug('[FFmpeg-WASM-Exec]', message);
+  };
+  ffmpeg.on('log', logHandler);
+
   if (aspectRatio === '9:16') {
     targetWidth = 1080;
     targetHeight = 1920;
     if (backgroundStyle === 'blur') {
-      filterStr = `[0:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight},gblur=sigma=20[bg];[0:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2[v]`;
+      filterStr = `[0:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight},gblur=sigma=12[bg];[0:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2[v]`;
     } else if (backgroundStyle === 'black') {
       filterStr = `[0:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2:black[v]`;
     } else {
       // Direct center crop
       filterStr = `[0:v]scale=ih*9/16:ih,scale=${targetWidth}:${targetHeight}[v]`;
+    }
+  } else if (aspectRatio === '4:3') {
+    // 4:3 Classic Format (1440x1080)
+    targetWidth = 1440;
+    targetHeight = 1080;
+    if (backgroundStyle === 'blur') {
+      filterStr = `[0:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight},gblur=sigma=12[bg];[0:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2[v]`;
+    } else {
+      filterStr = `[0:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2:black[v]`;
     }
   } else if (aspectRatio === '1:1') {
     targetWidth = 1080;
@@ -140,7 +156,8 @@ export async function renderClipClientSide(options: ClientRenderOptions): Promis
     '-map', '0:a?',
     '-c:v', 'libx264',
     '-preset', 'ultrafast',
-    '-crf', '24',
+    '-threads', '2',
+    '-crf', '26',
     '-c:a', 'aac',
     '-b:a', '128k',
     '-movflags', '+faststart',
@@ -154,8 +171,22 @@ export async function renderClipClientSide(options: ClientRenderOptions): Promis
     }
   });
 
-  if (onProgress) onProgress(35, 'Encoding vertical MP4 on client...');
-  await ffmpeg.exec(ffmpegArgs);
+  if (onProgress) onProgress(35, 'Encoding video on client browser...');
+  try {
+    const exitCode = await ffmpeg.exec(ffmpegArgs);
+    if (exitCode !== 0) {
+      throw new Error(`FFmpeg WASM exited with code ${exitCode}. Details: ${lastFfmpegLog || 'Encoding error'}`);
+    }
+  } catch (err: any) {
+    console.error('FFmpeg WASM execution error:', err, 'Last log:', lastFfmpegLog);
+    throw new Error(err?.message || lastFfmpegLog || 'Browser WASM engine memory limit exceeded');
+  } finally {
+    try {
+      ffmpeg.off('log', logHandler);
+    } catch {
+      // Ignore
+    }
+  }
 
   if (onProgress) onProgress(99, 'Extracting rendered MP4 file...');
   const outputData = await ffmpeg.readFile(outputName);

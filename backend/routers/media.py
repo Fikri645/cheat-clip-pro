@@ -574,12 +574,17 @@ def list_available_fonts():
 
             key = font_family.lower()
             is_builtin = key in fonts_map and not fonts_map[key]["is_custom"]
-            fonts_map[key] = {
-                "name": font_family,
-                "is_custom": not is_builtin,
-                "filename": f.name,
-                "url": f"/api/font-file/{f.name}"
-            }
+            if is_builtin:
+                # Keep builtin fonts using Google Fonts / system fonts in frontend
+                fonts_map[key]["filename"] = f.name
+                fonts_map[key]["url"] = None
+            else:
+                fonts_map[key] = {
+                    "name": font_family,
+                    "is_custom": True,
+                    "filename": f.name,
+                    "url": f"/api/font-file/{f.name}"
+                }
 
     return {"success": True, "fonts": list(fonts_map.values())}
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { X, Play, Pause, ChevronDown, ChevronUp } from 'lucide-react';
 import { useLanguage } from '../locales';
 import type { ViralClip, TranscriptLine } from '../types';
 
@@ -590,28 +591,16 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
       <div
         className="studio-modal-card clip-trimmer-modal"
         onClick={(e) => e.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: '1020px',
-          maxHeight: '92vh',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          borderRadius: 0,
-          background: '#0a0a0f',
-          border: '1px solid rgba(255, 0, 255, 0.3)',
-          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.9), 0 0 25px rgba(255, 0, 255, 0.15)'
-        }}
       >
         {/* Header */}
-        <div className="studio-modal-header" style={{ padding: '0.9rem 1.4rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', background: '#0a0a0f' }}>
+        <div className="trimmer-header">
           <div className="studio-header-title">
             <div>
-              <div className="studio-title-row" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                <h2 style={{ fontSize: '1.2rem', margin: 0, fontFamily: 'var(--font-mono)', fontWeight: 800 }}>
-                  <span style={{ color: '#ff00ff' }}>&gt;_</span> {t.trimmer.modalTitle}
+              <div className="trimmer-title-row">
+                <h2 className="trimmer-title">
+                  <span style={{ color: 'var(--primary)' }}>&gt;_</span> {t.trimmer.modalTitle}
                 </h2>
-                <span className="status-pill active" style={{ fontSize: '0.68rem', padding: '0.15rem 0.55rem', borderRadius: 0, background: 'rgba(255, 0, 255, 0.12)', border: '1px solid #ff00ff', color: '#ff00ff', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+                <span className="trimmer-limit-pill">
                   ±2 MIN CONTEXT LIMIT
                 </span>
               </div>
@@ -621,31 +610,30 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
             </div>
           </div>
           <button
-            className="studio-close-btn"
+            className="trimmer-close-btn"
             onClick={onClose}
             title={t.trimmer.closeBtn}
-            style={{ cursor: 'pointer', borderRadius: 0, border: '1px solid rgba(255, 255, 255, 0.15)', background: '#0e0e14', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', padding: '0.3rem 0.6rem' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            [X]
+            <X size={16} />
           </button>
         </div>
 
         {/* Modal Scrollable Body */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '1.1rem 1.4rem', display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+        <div className="trimmer-body">
 
           {/* Title Editor Row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#0a0a0f', padding: '0.55rem 0.9rem', borderRadius: 0, border: '1px solid rgba(255,255,255,0.08)' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+          <div className="trimmer-name-row">
+            <span className="trimmer-name-label">
               {t.trimmer.clipTitleLabel}
             </span>
             <input
               type="text"
-              className="form-input"
+              className="trimmer-name-input"
               value={clipTitle}
               disabled={isDownloading}
               onChange={(e) => setClipTitle(e.target.value)}
               placeholder="Clip title"
-              style={{ flex: 1, padding: '0.4rem 0.75rem', fontSize: '0.82rem', borderRadius: 0, fontFamily: 'var(--font-mono)' }}
             />
           </div>
 
@@ -688,7 +676,7 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
                       gap: '0.6rem',
                       padding: '0.5rem 0.9rem',
                       background: 'rgba(10, 15, 28, 0.85)',
-                      borderRadius: '8px',
+                      borderRadius: 0,
                       border: '1px solid rgba(255, 255, 255, 0.12)',
                       fontSize: '0.78rem',
                       color: 'var(--text-secondary)'
@@ -727,7 +715,7 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
                       pointerEvents: isDragging ? 'none' : 'auto',
                       objectFit: 'contain',
                       background: '#000',
-                      borderRadius: '8px'
+                      borderRadius: 0
                     }}
                     onLoadedMetadata={() => {
                       playerReadyRef.current = true;
@@ -796,11 +784,12 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
                       fontFamily: 'var(--font-mono)',
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '0.3rem',
+                      gap: '0.35rem',
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    {isPlaying ? '[||] PAUSE' : '[>] PLAY'}
+                    {isPlaying ? <Pause size={13} /> : <Play size={13} fill="currentColor" />}
+                    <span>{isPlaying ? 'PAUSE' : 'PLAY'}</span>
                   </button>
 
                   {/* Audio Mute / Unmute & Volume */}
@@ -834,16 +823,22 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
                           const v = parseFloat(e.target.value);
                           setVolume(v);
                           if (v === 0) {
-                            setIsMuted(true);
+                             setIsMuted(true);
                           } else if (isMuted) {
-                            setIsMuted(false);
+                             setIsMuted(false);
                           }
                           if (directVideoRef.current) {
                             directVideoRef.current.volume = v;
                             directVideoRef.current.muted = (v === 0);
                           }
                         }}
-                        style={{ width: '48px', accentColor: '#ff00ff', cursor: 'pointer', height: '4px' }}
+                        style={{
+                          width: '48px',
+                          accentColor: '#ff00ff',
+                          cursor: 'pointer',
+                          height: '4px',
+                          '--slider-progress': `${Math.max(0, Math.min(100, (isMuted ? 0 : volume) * 100))}%`
+                        } as React.CSSProperties}
                         title={`Volume: ${Math.round(volume * 100)}%`}
                       />
                     )}
@@ -1412,7 +1407,6 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
             <div style={{ background: '#0a0a0f', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 0, padding: '0.75rem 0.95rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showTranscript ? '0.5rem' : '0' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ fontSize: '0.82rem', color: '#ff00ff', fontFamily: 'var(--font-mono)', fontWeight: 800 }}>//</span>
                   <strong style={{ fontSize: '0.8rem', color: '#fff', fontFamily: 'var(--font-mono)' }}>{t.trimmer.transcriptTitle}</strong>
                   <span style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
                     ({relevantTranscript.length} lines in ±2m context)
@@ -1421,9 +1415,10 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowTranscript(prev => !prev)}
-                  style={{ background: 'none', border: 'none', color: '#ff00ff', cursor: 'pointer', fontSize: '0.72rem', fontFamily: 'var(--font-mono)', fontWeight: 700 }}
+                  style={{ background: 'none', border: 'none', color: '#ff00ff', cursor: 'pointer', fontSize: '0.72rem', fontFamily: 'var(--font-mono)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
                 >
-                  {showTranscript ? '[ - HIDE ]' : '[ + SHOW ]'}
+                  {showTranscript ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  <span>{showTranscript ? 'HIDE' : 'SHOW'}</span>
                 </button>
               </div>
 
@@ -1514,16 +1509,7 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
         </div>
 
         {/* Footer Action Bar */}
-        <div style={{
-          padding: '0.85rem 1.4rem',
-          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-          background: '#0a0a0f',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '0.8rem',
-          flexWrap: 'wrap'
-        }}>
+        <div className="trimmer-footer">
           {/* Left: Reset to Original AI */}
           <button
             type="button"
@@ -1533,21 +1519,7 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
               setAdjustedEnd(origEnd);
               seekToTime(origStart, false);
             }}
-            style={{
-              background: '#0d0d14',
-              border: '1px solid #272238',
-              color: 'var(--text-secondary)',
-              borderRadius: 0,
-              padding: '0.5rem 0.95rem',
-              fontSize: '0.78rem',
-              fontWeight: 700,
-              fontFamily: 'var(--font-mono)',
-              cursor: isDownloading ? 'not-allowed' : 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              opacity: isDownloading ? 0.4 : 1
-            }}
+            className="trimmer-reset-btn"
           >
             {t.trimmer.resetBtn}
           </button>
@@ -1557,49 +1529,16 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              style={{
-                background: '#0e0e14',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                color: 'var(--text-secondary)',
-                borderRadius: 0,
-                padding: '0.5rem 0.95rem',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-                fontFamily: 'var(--font-mono)',
-                cursor: 'pointer',
-                transition: 'var(--transition-smooth)'
-              }}
+              className="trimmer-close-footer-btn"
             >
               [ {t.trimmer.closeBtn.toUpperCase()} ]
             </button>
 
             <button
               type="button"
-              className="glowing-btn"
               onClick={handleDownloadClick}
               disabled={isDownloading}
-              style={{
-                padding: '0.55rem 1.4rem',
-                fontSize: '0.84rem',
-                borderRadius: 0,
-                fontWeight: 800,
-                fontFamily: 'var(--font-mono)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                boxShadow: isDownloading ? 'none' : '0 0 16px rgba(255, 0, 255, 0.5)',
-                opacity: isDownloading ? 0.55 : 1,
-                cursor: isDownloading ? 'not-allowed' : 'pointer',
-                pointerEvents: isDownloading ? 'none' : 'auto',
-                background: isDownloading
-                  ? 'rgba(100, 116, 139, 0.4)'
-                  : downloadSuccess
-                  ? '#10b981'
-                  : '#ff00ff',
-                color: isDownloading ? '#ffffff' : '#000000',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                transition: 'var(--transition-smooth)'
-              }}
+              className={`trimmer-download-btn ${downloadSuccess ? 'is-success' : ''}`}
             >
               {isDownloading ? (
                 <>

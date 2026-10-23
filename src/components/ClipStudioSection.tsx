@@ -1,8 +1,23 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { 
+  AlertTriangle, 
+  RefreshCw, 
+  Copy, 
+  Check, 
+  RotateCcw, 
+  Trash2, 
+  ArrowLeft, 
+  X,
+  Music,
+  FileCode,
+  Play,
+  Pause
+} from 'lucide-react';
 import { useLanguage } from '../locales';
 import { resilientFetch } from '../utils/api';
 import { getStoredCookies, hasStoredCookies } from '../utils/cookieUtils';
 import { detectFaceClientSide } from '../utils/clientFaceDetector';
+import { isWebCodecsGpuSupported, getClientGpuName } from '../services/webcodecsRenderer';
 import type {
   ViralClip,
   RenderSettings,
@@ -88,9 +103,9 @@ const ClipRenderErrorBox: React.FC<{ errorMessage: string; t: any; onRetry?: () 
       style={{
         marginTop: '0.4rem',
         padding: '0.55rem 0.75rem',
-        background: 'rgba(239, 68, 68, 0.08)',
-        border: '1px solid rgba(239, 68, 68, 0.28)',
-        borderRadius: '7px',
+        background: 'rgba(255, 30, 39, 0.12)',
+        border: '1px solid #ff1e27',
+        borderRadius: 0,
         fontSize: '0.72rem',
         color: '#fca5a5',
         display: 'flex',
@@ -98,12 +113,13 @@ const ClipRenderErrorBox: React.FC<{ errorMessage: string; t: any; onRetry?: () 
         gap: '0.35rem',
         lineHeight: 1.4,
         wordBreak: 'break-word',
+        boxShadow: '0 0 10px rgba(255, 30, 39, 0.25)'
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.6rem' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem' }}>
-          <span style={{ fontSize: '0.9rem', flexShrink: 0 }}>[!]</span>
-          <span style={{ fontWeight: 600, color: '#fca5a5' }}>{friendly}</span>
+          <AlertTriangle size={15} color="#ff1e27" style={{ flexShrink: 0, marginTop: '1px' }} />
+          <span style={{ fontWeight: 700, color: '#fff' }}>{friendly}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
           {onRetry && (
@@ -116,7 +132,7 @@ const ClipRenderErrorBox: React.FC<{ errorMessage: string; t: any; onRetry?: () 
               style={{
                 background: 'linear-gradient(135deg, #f59e0b, #d97706)',
                 border: '1px solid rgba(245, 158, 11, 0.6)',
-                borderRadius: '4px',
+                borderRadius: 0,
                 color: '#ffffff',
                 fontSize: '0.65rem',
                 padding: '2px 8px',
@@ -124,10 +140,14 @@ const ClipRenderErrorBox: React.FC<{ errorMessage: string; t: any; onRetry?: () 
                 fontWeight: 700,
                 transition: 'all 0.2s ease',
                 boxShadow: '0 0 8px rgba(245, 158, 11, 0.35)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.25rem'
               }}
               title="Retry rendering this clip"
             >
-              {t.studio.retryClipBtn || '[~] Retry'}
+              <RefreshCw size={11} />
+              {t.studio.retryClipBtn || 'Retry'}
             </button>
           )}
           <button
@@ -136,17 +156,21 @@ const ClipRenderErrorBox: React.FC<{ errorMessage: string; t: any; onRetry?: () 
             style={{
               background: copied ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.08)',
               border: `1px solid ${copied ? 'rgba(16, 185, 129, 0.4)' : 'rgba(255, 255, 255, 0.15)'}`,
-              borderRadius: '4px',
+              borderRadius: 0,
               color: copied ? '#34d399' : '#e2e8f0',
               fontSize: '0.65rem',
               padding: '2px 7px',
               cursor: 'pointer',
               fontWeight: 600,
               transition: 'all 0.2s ease',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem'
             }}
             title="Copy full error details"
           >
-            {copied ? (t.studio.copiedErrorBtn || '✓ Copied!') : (t.studio.copyErrorBtn || '[+] Copy')}
+            {copied ? <Check size={11} /> : <Copy size={11} />}
+            {copied ? (t.studio.copiedErrorBtn || 'Copied!') : (t.studio.copyErrorBtn || 'Copy')}
           </button>
         </div>
       </div>
@@ -231,7 +255,7 @@ export const DEFAULT_STUDIO_PREFS: Required<StudioPreferences> = {
   subtitlePositionMode: 'bottom',
   titleDuration: 'entire',
   originalAudioVolume: 100,
-  hardwareAccel: 'auto',
+  hardwareAccel: 'browser_wasm',
   titleYPercent: 17,
   subtitleYPercent: 21,
   subtitleCenterYPercent: 50,
@@ -389,11 +413,35 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
   const [isWatermarkDragging, setIsWatermarkDragging] = useState<boolean>(false);
   const phoneContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Hardware acceleration / Video Encoder state
-  const [hardwareAccel, setHardwareAccel] = useState<HardwareAccelOption>(() => getSavedStudioPreferences().hardwareAccel ?? DEFAULT_STUDIO_PREFS.hardwareAccel);
+  const [isLocalhost] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const h = window.location.hostname;
+      return h === 'localhost' || h === '127.0.0.1';
+    }
+    return false;
+  });
+
+  const [clientGpuName] = useState<string>(() => getClientGpuName());
+  const [hasWebCodecs] = useState<boolean>(() => isWebCodecsGpuSupported());
+
+  // Hardware acceleration / Video Encoder state: default to 'auto' on localhost, 'client_gpu' or 'browser_wasm' on deployed domain
+  const [hardwareAccel, setHardwareAccel] = useState<HardwareAccelOption>(() => {
+    const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    if (!isLocal) {
+      return isWebCodecsGpuSupported() ? 'client_gpu' : 'browser_wasm';
+    }
+    const saved = getSavedStudioPreferences().hardwareAccel;
+    return (saved && saved !== 'browser_wasm') ? saved : 'auto';
+  });
   const [hardwareInfo, setHardwareInfo] = useState<HardwareAccelInfo | null>(null);
+  const [hwDropdownOpen, setHwDropdownOpen] = useState<boolean>(false);
 
   useEffect(() => {
+    if (!isLocalhost) {
+      // On deployed domain, force client engine (prefer client_gpu)
+      setHardwareAccel(isWebCodecsGpuSupported() ? 'client_gpu' : 'browser_wasm');
+      return;
+    }
     const fetchHardwareSupport = async () => {
       try {
         const res = await resilientFetch('/api/hardware-accel', { maxRetries: 4, retryDelay: 1000, silent: true });
@@ -410,7 +458,10 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
 
   const loadCustomFontFace = (name: string, url: string) => {
     try {
-      const font = new FontFace(name, `url(${url})`);
+      // Isolate custom font face name or specify descriptors so it does not overwrite global UI font definitions (e.g. 'Inter' 400)
+      const isSystemUiFont = ['inter', 'outfit', 'jetbrains mono', 'roboto', 'segoe ui'].includes(name.trim().toLowerCase());
+      const familyName = isSystemUiFont ? `Preview-${name}` : name;
+      const font = new FontFace(familyName, `url(${url})`);
       font.load().then(loaded => {
         (document.fonts as Set<FontFace>).add(loaded);
       }).catch(err => console.warn(`Font '${name}' load error:`, err));
@@ -1638,9 +1689,13 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                 boxShadow: '0 0 10px rgba(255, 0, 255, 0.25)',
                 cursor: 'pointer',
                 borderRadius: 0,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem'
               }}
             >
-              [ ⟵ 02 // KEMBALI KE CLIPS ]
+              <ArrowLeft size={14} />
+              <span>02 {(t.studio as any).backToClips || 'KEMBALI KE CLIPS'}</span>
             </button>
           )}
           <button
@@ -1674,7 +1729,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
             }}
             title={t.studio.resetToDefaultsTooltip || 'Reset all settings to default values'}
           >
-            <span>[↺]</span>
+            <RotateCcw size={13} />
             <span>{t.studio.resetToDefaults || 'RESET TO DEFAULTS'}</span>
           </button>
 
@@ -1708,7 +1763,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
         {/* Left Column: Interactive Controls */}
         <div className="studio-controls-pane">
           {/* 1. Canvas & Inner Aspect Ratio */}
-          <div className="studio-card-group">
+          <div className="studio-card-group group-canvas">
             <div className="group-header">
               <span className="group-title">{t.studio.canvasTitle}</span>
               <span className="group-badge">{t.studio.canvasBadge}</span>
@@ -1847,7 +1902,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
           </div>
 
           {/* 3. Streamer Facecam Presets */}
-          <div className="studio-card-group">
+          <div className="studio-card-group group-facecam">
             <div className="group-header">
               <span className="group-title">{t.studio.streamerTitle}</span>
             </div>
@@ -1931,7 +1986,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
           </div>
 
           {/* 4. Title / Hook Banner */}
-          <div className="studio-card-group">
+          <div className="studio-card-group group-title-banner">
             <div className="group-header">
               <span className="group-title">{t.studio.titleBannerTitle}</span>
               <span className="group-badge">
@@ -2038,11 +2093,11 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                 {/* Combined Banner Preview Info */}
                 <div className="hook-banner-preview-box">
                   <div className="hook-base-badge">
-                    <span className="badge-tag">// {t.studio.titleBaseHookBadge}:</span>
+                    <span className="badge-tag">{t.studio.titleBaseHookBadge}:</span>
                     <span className="badge-text" title={baseClipHookTitle}>{baseClipHookTitle}</span>
                   </div>
                   <div className="hook-combined-result">
-                    <span className="combined-label">// {t.studio.titleFullPreview}</span>
+                    <span className="combined-label">{t.studio.titleFullPreview}</span>
                     <span className="combined-text">
                       {titlePrefix && <span className="pfx-highlight">{titlePrefix}</span>}
                       <span className="base-highlight">{baseClipHookTitle}</span>
@@ -2105,7 +2160,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                         type="button"
                         className={`pill-btn ${titleFont === font.name ? 'active' : ''}`}
                         onClick={() => setTitleFont(font.name)}
-                        style={{ fontFamily: font.name, fontSize: '0.78rem' }}
+                        style={{ fontFamily: font.name, fontSize: '0.78rem', fontWeight: titleFont === font.name ? 700 : 400 }}
                       >
                         {font.name}
                         {font.is_custom && <span style={{ marginLeft: '4px', fontSize: '0.62rem', opacity: 0.85, color: '#fbbf24' }}>[*]</span>}
@@ -2302,6 +2357,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                       setIsCustomTitleY(true);
                     }}
                     className="position-slider"
+                    style={{ '--slider-progress': `${Math.max(0, Math.min(100, ((safeTitleY - 3) / (maxTitleY - 3 || 1)) * 100))}%` } as React.CSSProperties}
                   />
                   <div className="quick-presets-row" style={{ display: 'flex', gap: '0.4rem', marginTop: '0.4rem', flexWrap: 'wrap' }}>
                     <button
@@ -2341,7 +2397,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
           </div>
 
           {/* 5. Subtitle Style & Font */}
-          <div className="studio-card-group">
+          <div className="studio-card-group group-subtitles">
             <div className="group-header">
               <span className="group-title">{t.studio.subtitlesTitle}</span>
               <span className="group-badge success-badge">{t.studio.strictlyOneLine}</span>
@@ -2379,7 +2435,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
               </div>
             )}
 
-            <div className={`caption-styles-grid ${captionStyle === 'none' ? 'subtitles-dimmed' : ''}`}>
+            <div className={`caption-styles-grid ${captionStyle === 'none' ? 'subtitles-dimmed' : ''}`} style={{ fontFamily: captionFont }}>
               <button
                 type="button"
                 className={`caption-style-card viral-pop ${captionStyle === 'viral_pop' ? 'active' : ''}`}
@@ -2511,7 +2567,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                         type="button"
                         className={`pill-btn ${captionFont === font.name ? 'active' : ''}`}
                         onClick={() => setCaptionFont(font.name)}
-                        style={{ fontFamily: font.name, fontSize: '0.78rem' }}
+                        style={{ fontFamily: font.name, fontSize: '0.78rem', fontWeight: captionFont === font.name ? 700 : 400 }}
                       >
                         {font.name}
                         {font.is_custom && <span style={{ marginLeft: '4px', fontSize: '0.62rem', opacity: 0.85, color: '#fbbf24' }}>[*]</span>}
@@ -2726,6 +2782,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                       value={safeSubtitleY}
                       onChange={(e) => setSubtitleYPercent(Number(e.target.value))}
                       className="position-slider"
+                      style={{ '--slider-progress': `${Math.max(0, Math.min(100, ((safeSubtitleY - 5) / (maxSubY - 5 || 1)) * 100))}%` } as React.CSSProperties}
                     />
                     <div className="quick-presets-row" style={{ display: 'flex', gap: '0.4rem', marginTop: '0.4rem', flexWrap: 'wrap' }}>
                       <button
@@ -2798,6 +2855,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                       value={safeSubCenterY}
                       onChange={(e) => setSubtitleCenterYPercent(Number(e.target.value))}
                       className="position-slider"
+                      style={{ '--slider-progress': `${Math.max(0, Math.min(100, ((safeSubCenterY - minCenterY) / (maxCenterY - minCenterY || 1)) * 100))}%` } as React.CSSProperties}
                     />
                     <div className="quick-presets-row" style={{ display: 'flex', gap: '0.4rem', marginTop: '0.4rem', flexWrap: 'wrap' }}>
                       <button
@@ -2832,7 +2890,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
           </div>
 
           {/* 6. Background Music (BGM) */}
-          <div className="studio-card-group">
+          <div className="studio-card-group group-bgm">
             <div className="group-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                 <span className="group-title">{t.studio.bgmTitle}</span>
@@ -2881,7 +2939,9 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                     style={{ display: 'none' }}
                     disabled={isUploadingBgm}
                   />
-                  <div className="dropzone-icon">{isUploadingBgm ? '[...]' : isBgmDragging ? 'v' : '// BGM'}</div>
+                  <div className="dropzone-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {isUploadingBgm ? <RefreshCw size={20} className="spinner-icon" /> : <Music size={20} color="var(--primary)" />}
+                  </div>
                   <div className="dropzone-text">
                     <span className="dropzone-main-text">
                       {isUploadingBgm ? 'Uploading Audio...' : isBgmDragging ? t.studio.bgmDropActive : t.studio.bgmUploadMain}
@@ -2892,7 +2952,9 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
               ) : (
                 <div className="bgm-active-file-row">
                   <div className="bgm-info">
-                    <span className="bgm-icon">//</span>
+                    <span className="bgm-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Music size={16} color="var(--primary)" />
+                    </span>
                     <div className="bgm-details">
                       <span className="bgm-filename" title={bgmFileName}>{bgmFileName}</span>
                       <span className="bgm-status-tag">{t.studio.bgmReadyTag}</span>
@@ -2905,8 +2967,9 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                         className="bgm-preview-btn"
                         onClick={toggleBgmPlayback}
                         title={isBgmPlaying ? t.studio.bgmPause : t.studio.bgmPlay}
+                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                       >
-                        {isBgmPlaying ? '⏸' : '▶'}
+                        {isBgmPlaying ? <Pause size={12} /> : <Play size={12} />}
                       </button>
                     )}
                     <button
@@ -2946,6 +3009,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                     step="1"
                     value={bgmVolume}
                     onChange={e => setBgmVolume(Number(e.target.value))}
+                    style={{ '--slider-progress': `${Math.max(0, Math.min(100, bgmVolume))}%` } as React.CSSProperties}
                   />
                   <div className="slider-quick-buttons">
                     <button type="button" onClick={() => setBgmVolume(10)}>10%</button>
@@ -2970,6 +3034,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                       step="0.5"
                       value={bgmStartOffset}
                       onChange={e => handleBgmStartOffsetChange(Number(e.target.value))}
+                      style={{ '--slider-progress': `${Math.max(0, Math.min(100, (bgmStartOffset / (bgmDuration > 0 ? Math.floor(bgmDuration) : 180)) * 100))}%` } as React.CSSProperties}
                     />
                     <div className="slider-quick-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.35rem' }}>
                       <button type="button" onClick={() => handleBgmStartOffsetChange(0)}>{t.studio.bgmStartFromBeginning}</button>
@@ -3001,7 +3066,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
           </div>
 
           {/* 6. Hook Sound Effect (SFX) */}
-          <div className="studio-card-group">
+          <div className="studio-card-group group-sfx">
             <div className="group-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span className="group-title">{t.studio.hookSfxTitle}</span>
               <span className="group-badge" style={{ color: hookSfxFilePath ? '#10b981' : 'var(--text-muted)', fontWeight: 500 }}>
@@ -3105,6 +3170,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                     step="5"
                     value={hookSfxVolume}
                     onChange={e => setHookSfxVolume(Number(e.target.value))}
+                    style={{ '--slider-progress': `${Math.max(0, Math.min(100, (hookSfxVolume / 150) * 100))}%` } as React.CSSProperties}
                   />
                   <div className="slider-quick-buttons">
                     <button type="button" onClick={() => setHookSfxVolume(50)}>50%</button>
@@ -3119,7 +3185,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
           </div>
 
           {/* 7. Original Clip Voice Audio Boost */}
-          <div className="studio-card-group">
+          <div className="studio-card-group group-audio-boost">
             <div className="group-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                 <span className="group-title">{t.studio.rawAudioTitle}</span>
@@ -3154,6 +3220,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                   step="5"
                   value={originalAudioVolume}
                   onChange={e => setOriginalAudioVolume(Number(e.target.value))}
+                  style={{ '--slider-progress': `${Math.max(0, Math.min(100, (originalAudioVolume / 200) * 100))}%` } as React.CSSProperties}
                 />
                 <div className="slider-quick-buttons">
                   <button type="button" onClick={() => setOriginalAudioVolume(50)}>50%</button>
@@ -3169,7 +3236,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
           </div>
 
           {/* 8. Video Watermark Branding */}
-          <div className="studio-card-group" style={!watermarkEnabled ? { padding: '1rem 1.4rem' } : undefined}>
+          <div className="studio-card-group group-watermark" style={!watermarkEnabled ? { padding: '1rem 1.4rem' } : undefined}>
             <div className="group-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: watermarkEnabled ? '0.85rem' : 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                 <span className="group-title" style={{ margin: 0 }}>{t.studio.watermarkTitle}</span>
@@ -3311,6 +3378,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                       step="1"
                       value={watermarkSize}
                       onChange={e => setWatermarkSize(Number(e.target.value))}
+                      style={{ '--slider-progress': `${Math.max(0, Math.min(100, (watermarkSize / 500) * 100))}%` } as React.CSSProperties}
                     />
                     <div className="slider-quick-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.35rem' }}>
                       {[10, 25, 50, 100, 200, 350, 500].map(sz => (
@@ -3359,6 +3427,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                       step="5"
                       value={watermarkOpacity}
                       onChange={e => setWatermarkOpacity(Number(e.target.value))}
+                      style={{ '--slider-progress': `${Math.max(0, Math.min(100, ((watermarkOpacity - 10) / (90)) * 100))}%` } as React.CSSProperties}
                     />
                   </div>
 
@@ -3386,6 +3455,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                       step="1"
                       value={watermarkX}
                       onChange={e => setWatermarkX(Number(e.target.value))}
+                      style={{ '--slider-progress': `${Math.max(0, Math.min(100, watermarkX))}%` } as React.CSSProperties}
                     />
                   </div>
 
@@ -3413,6 +3483,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                       step="1"
                       value={watermarkY}
                       onChange={e => setWatermarkY(Number(e.target.value))}
+                      style={{ '--slider-progress': `${Math.max(0, Math.min(100, watermarkY))}%` } as React.CSSProperties}
                     />
                   </div>
 
@@ -3453,75 +3524,8 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
             )}
           </div>
 
-          {/* 8. Hardware Acceleration & Video Encoder */}
-          <div className="studio-card-group">
-            <div className="group-header" style={{ marginBottom: '0.65rem' }}>
-              <span className="group-title">{t.studio.hwTitle}</span>
-              <span className="group-badge" style={{ fontWeight: 500 }}>
-                {hardwareAccel === 'auto'
-                  ? (hardwareInfo?.recommended ? hardwareInfo.recommended.toUpperCase() : t.studio.hwDetectedPill)
-                  : hardwareAccel.toUpperCase()}
-              </span>
-            </div>
-            <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', margin: '0 0 0.65rem 0', lineHeight: 1.4, fontWeight: 400 }}>
-              {t.studio.hwSubtitle}
-            </p>
-
-            <div className="hardware-dropdown-container">
-              <select
-                id="hardware-accel-select"
-                className="studio-select"
-                value={hardwareAccel}
-                onChange={e => setHardwareAccel(e.target.value as HardwareAccelOption)}
-                style={{
-                  width: '100%',
-                  padding: '0.6rem 0.85rem',
-                  borderRadius: '10px',
-                  fontSize: '0.82rem',
-                  background: 'var(--bg-surface-hover)',
-                  border: '1px solid var(--border-color)',
-                  color: '#fff',
-                  cursor: 'pointer',
-                  fontWeight: 500,
-                  outline: 'none',
-                }}
-              >
-                <option value="auto">
-                  {t.studio.hwAuto} ({t.studio.hwDetectedPill}
-                  {hardwareInfo?.recommended ? `: ${hardwareInfo.recommended.toUpperCase()}` : ''})
-                </option>
-                <option value="nvenc" disabled={hardwareInfo?.support && !hardwareInfo.support.nvenc}>
-                  {t.studio.hwNvenc} ({hardwareInfo?.support?.nvenc ? t.studio.hwSupportedPill : t.studio.hwUnavailablePill})
-                </option>
-                <option value="amf" disabled={hardwareInfo?.support && !hardwareInfo.support.amf}>
-                  {t.studio.hwAmf} ({hardwareInfo?.support?.amf ? t.studio.hwSupportedPill : t.studio.hwUnavailablePill})
-                </option>
-                <option value="qsv" disabled={hardwareInfo?.support && !hardwareInfo.support.qsv}>
-                  {t.studio.hwQsv} ({hardwareInfo?.support?.qsv ? t.studio.hwSupportedPill : t.studio.hwUnavailablePill})
-                </option>
-                <option value="cpu">
-                  {t.studio.hwCpu} ({t.studio.hwSupportedPill})
-                </option>
-              </select>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginTop: '0.45rem', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400 }}>
-                <span>
-                  {hardwareAccel === 'auto'
-                    ? (hardwareInfo?.recommended ? `${t.studio.hwAutoDesc} · Recommended: ${hardwareInfo.recommended.toUpperCase()}` : t.studio.hwAutoDesc)
-                    : hardwareAccel === 'nvenc'
-                    ? t.studio.hwNvencDesc
-                    : hardwareAccel === 'amf'
-                    ? t.studio.hwAmfDesc
-                    : hardwareAccel === 'qsv'
-                    ? t.studio.hwQsvDesc
-                    : t.studio.hwCpuDesc}
-                </span>
-              </div>
-            </div>
-          </div>
-
           {/* Video File Name Option */}
-          <div className="studio-card-group">
+          <div className="studio-card-group group-filename">
             <div className="group-header">
               <span className="group-title">{t.studio.fileNameTitle}</span>
               <span className="group-badge">{t.studio.fileNameBadge}</span>
@@ -3557,7 +3561,9 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                 <span className="filename-preview-tag">.mp4</span>
               </div>
               <div className="filename-preview-display">
-                <span className="fn-icon">//</span>
+                <span className="fn-icon" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <FileCode size={14} color="var(--primary)" />
+                </span>
                 <span className="fn-text">
                   {fileNamePrefix && <span className="pfx-highlight">{fileNamePrefix.replace(/[\\/*?:"<>|]/g, '')}</span>}
                   <span className="base-highlight">{sampleCleanTitle}</span>
@@ -3570,7 +3576,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
           </div>
 
           {/* Batch Clip Hook / Title Customizer for All Selected Clips */}
-          <div className="studio-card-group">
+          <div className="studio-card-group group-batch-titles">
             <div className="group-header">
               <span className="group-title">{t.studio.batchClipTitlesTitle}</span>
               <span className="group-badge">
@@ -3703,7 +3709,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
           </div>
 
           {/* Export Mode Switcher (Separate vs Merged Highlight Video) */}
-          <div className="studio-card-group export-mode-group">
+          <div className="studio-card-group export-mode-group group-export-mode">
             <div className="group-header">
               <span className="group-title">* {t.studio.renderModeTitle}</span>
               {renderMode === 'merged' && (
@@ -3772,7 +3778,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
           </div>
 
           {/* 9. Selected Clips Checklist */}
-          <div className="studio-card-group">
+          <div className="studio-card-group group-checklist">
             <div className="group-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '0.5rem' }}>
               <span className="group-title">
                 {t.studio.batchChecklist(selectedClips.length, allClips.length)}
@@ -3835,6 +3841,228 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          {/* 10. Hardware Acceleration & Video Encoder (Placed at the very bottom of controls pane) */}
+          <div className="studio-card-group group-hw">
+            <div className="group-header" style={{ marginBottom: '0.65rem' }}>
+              <span className="group-title">{t.studio.hwTitle}</span>
+              <span className="group-badge" style={{ fontWeight: 600 }}>
+                {hardwareAccel === 'browser_wasm'
+                  ? 'WASM'
+                  : hardwareAccel === 'auto'
+                  ? (hardwareInfo?.recommended ? hardwareInfo.recommended.toUpperCase() : t.studio.hwDetectedPill)
+                  : hardwareAccel.toUpperCase()}
+              </span>
+            </div>
+            <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', margin: '0 0 0.65rem 0', lineHeight: 1.4, fontWeight: 400 }}>
+              {t.studio.hwSubtitle}
+            </p>
+
+            <div className="hardware-custom-dropdown" style={{ position: 'relative' }}>
+              {/* Trigger Button */}
+              <button
+                type="button"
+                id="hardware-accel-select-trigger"
+                className={`hw-trigger-btn ${hwDropdownOpen ? 'open' : ''}`}
+                onClick={() => setHwDropdownOpen(!hwDropdownOpen)}
+                aria-haspopup="listbox"
+                aria-expanded={hwDropdownOpen}
+              >
+                <div className="hw-trigger-left">
+                  <span className="hw-trigger-badge">
+                    {hardwareAccel === 'client_gpu' ? 'GPU' : hardwareAccel === 'browser_wasm' ? 'WASM' : hardwareAccel.toUpperCase()}
+                  </span>
+                  <div className="hw-trigger-info">
+                    <span className="hw-trigger-name">
+                      {hardwareAccel === 'auto'
+                        ? t.studio.hwAuto
+                        : hardwareAccel === 'client_gpu'
+                        ? `Client GPU (${clientGpuName})`
+                        : hardwareAccel === 'browser_wasm'
+                        ? t.studio.hwWasm
+                        : hardwareAccel === 'nvenc'
+                        ? t.studio.hwNvenc
+                        : hardwareAccel === 'amf'
+                        ? t.studio.hwAmf
+                        : hardwareAccel === 'qsv'
+                        ? t.studio.hwQsv
+                        : t.studio.hwCpu}
+                    </span>
+                    <span className="hw-trigger-status-pill">
+                      {hardwareAccel === 'auto'
+                        ? (hardwareInfo?.recommended ? `[${t.studio.hwDetectedPill}: ${hardwareInfo.recommended.toUpperCase()}]` : `[${t.studio.hwDetectedPill}]`)
+                        : hardwareAccel === 'client_gpu'
+                        ? '[WebCodecs GPU Accel]'
+                        : hardwareAccel === 'browser_wasm'
+                        ? '[Client Engine]'
+                        : hardwareAccel === 'nvenc'
+                        ? (hardwareInfo?.support?.nvenc ? `[${t.studio.hwSupportedPill}]` : `[${t.studio.hwUnavailablePill}]`)
+                        : hardwareAccel === 'amf'
+                        ? (hardwareInfo?.support?.amf ? `[${t.studio.hwSupportedPill}]` : `[${t.studio.hwUnavailablePill}]`)
+                        : hardwareAccel === 'qsv'
+                        ? (hardwareInfo?.support?.qsv ? `[${t.studio.hwSupportedPill}]` : `[${t.studio.hwUnavailablePill}]`)
+                        : `[${t.studio.hwSupportedPill}]`}
+                    </span>
+                  </div>
+                </div>
+                <div className="hw-trigger-arrow">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: hwDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}>
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </div>
+              </button>
+
+              {/* Dropdown Menu */}
+              {hwDropdownOpen && (
+                <>
+                  <div
+                    className="hw-dropdown-backdrop"
+                    onClick={() => setHwDropdownOpen(false)}
+                    style={{ position: 'fixed', inset: 0, zIndex: 99 }}
+                  />
+                  <div className="hw-dropdown-menu" role="listbox">
+                    {(isLocalhost
+                      ? [
+                          {
+                            value: 'auto' as HardwareAccelOption,
+                            badge: 'AUTO',
+                            title: t.studio.hwAuto,
+                            desc: hardwareInfo?.recommended ? `${t.studio.hwAutoDesc} · Recommended: ${hardwareInfo.recommended.toUpperCase()}` : t.studio.hwAutoDesc,
+                            status: hardwareInfo?.recommended ? `${t.studio.hwDetectedPill}: ${hardwareInfo.recommended.toUpperCase()}` : t.studio.hwDetectedPill,
+                            isReady: true,
+                            disabled: false,
+                          },
+                          ...(hasWebCodecs ? [{
+                            value: 'client_gpu' as HardwareAccelOption,
+                            badge: 'GPU',
+                            title: `Client GPU Acceleration (${clientGpuName})`,
+                            desc: 'Native WebCodecs VideoEncoder running directly on user GPU (0% Server CPU)',
+                            status: 'Client GPU Native',
+                            isReady: true,
+                            disabled: false,
+                          }] : []),
+                          {
+                            value: 'browser_wasm' as HardwareAccelOption,
+                            badge: 'WASM',
+                            title: t.studio.hwWasm,
+                            desc: t.studio.hwWasmDesc || 'Browser engine client-side (0% server CPU)',
+                            status: 'Client Engine',
+                            isReady: true,
+                            disabled: false,
+                          },
+                          {
+                            value: 'nvenc' as HardwareAccelOption,
+                            badge: 'NVENC',
+                            title: t.studio.hwNvenc,
+                            desc: t.studio.hwNvencDesc,
+                            status: hardwareInfo?.support?.nvenc ? t.studio.hwSupportedPill : t.studio.hwUnavailablePill,
+                            isReady: Boolean(hardwareInfo?.support?.nvenc),
+                            disabled: Boolean(hardwareInfo?.support && !hardwareInfo.support.nvenc),
+                          },
+                          {
+                            value: 'amf' as HardwareAccelOption,
+                            badge: 'AMF',
+                            title: t.studio.hwAmf,
+                            desc: t.studio.hwAmfDesc,
+                            status: hardwareInfo?.support?.amf ? t.studio.hwSupportedPill : t.studio.hwUnavailablePill,
+                            isReady: Boolean(hardwareInfo?.support?.amf),
+                            disabled: Boolean(hardwareInfo?.support && !hardwareInfo.support.amf),
+                          },
+                          {
+                            value: 'qsv' as HardwareAccelOption,
+                            badge: 'QSV',
+                            title: t.studio.hwQsv,
+                            desc: t.studio.hwQsvDesc,
+                            status: hardwareInfo?.support?.qsv ? t.studio.hwSupportedPill : t.studio.hwUnavailablePill,
+                            isReady: Boolean(hardwareInfo?.support?.qsv),
+                            disabled: Boolean(hardwareInfo?.support && !hardwareInfo.support.qsv),
+                          },
+                          {
+                            value: 'cpu' as HardwareAccelOption,
+                            badge: 'CPU',
+                            title: t.studio.hwCpu,
+                            desc: t.studio.hwCpuDesc,
+                            status: t.studio.hwSupportedPill,
+                            isReady: true,
+                            disabled: false,
+                          },
+                        ]
+                      : [
+                          ...(hasWebCodecs ? [{
+                            value: 'client_gpu' as HardwareAccelOption,
+                            badge: 'GPU',
+                            title: `Client GPU Acceleration (${clientGpuName})`,
+                            desc: 'WebCodecs GPU Hardware Encoder (0% Server CPU / RAM)',
+                            status: 'Client GPU Native',
+                            isReady: true,
+                            disabled: false,
+                          }] : []),
+                          {
+                            value: 'browser_wasm' as HardwareAccelOption,
+                            badge: 'WASM',
+                            title: t.studio.hwWasm || 'Browser Engine (WASM Fallback)',
+                            desc: 'Client-Side WebAssembly Software Engine (0% Server CPU / RAM)',
+                            status: 'Active Client Engine',
+                            isReady: true,
+                            disabled: false,
+                          },
+                        ]
+                    ).map((opt) => {
+                      const isSelected = hardwareAccel === opt.value;
+                      return (
+                        <div
+                          key={opt.value}
+                          className={`hw-dropdown-item ${isSelected ? 'active' : ''} ${opt.disabled ? 'disabled' : ''}`}
+                          onClick={() => {
+                            if (opt.disabled) return;
+                            setHardwareAccel(opt.value);
+                            setHwDropdownOpen(false);
+                          }}
+                          role="option"
+                          aria-selected={isSelected}
+                          aria-disabled={opt.disabled}
+                        >
+                          <div className="hw-item-left">
+                            <span className={`hw-item-badge ${opt.badge.toLowerCase()}`}>
+                              {opt.badge}
+                            </span>
+                            <div className="hw-item-text">
+                              <div className="hw-item-heading">
+                                <span className="hw-item-title">{opt.title}</span>
+                                <span className={`hw-status-pill ${opt.isReady ? 'ready' : 'unavailable'}`}>
+                                  [{opt.status}]
+                                </span>
+                              </div>
+                              <span className="hw-item-desc">{opt.desc}</span>
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <span className="hw-item-selected-check">✓</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginTop: '0.55rem', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400 }}>
+                <span>
+                  {hardwareAccel === 'browser_wasm'
+                    ? (t.studio.hwWasmDesc || 'Client-side browser WASM engine (Zero server load · 100% private in browser)')
+                    : hardwareAccel === 'auto'
+                    ? (hardwareInfo?.recommended ? `${t.studio.hwAutoDesc} · Recommended: ${hardwareInfo.recommended.toUpperCase()}` : t.studio.hwAutoDesc)
+                    : hardwareAccel === 'nvenc'
+                    ? t.studio.hwNvencDesc
+                    : hardwareAccel === 'amf'
+                    ? t.studio.hwAmfDesc
+                    : hardwareAccel === 'qsv'
+                    ? t.studio.hwQsvDesc
+                    : t.studio.hwCpuDesc}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -4253,6 +4481,9 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                   value={Math.min(Math.max(currentTime, clipStart), clipEnd)}
                   onChange={e => handleSeek(Number(e.target.value))}
                   title={t.studio.seekTimeline}
+                  style={{
+                    '--slider-progress': `${Math.max(0, Math.min(100, ((Math.min(Math.max(currentTime, clipStart), clipEnd) - clipStart) / (clipEnd - clipStart || 1)) * 100))}%`
+                  } as React.CSSProperties}
                 />
               </div>
 
@@ -4377,25 +4608,47 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                       value={hardwareAccel}
                       onChange={(e) => setHardwareAccel(e.target.value as HardwareAccelOption)}
                       title={t.studio.hwChangeHint}
+                      disabled={!isLocalhost}
                     >
-                      <option value="browser_wasm">
-                        [WASM] Browser Engine (Client-Side WASM · 0% Server CPU)
-                      </option>
-                      <option value="auto">
-                        Auto ({hardwareInfo?.recommended ? hardwareInfo.recommended.toUpperCase() : 'NVENC'})
-                      </option>
-                      <option value="nvenc">
-                        NVENC {hardwareInfo?.support?.nvenc ? '(Ready)' : ''}
-                      </option>
-                      <option value="amf">
-                        AMD AMF {hardwareInfo?.support?.amf ? '(Ready)' : ''}
-                      </option>
-                      <option value="qsv">
-                        Intel QSV {hardwareInfo?.support?.qsv ? '(Ready)' : ''}
-                      </option>
-                      <option value="cpu">
-                        CPU (libx264)
-                      </option>
+                      {isLocalhost ? (
+                        <>
+                          <option value="auto">
+                            {t.studio.hwAuto} ({t.studio.hwDetectedPill}
+                            {hardwareInfo?.recommended ? `: ${hardwareInfo.recommended.toUpperCase()}` : ''})
+                          </option>
+                          {hasWebCodecs && (
+                            <option value="client_gpu">
+                              [GPU] Client GPU Acceleration ({clientGpuName})
+                            </option>
+                          )}
+                          <option value="browser_wasm">
+                            [WASM] {t.studio.hwWasm || 'Browser Engine (Client-Side WASM · 0% Server CPU)'}
+                          </option>
+                          <option value="nvenc" disabled={hardwareInfo?.support && !hardwareInfo.support.nvenc}>
+                            {t.studio.hwNvenc} {hardwareInfo?.support?.nvenc ? `(${t.studio.hwSupportedPill})` : `(${t.studio.hwUnavailablePill})`}
+                          </option>
+                          <option value="amf" disabled={hardwareInfo?.support && !hardwareInfo.support.amf}>
+                            {t.studio.hwAmf} {hardwareInfo?.support?.amf ? `(${t.studio.hwSupportedPill})` : `(${t.studio.hwUnavailablePill})`}
+                          </option>
+                          <option value="qsv" disabled={hardwareInfo?.support && !hardwareInfo.support.qsv}>
+                            {t.studio.hwQsv} {hardwareInfo?.support?.qsv ? `(${t.studio.hwSupportedPill})` : `(${t.studio.hwUnavailablePill})`}
+                          </option>
+                          <option value="cpu">
+                            {t.studio.hwCpu} ({t.studio.hwSupportedPill})
+                          </option>
+                        </>
+                      ) : (
+                        <>
+                          {hasWebCodecs && (
+                            <option value="client_gpu">
+                              [GPU] Client GPU Acceleration ({clientGpuName})
+                            </option>
+                          )}
+                          <option value="browser_wasm">
+                            [WASM] Browser Engine (Client-Side · 0% Server CPU)
+                          </option>
+                        </>
+                      )}
                     </select>
                   </div>
                 </div>
@@ -4593,20 +4846,21 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                   <div style={{
                     margin: '0.5rem 0 0.2rem',
                     padding: '0.55rem 0.75rem',
-                    background: 'rgba(239, 68, 68, 0.12)',
-                    border: '1px solid rgba(239, 68, 68, 0.35)',
-                    borderRadius: '7px',
+                    background: 'rgba(255, 30, 39, 0.12)',
+                    border: '1px solid #ff1e27',
+                    borderRadius: 0,
                     color: '#fca5a5',
                     fontSize: '0.74rem',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     gap: '0.45rem',
-                    fontWeight: 600
+                    fontWeight: 600,
+                    boxShadow: '0 0 10px rgba(255, 30, 39, 0.25)'
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                      <span>[X]</span>
-                      <span>{batchProgress.error_message || t.studio.allClipsFailed}</span>
+                      <AlertTriangle size={15} color="#ff1e27" />
+                      <span style={{ color: '#fff', fontWeight: 700 }}>{batchProgress.error_message || t.studio.allClipsFailed}</span>
                     </div>
                     {onRetryClip && (
                       <button
@@ -4619,13 +4873,17 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                           fontWeight: 700,
                           fontSize: '0.7rem',
                           padding: '3px 9px',
-                          borderRadius: '5px',
+                          borderRadius: 0,
                           cursor: 'pointer',
                           boxShadow: '0 0 8px rgba(245, 158, 11, 0.35)',
-                          flexShrink: 0
+                          flexShrink: 0,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem'
                         }}
                       >
-                        {t.studio.retryClipBtn || '[~] Retry'}
+                        <RefreshCw size={11} />
+                        {t.studio.retryClipBtn || 'Retry'}
                       </button>
                     )}
                   </div>
@@ -4742,15 +5000,18 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                                 <span
                                   style={{
                                     fontSize: '0.68rem',
-                                    fontWeight: 700,
-                                    color: '#f87171',
-                                    background: 'rgba(239, 68, 68, 0.18)',
+                                    fontWeight: 800,
+                                    color: '#ff1e27',
+                                    background: 'rgba(255, 30, 39, 0.15)',
                                     padding: '2px 8px',
-                                    borderRadius: '4px',
-                                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                                    borderRadius: 0,
+                                    border: '1px solid #ff1e27',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.25rem'
                                   }}
                                 >
-                                  [X] {t.studio.statusFailedShort}
+                                  <X size={11} /> {t.studio.statusFailedShort}
                                 </span>
                                 {onRetryClip && batchProgress.overall_status !== 'running' && (
                                   <button
@@ -4759,17 +5020,21 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                                     style={{
                                       background: 'rgba(245, 158, 11, 0.18)',
                                       border: '1px solid rgba(245, 158, 11, 0.5)',
-                                      borderRadius: '4px',
+                                      borderRadius: 0,
                                       color: '#fbbf24',
                                       fontSize: '0.68rem',
                                       fontWeight: 700,
                                       padding: '2px 8px',
                                       cursor: 'pointer',
                                       transition: 'all 0.2s ease',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '0.25rem'
                                     }}
                                     title="Retry rendering this clip"
                                   >
-                                    {t.studio.retryClipBtn || '[~] Retry'}
+                                    <RefreshCw size={11} />
+                                    {t.studio.retryClipBtn || 'Retry'}
                                   </button>
                                 )}
                               </div>
@@ -4907,8 +5172,8 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
       {showClearConfirmModal && (
         <div className="custom-confirm-modal-overlay">
           <div className="custom-confirm-modal-card">
-            <div className="confirm-modal-icon-wrap">
-              [x]
+            <div className="confirm-modal-icon-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Trash2 size={24} color="#ff1e27" />
             </div>
             <h3 className="confirm-modal-title">{t.studio.confirmModalTitle}</h3>
             <p className="confirm-modal-desc" style={{ marginBottom: '1rem' }}>

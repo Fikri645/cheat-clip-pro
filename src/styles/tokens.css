@@ -69,6 +69,27 @@
   --text-muted: #64748b;       /* Dim labels & hints */
   --text-disabled: #475569;    /* Disabled text */
 
+  /* --- STATUS & ALERTS --- */
+  --status-warning: #f59e0b;
+  --status-warning-glow: rgba(245, 158, 11, 0.45);
+  --status-warning-bg: rgba(245, 158, 11, 0.12);
+  --status-success: #10b981;
+  --status-success-glow: rgba(16, 185, 129, 0.45);
+  --status-success-bg: rgba(16, 185, 129, 0.12);
+  --status-error: #ff1e27;
+  --status-error-glow: rgba(255, 30, 39, 0.45);
+  --status-error-bg: rgba(255, 30, 39, 0.15);
+  --status-info: #00f0ff;
+  --status-info-glow: rgba(0, 240, 255, 0.45);
+  --status-info-bg: rgba(0, 240, 255, 0.1);
+
+  /* --- RADIUS TOKENS (Brutalist Sharp Default) --- */
+  --radius-sharp: 0px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
   /* --- MOTION --- */
   --transition-fast: all 0.12s cubic-bezier(0.16, 1, 0.3, 1);
   --transition-smooth: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
