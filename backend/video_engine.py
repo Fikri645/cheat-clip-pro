@@ -840,13 +840,19 @@ def download_clip_segment(
         raise RuntimeError(f"Failed to slice video clip from source '{local_source.name}': {res.stderr or 'Corrupted video stream'}")
 
     # Guard: if it was a Google Drive or Upload request, never send to YouTube
-    if "gdrive" in clean_raw.lower() or "upload_" in clean_raw.lower() or clean_raw.startswith("/api/video/"):
+    # Exception: if it was a YouTube audio cache file (e.g. /api/video/yt_audio_iLijjSEI_40.mp4), resolve back to original YouTube video
+    yt_audio_match = re.search(r'yt_audio_([a-zA-Z0-9_-]{11})', clean_raw)
+    if yt_audio_match:
+        yt_id = yt_audio_match.group(1)
+        clean_url = f"https://www.youtube.com/watch?v={yt_id}"
+        logger.info(f"Resolved cached audio reference '{clean_raw}' back to genuine YouTube stream: {clean_url}")
+    elif "gdrive" in clean_raw.lower() or "upload_" in clean_raw.lower() or clean_raw.startswith("/api/video/"):
         raise RuntimeError(f"Source video file not found on disk for '{clean_raw}'. Please re-analyze the video.")
-
-    # Sanitize video URL for YouTube download
-    clean_url = video_url.strip()
-    if not clean_url.startswith("http"):
-        clean_url = f"https://www.youtube.com/watch?v={clean_url}"
+    else:
+        # Sanitize video URL for YouTube download
+        clean_url = video_url.strip()
+        if not clean_url.startswith("http"):
+            clean_url = f"https://www.youtube.com/watch?v={clean_url}"
 
     t_start_fmt = format_section_time(start_time)
     t_end_fmt = format_section_time(end_time)
