@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+﻿import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { HeatmapTimeline } from './components/HeatmapTimeline';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { ClipStudioSection } from './components/ClipStudioSection';
@@ -1590,7 +1590,7 @@ export default function App() {
                 const pct = Math.round((event.loaded / event.total) * 100);
                 const loadedMb = (event.loaded / (1024 * 1024)).toFixed(1);
                 const totalMb = (event.total / (1024 * 1024)).toFixed(1);
-                setAiDetail(`Uploading audio track (${pct}% — ${loadedMb}/${totalMb} MB)...`);
+                setAiDetail(`Uploading audio track (${pct}% â€” ${loadedMb}/${totalMb} MB)...`);
                 setStepProgress(prev => ({ ...prev, 1: Math.min(95, pct) }));
               }
             };
@@ -2269,7 +2269,7 @@ Transcript:
 "${clip.transcript}"`;
 
     if (clip.key_quotes && clip.key_quotes.length > 0) {
-      copyText += `\n\nKey Quotes:\n` + clip.key_quotes.map(q => `“${q}”`).join('\n');
+      copyText += `\n\nKey Quotes:\n` + clip.key_quotes.map(q => `â€œ${q}â€`).join('\n');
     }
     if (clip.title_suggestion) {
       copyText += `\n\nTitle Suggestion: ${clip.title_suggestion}`;
@@ -2636,7 +2636,7 @@ Transcript:
             title="Dismiss notification"
             aria-label="Dismiss notification"
           >
-            ✕
+            âœ•
           </button>
         </div>
       )}
@@ -2674,12 +2674,12 @@ Transcript:
                 <span>
                   {hasCookies ? (
                     <>
-                      <span className="cookie-status-icon">✓</span>
+                      <span className="cookie-status-icon">âœ“</span>
                       <span>{t.header.cookiesStatusActive}</span>
                     </>
                   ) : (
                     <>
-                      <span className="cookie-status-icon inactive">○</span>
+                      <span className="cookie-status-icon inactive">â—‹</span>
                       <span>{t.header.cookiesStatusSetup}</span>
                     </>
                   )}
@@ -2805,7 +2805,7 @@ Transcript:
                   fontWeight: 700
                 }}
               >
-                [ 02 // LIHAT CLIPS ➔ ]
+                [ 02 // LIHAT CLIPS âž” ]
               </button>
               <button
                 type="button"
@@ -2819,7 +2819,7 @@ Transcript:
                   fontWeight: 700
                 }}
               >
-                [ 03 // AUTO CLIPPER ➔ ]
+                [ 03 // AUTO CLIPPER âž” ]
               </button>
               <button
                 type="button"
@@ -2828,7 +2828,7 @@ Transcript:
                 title="Tutup & Nonaktifkan Active Video (Deselect)"
                 aria-label="Close active video"
               >
-                [ ✕ ]
+                [ âœ• ]
               </button>
             </div>
           </div>
@@ -3180,8 +3180,9 @@ Transcript:
                     )}
                   </button>
                 </div>
-                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.3, fontWeight: 400 }}>
-                // NOTE: {t.form.gdriveNotice}
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.3, fontWeight: 400, display: 'flex', alignItems: 'flex-start', gap: '0.35rem' }}>
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" style={{ flexShrink: 0, marginTop: '1px', opacity: 0.7 }}><path d="M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1zm0 1.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zM8 5a.75.75 0 1 1 0 1.5A.75.75 0 0 1 8 5zm-.75 2.5h1.5v4h-1.5v-4z"/></svg>
+                  <span>{t.form.gdriveNotice}</span>
                 </span>
               </div>
             )}
@@ -3329,7 +3330,7 @@ Transcript:
                           {uploadedVideoInfo && uploadedVideoInfo.duration > 0 && (
                             <span> {Math.round(uploadedVideoInfo.duration)}s</span>
                           )}
-                          <span>•</span>
+                          <span>â€¢</span>
                           <span style={{ color: '#10b981', fontWeight: 600 }}>* Whisper AI Auto-Transcribe</span>
                         </div>
                       </div>
@@ -3505,7 +3506,7 @@ Transcript:
                         <span>{t.form.aiModelLabel}</span>
                         {loadingModels && (
                           <span style={{ fontSize: '0.72rem', color: 'var(--primary)', animation: 'pulse 1.5s infinite ease-in-out' }}>
-                            ⌛ {t.form.fetchingModels}
+                            âŒ› {t.form.fetchingModels}
                           </span>
                         )}
                       </label>
@@ -3593,7 +3594,7 @@ Transcript:
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           {loadingOpenRouterModels && (
                             <span style={{ fontSize: '0.72rem', color: 'var(--primary)', animation: 'pulse 1.5s infinite ease-in-out' }}>
-                              ⌛ {t.form.fetchingModels}
+                              âŒ› {t.form.fetchingModels}
                             </span>
                           )}
                           <span
@@ -3640,16 +3641,16 @@ Transcript:
                           {openRouterModels.length > 0 ? (
                             openRouterModels.map((m) => (
                               <option key={m.id} value={m.id} style={{ background: '#0a0a0f', color: '#fff' }}>
-                                {m.name || m.id} {m.recommended ? '★ [RECOMMENDED]' : ''}
+                                {m.name || m.id} {m.recommended ? 'â˜… [RECOMMENDED]' : ''}
                               </option>
                             ))
                           ) : (
                             <>
-                              <option value="google/gemini-2.5-flash" style={{ background: '#0a0a0f', color: '#fff' }}>Google: Gemini 2.5 Flash ★ [RECOMMENDED]</option>
+                              <option value="google/gemini-2.5-flash" style={{ background: '#0a0a0f', color: '#fff' }}>Google: Gemini 2.5 Flash â˜… [RECOMMENDED]</option>
                               <option value="google/gemini-2.0-flash-001" style={{ background: '#0a0a0f', color: '#fff' }}>Google: Gemini 2.0 Flash</option>
-                              <option value="anthropic/claude-3.5-sonnet" style={{ background: '#0a0a0f', color: '#fff' }}>Anthropic: Claude 3.5 Sonnet ★ [RECOMMENDED]</option>
+                              <option value="anthropic/claude-3.5-sonnet" style={{ background: '#0a0a0f', color: '#fff' }}>Anthropic: Claude 3.5 Sonnet â˜… [RECOMMENDED]</option>
                               <option value="anthropic/claude-3.5-haiku" style={{ background: '#0a0a0f', color: '#fff' }}>Anthropic: Claude 3.5 Haiku</option>
-                              <option value="deepseek/deepseek-chat" style={{ background: '#0a0a0f', color: '#fff' }}>DeepSeek: DeepSeek V3 ★ [RECOMMENDED]</option>
+                              <option value="deepseek/deepseek-chat" style={{ background: '#0a0a0f', color: '#fff' }}>DeepSeek: DeepSeek V3 â˜… [RECOMMENDED]</option>
                               <option value="meta-llama/llama-3.3-70b-instruct" style={{ background: '#0a0a0f', color: '#fff' }}>Meta: Llama 3.3 70B Instruct</option>
                               <option value="openai/gpt-4o-mini" style={{ background: '#0a0a0f', color: '#fff' }}>OpenAI: GPT-4o Mini</option>
                               <option value="openai/gpt-4o" style={{ background: '#0a0a0f', color: '#fff' }}>OpenAI: GPT-4o</option>
@@ -3660,8 +3661,9 @@ Transcript:
                           )}
                         </select>
                       )}
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.4, marginTop: '0.2rem' }}>
-                      // NOTE: <strong>Same-Family Fallback:</strong> {t.form.openrouterResilienceDesc}
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.4, marginTop: '0.2rem', display: 'flex', alignItems: 'flex-start', gap: '0.35rem' }}>
+                        <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" style={{ flexShrink: 0, marginTop: '1px', opacity: 0.7 }}><path d="M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1zm0 1.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zM8 5a.75.75 0 1 1 0 1.5A.75.75 0 0 1 8 5zm-.75 2.5h1.5v4h-1.5v-4z"/></svg>
+                        <span><strong>Same-Family Fallback:</strong> {t.form.openrouterResilienceDesc}</span>
                       </span>
                     </div>
                   </>
@@ -3725,8 +3727,9 @@ Transcript:
                     </button>
                   </div>
                   {durationPref === 'auto' && (
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.3, marginTop: '0.1rem' }}>
-                    // NOTE: {t.form.durAutoTip}
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.3, marginTop: '0.1rem', display: 'flex', alignItems: 'flex-start', gap: '0.35rem' }}>
+                      <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" style={{ flexShrink: 0, marginTop: '1px', opacity: 0.7 }}><path d="M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1zm0 1.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zM8 5a.75.75 0 1 1 0 1.5A.75.75 0 0 1 8 5zm-.75 2.5h1.5v4h-1.5v-4z"/></svg>
+                      <span>{t.form.durAutoTip}</span>
                     </span>
                   )}
                 </div>
@@ -3814,13 +3817,15 @@ Transcript:
                         />
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', width: '20px', textAlign: 'right' }}>50</span>
                       </div>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
-                      // NOTE: {t.form.clipCountTip(targetClipCount, targetClipCount <= 5 ? `${Math.max(1, targetClipCount - 1)}-${targetClipCount + 2}` : targetClipCount <= 10 ? `${Math.max(1, targetClipCount - 2)}-${targetClipCount + 3}` : `${targetClipCount - 5}-${targetClipCount + 5}`)}
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.3, display: 'flex', alignItems: 'flex-start', gap: '0.35rem' }}>
+                        <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" style={{ flexShrink: 0, marginTop: '1px', opacity: 0.7 }}><path d="M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1zm0 1.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zM8 5a.75.75 0 1 1 0 1.5A.75.75 0 0 1 8 5zm-.75 2.5h1.5v4h-1.5v-4z"/></svg>
+                        <span>{t.form.clipCountTip(targetClipCount, targetClipCount <= 5 ? `${Math.max(1, targetClipCount - 1)}-${targetClipCount + 2}` : targetClipCount <= 10 ? `${Math.max(1, targetClipCount - 2)}-${targetClipCount + 3}` : `${targetClipCount - 5}-${targetClipCount + 5}`)}</span>
                       </span>
                     </>
                   ) : (
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.3, marginTop: '0.1rem' }}>
-                    // NOTE: {t.form.clipCountAutoTip}
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.3, marginTop: '0.1rem', display: 'flex', alignItems: 'flex-start', gap: '0.35rem' }}>
+                      <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" style={{ flexShrink: 0, marginTop: '1px', opacity: 0.7 }}><path d="M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1zm0 1.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zM8 5a.75.75 0 1 1 0 1.5A.75.75 0 0 1 8 5zm-.75 2.5h1.5v4h-1.5v-4z"/></svg>
+                      <span>{t.form.clipCountAutoTip}</span>
                     </span>
                   )}
                 </div>
@@ -3897,8 +3902,9 @@ Transcript:
                       {t.form.chooseSrtTxt}
                     </label>
                     {manualSubtitlesFileName && (
-                      <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: '500' }}>
-                      // {manualSubtitlesFileName}
+                      <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" style={{ flexShrink: 0, opacity: 0.85 }}><path d="M4.5 3h-1A1.5 1.5 0 0 0 2 4.5v8A1.5 1.5 0 0 0 3.5 14h9a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 12.5 3h-1v.5a.5.5 0 0 1-1 0V3h-4v.5a.5.5 0 0 1-1 0V3zm3 0V1.5a.5.5 0 0 0-1 0V3h1zm2 0h-1V1.5a.5.5 0 0 1 1 0V3zM5 3V1.5a.5.5 0 0 0-1 0V3h1z"/></svg>
+                        {manualSubtitlesFileName}
                       </span>
                     )}
                   </div>
@@ -3909,7 +3915,7 @@ Transcript:
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginTop: '0.25rem', padding: '0.75rem 0.9rem', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
                     <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <span>//</span>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.75 }}><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                       <span>{t.form.transcriptLanguage}</span>
                     </label>
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
@@ -3935,7 +3941,7 @@ Transcript:
                         borderRadius: 0
                       }}
                     >
-                      [EN] {t.form.langEnglish}
+                      {t.form.langEnglish}
                     </button>
                     <button
                       type="button"
@@ -3955,15 +3961,16 @@ Transcript:
                         borderRadius: 0
                       }}
                     >
-                      [ID] {t.form.langIndonesian}
+                      {t.form.langIndonesian}
                     </button>
                   </div>
                 </div>
               )}
 
               {subtitlesSource === 'youtube' && (
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', opacity: 0.8, display: 'block', marginTop: '0.15rem', lineHeight: '1.4' }}>
-                // NOTE: <strong>{t.form.subtitlesTipTitle}</strong> {t.form.subtitlesTipDesc} <a href="https://downsub.com/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--secondary)', textDecoration: 'underline', fontWeight: '500' }}>downsub.com</a> {t.form.andUploadOption}
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', opacity: 0.8, display: 'flex', alignItems: 'flex-start', gap: '0.4rem', marginTop: '0.15rem', lineHeight: '1.4' }}>
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" style={{ flexShrink: 0, marginTop: '2px', opacity: 0.7 }}><path d="M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1zm0 1.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zM8 5a.75.75 0 1 1 0 1.5A.75.75 0 0 1 8 5zm-.75 2.5h1.5v4h-1.5v-4z"/></svg>
+                  <span><strong>{t.form.subtitlesTipTitle}</strong> {t.form.subtitlesTipDesc} <a href="https://downsub.com/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--secondary)', textDecoration: 'underline', fontWeight: '500' }}>downsub.com</a> {t.form.andUploadOption}</span>
                 </span>
               )}
             </div>
@@ -4218,7 +4225,7 @@ Transcript:
               <div className="stepper-container">
                 {/* Step 1 */}
                 <div className={`step-item ${currentStep === 1 ? 'active' : currentStep > 1 ? 'completed' : ''}`}>
-                  <div className="step-circle">{currentStep > 1 ? '✓' : '1'}</div>
+                  <div className="step-circle">{currentStep > 1 ? 'âœ“' : '1'}</div>
                   <div className="step-content">
                     <div className="step-header-row">
                       <span className="step-label">{t.loading.step1Label}</span>
@@ -4240,7 +4247,7 @@ Transcript:
 
                 {/* Step 2 */}
                 <div className={`step-item ${currentStep === 2 ? 'active' : currentStep > 2 ? 'completed' : ''}`}>
-                  <div className="step-circle">{currentStep > 2 ? '✓' : '2'}</div>
+                  <div className="step-circle">{currentStep > 2 ? 'âœ“' : '2'}</div>
                   <div className="step-content">
                     <div className="step-header-row">
                       <span className="step-label">{t.loading.step2Label}</span>
@@ -4262,7 +4269,7 @@ Transcript:
 
                 {/* Step 3 */}
                 <div className={`step-item ${currentStep === 3 ? 'active' : currentStep > 3 ? 'completed' : ''}`}>
-                  <div className="step-circle">{currentStep > 3 ? '✓' : '3'}</div>
+                  <div className="step-circle">{currentStep > 3 ? 'âœ“' : '3'}</div>
                   <div className="step-content">
                     <div className="step-header-row">
                       <span className="step-label">{t.loading.step3Label}</span>
@@ -4304,7 +4311,7 @@ Transcript:
 
                 {/* Step 4 */}
                 <div className={`step-item ${currentStep === 4 ? 'active' : ''}`}>
-                  <div className="step-circle">{currentStep > 4 ? '✓' : '4'}</div>
+                  <div className="step-circle">{currentStep > 4 ? 'âœ“' : '4'}</div>
                   <div className="step-content">
                     <div className="step-header-row">
                       <span className="step-label">{t.loading.step4Label}</span>
@@ -4409,7 +4416,7 @@ Transcript:
                     title="Tutup & Nonaktifkan Active Video (Deselect)"
                     aria-label="Close active video"
                   >
-                    [ ✕ ]
+                    [ âœ• ]
                   </button>
                 </div>
               </div>
@@ -4484,7 +4491,7 @@ Transcript:
                           }}
                           title={t.form.clearSearch}
                         >
-                          ✕
+                          âœ•
                         </button>
                       )}
                     </div>
@@ -4698,11 +4705,11 @@ Transcript:
                                 </div>
                                 <div style={{ display: 'flex', gap: '0.65rem', marginTop: '0.25rem', fontSize: '0.74rem', color: 'var(--text-muted)', flexWrap: 'wrap', alignItems: 'center' }}>
                                   <span style={{ color: '#00ff66', fontWeight: 600 }}>{t.form.clipsCountMeta(entry.clip_count)}</span>
-                                  <span>•</span>
+                                  <span>â€¢</span>
                                   <span> {entry.duration_pref === 'auto' ? 'Auto' : entry.duration_pref}</span>
-                                  <span>•</span>
+                                  <span>â€¢</span>
                                   <span> {formatRelativeTime(entry.analyzed_at)}</span>
-                                  <span>•</span>
+                                  <span>â€¢</span>
                                   {entry.source_type === 'gdrive' ? (
                                     <a
                                       href={entry.url}
@@ -5044,7 +5051,7 @@ Transcript:
                                 }
                               }}
                             >
-                              {t.results.copyAllTimestamps} ▾
+                              {t.results.copyAllTimestamps} â–¾
                             </button>
                             {copyTimestampMenuTarget === 'overview' && renderTimestampFormatMenu('right')}
                           </div>
@@ -5112,7 +5119,7 @@ Transcript:
                                     title={t.results.copyTimestampTooltip}
                                     className="virality-mini-ts"
                                   >
-                                    {formatSeconds(clip.start_time)} – {formatSeconds(clip.end_time)}
+                                    {formatSeconds(clip.start_time)} â€“ {formatSeconds(clip.end_time)}
                                   </span>
                                 </div>
                               </div>
@@ -5258,7 +5265,7 @@ Transcript:
                               onClick={(e) => toggleTimestampMenu('toolbar', e)}
                               title={t.results.copyAllTimestampsTooltip}
                             >
-                              {t.results.copyAllTimestamps} ▾
+                              {t.results.copyAllTimestamps} â–¾
                             </button>
                             {copyTimestampMenuTarget === 'toolbar' && renderTimestampFormatMenu('left')}
                           </div>
@@ -5410,7 +5417,7 @@ Transcript:
                               {clip.key_quotes && clip.key_quotes.length > 0 && (
                                 <div className="clip-quotes">
                                   {clip.key_quotes.map((quote, qIdx) => (
-                                    <div key={qIdx} className="quote-item">“{quote}”</div>
+                                    <div key={qIdx} className="quote-item">â€œ{quote}â€</div>
                                   ))}
                                 </div>
                               )}
@@ -5722,7 +5729,7 @@ Transcript:
                   style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.1rem' }}
                   aria-label="Tutup"
                 >
-                  ✕
+                  âœ•
                 </button>
               </div>
 
@@ -5760,7 +5767,7 @@ Transcript:
                   >
                     <span>[EN]</span>
                     <span>ENGLISH</span>
-                    {transcriptLanguage === 'en' && <span style={{ color: '#ff00ff', marginLeft: '0.25rem' }}>✓</span>}
+                    {transcriptLanguage === 'en' && <span style={{ color: '#ff00ff', marginLeft: '0.25rem' }}>âœ“</span>}
                   </button>
                   <button
                     type="button"
@@ -5786,7 +5793,7 @@ Transcript:
                   >
                     <span>[ID]</span>
                     <span>INDONESIA</span>
-                    {transcriptLanguage === 'id' && <span style={{ color: '#ff00ff', marginLeft: '0.25rem' }}>✓</span>}
+                    {transcriptLanguage === 'id' && <span style={{ color: '#ff00ff', marginLeft: '0.25rem' }}>âœ“</span>}
                   </button>
                 </div>
               </div>
@@ -5822,7 +5829,7 @@ Transcript:
                   }}
                   style={{ padding: '0.65rem 1.75rem' }}
                 >
-                  [ LANJUTKAN HACK CLIPS ➔ ]
+                  [ LANJUTKAN HACK CLIPS âž” ]
                 </button>
               </div>
             </div>
@@ -5899,7 +5906,7 @@ Transcript:
                 fontSize: '0.78rem'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#4ade80' }}>
-                  <span>✓</span>
+                  <span>âœ“</span>
                   <strong>{t.studio.confirmModalNotice}</strong>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#38bdf8' }}>
@@ -5932,3 +5939,4 @@ Transcript:
     </>
   );
 }
+

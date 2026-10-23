@@ -1,4 +1,4 @@
-﻿/* Detached Highlighted History Panel - Solid black & sharp cyber border */
+/* Detached Highlighted History Panel - Solid black & sharp cyber border */
 .history-highlight-panel {
   position: relative;
   background: var(--bg-surface);
@@ -150,7 +150,7 @@
   flex: 1;
   min-width: 0;
   background: transparent;
-  border: 1px solid transparent;
+  border: 1px solid var(--border-color);
   border-radius: 0;
   color: var(--text-secondary);
   padding: 0.65rem 0.75rem;

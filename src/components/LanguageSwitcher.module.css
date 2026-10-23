@@ -25,10 +25,15 @@
   font-weight: 700;
   font-family: var(--font-mono);
   border: none;
+  border-right: 1px solid var(--border-color);
   cursor: pointer;
   background: transparent;
   color: var(--text-secondary);
   transition: var(--transition-fast);
+}
+
+.btn:last-child {
+  border-right: none;
 }
 
 .btn:hover:not(.active) {
@@ -40,4 +45,5 @@
   background: var(--primary);
   color: #000;
   box-shadow: 0 0 10px var(--primary-glow);
+  border-right-color: var(--primary);
 }
