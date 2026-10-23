@@ -1,6 +1,8 @@
 import React from 'react';
+import { RefreshCw, AlertTriangle } from 'lucide-react';
 import { useLanguage } from '../locales';
 import type { BatchRenderProgress } from '../types';
+import styles from './BatchRenderProgressModal.module.css';
 
 interface BatchRenderProgressModalProps {
   isOpen: boolean;
@@ -25,11 +27,11 @@ export const BatchRenderProgressModal: React.FC<BatchRenderProgressModalProps> =
 
   return (
     <div className="modal-backdrop">
-      <div className="batch-progress-card" onClick={e => e.stopPropagation()}>
-        <div className="batch-progress-header">
+      <div className={styles.card} onClick={e => e.stopPropagation()}>
+        <div className={styles.header}>
           <div>
-            <h3>{t.batchProgress.modalTitle}</h3>
-            <p className="batch-subtitle">
+            <h3 className={styles.title}>{t.batchProgress.modalTitle}</h3>
+            <p className={styles.subtitle}>
               {progress.overall_status === 'error'
                 ? (progress.error_message || t.batchProgress.statusFailed)
                 : isAllDone
@@ -38,107 +40,89 @@ export const BatchRenderProgressModal: React.FC<BatchRenderProgressModalProps> =
             </p>
           </div>
           {isAllDone && (
-            <button className="studio-close-btn" onClick={onClose}>
+            <button className={styles.closeBtn} onClick={onClose}>
               ✕
             </button>
           )}
         </div>
 
         {/* Global Progress Bar */}
-        <div className="batch-overall-bar-wrap">
-          <div className="batch-overall-bar">
+        <div className={styles.overallBarWrap}>
+          <div className={styles.overallBar}>
             <div
-              className="batch-overall-fill"
+              className={styles.overallFill}
               style={{ width: `${overallPercent}%` }}
             ></div>
           </div>
-          <div className="batch-overall-meta">
+          <div className={styles.overallMeta}>
             <span>{t.batchProgress.completedMeta(completedCount, progress.total_clips)}</span>
             <span>{overallPercent}%</span>
           </div>
         </div>
 
         {/* Clips List */}
-        <div className="batch-render-items-list">
+        <div className={styles.itemsList}>
           {progress.clips.map((clip, idx) => (
-            <div key={idx} className={`batch-item-row status-${clip.status}`}>
-              <div className="batch-item-col-title">
-                <span className="batch-item-num">#{idx + 1}</span>
-                <span className="batch-item-text">{clip.title}</span>
+            <div key={idx} className={styles.itemRow}>
+              <div className={styles.itemColTitle}>
+                <span className={styles.itemNum}>#{idx + 1}</span>
+                <span className={styles.itemText}>{clip.title}</span>
               </div>
 
-              <div className="batch-item-status-wrap">
-                {clip.status === 'pending' && <span className="status-badge pending">{t.batchProgress.statusWaiting}</span>}
+              <div className={styles.itemStatusWrap}>
+                {clip.status === 'pending' && <span className={`${styles.statusBadge} ${styles.badgePending}`}>{t.batchProgress.statusWaiting}</span>}
                 {clip.status === 'downloading' && (
-                  <span className="status-badge active">{t.batchProgress.statusSlicing}</span>
+                  <span className={`${styles.statusBadge} ${styles.badgeActive}`}>{t.batchProgress.statusSlicing}</span>
                 )}
                 {clip.status === 'transcribing' && (
-                  <span className="status-badge active">{t.batchProgress.statusCaptions}</span>
+                  <span className={`${styles.statusBadge} ${styles.badgeActive}`}>{t.batchProgress.statusCaptions}</span>
                 )}
                 {clip.status === 'rendering' && (
-                  <span className="status-badge active">{t.batchProgress.statusRendering}</span>
+                  <span className={`${styles.statusBadge} ${styles.badgeActive}`}>{t.batchProgress.statusRendering}</span>
                 )}
                 {clip.status === 'completed' && (
-                  <div className="completed-action-row">
-                    <span className="status-badge success">{t.batchProgress.statusDone}</span>
+                  <div className={styles.completedActionRow}>
+                    <span className={`${styles.statusBadge} ${styles.badgeSuccess}`}>{t.batchProgress.statusDone}</span>
                     {clip.download_url && (
                       <a
                         href={clip.download_url}
                         download
-                        className="btn-download-clip"
+                        className={styles.btnDownloadClip}
                         title={t.batchProgress.downloadMp4Tooltip}
                       >
-                        ⬇️ MP4
+                        [v] MP4
                       </a>
                     )}
                   </div>
                 )}
                 {clip.status === 'error' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', marginTop: '2px' }}>
+                  <div className={styles.itemErrorCol}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span className="status-badge error" title={clip.error_message || clip.error}>
+                      <span className={`${styles.statusBadge} ${styles.badgeError}`} title={clip.error_message || clip.error}>
                         {t.batchProgress.statusFailed}
                       </span>
                       {onRetryClip && !isProcessing && (
                         <button
                           type="button"
                           onClick={() => onRetryClip(idx)}
-                          style={{
-                            background: 'rgba(245, 158, 11, 0.18)',
-                            border: '1px solid rgba(245, 158, 11, 0.5)',
-                            borderRadius: '4px',
-                            color: '#fbbf24',
-                            fontSize: '0.68rem',
-                            fontWeight: 700,
-                            padding: '2px 8px',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease',
-                          }}
+                          className={styles.retrySingleBtn}
                           title="Retry rendering this clip"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
                         >
-                          {t.batchProgress.retryClip || '[~] Retry'}
+                          <RefreshCw size={11} />
+                          {t.batchProgress.retryClip || 'Retry'}
                         </button>
                       )}
                     </div>
                     {(clip.error_message || clip.error) && (
                       <span
-                        style={{
-                          fontSize: '0.68rem',
-                          color: '#fca5a5',
-                          maxWidth: '320px',
-                          lineHeight: '1.3',
-                          textAlign: 'right',
-                          wordBreak: 'break-word',
-                          background: 'rgba(239, 68, 68, 0.12)',
-                          padding: '3px 8px',
-                          borderRadius: '4px',
-                          border: '1px solid rgba(239, 68, 68, 0.3)',
-                          cursor: 'pointer'
-                        }}
+                        className={styles.errorMsgBox}
                         title="Click to copy full error message"
                         onClick={() => navigator.clipboard.writeText(clip.error_message || clip.error || '')}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', justifyContent: 'flex-end' }}
                       >
-                        [!] {clip.error_message || clip.error}
+                        <AlertTriangle size={11} color="#ff1e27" style={{ flexShrink: 0 }} />
+                        <span>{clip.error_message || clip.error}</span>
                       </span>
                     )}
                   </div>
@@ -149,47 +133,38 @@ export const BatchRenderProgressModal: React.FC<BatchRenderProgressModalProps> =
         </div>
 
         {/* Footer Actions */}
-        <div className="batch-progress-footer">
+        <div className={styles.footer}>
           {isAllDone ? (
-            <div className="batch-footer-actions">
+            <>
               {progress.clips.some(c => c.status === 'error') && onRetryClip && (
                 <button
                   type="button"
                   onClick={() => onRetryClip()}
-                  style={{
-                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                    border: '1px solid rgba(245, 158, 11, 0.7)',
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    fontSize: '0.75rem',
-                    padding: '0.4rem 0.85rem',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    boxShadow: '0 0 10px rgba(245, 158, 11, 0.35)',
-                    transition: 'all 0.2s ease',
-                  }}
+                  className={styles.retryAllBtn}
                   title="Retry all failed clips"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                 >
+                  <RefreshCw size={13} />
                   {t.batchProgress.retryAllFailed
                     ? t.batchProgress.retryAllFailed(progress.clips.filter(c => c.status === 'error').length)
-                    : `[~] Retry Failed (${progress.clips.filter(c => c.status === 'error').length})`}
+                    : `Retry Failed (${progress.clips.filter(c => c.status === 'error').length})`}
                 </button>
               )}
               {progress.zip_url && (
                 <a
                   href={progress.zip_url}
                   download
-                  className="glowing-btn batch-zip-download-btn"
+                  className={styles.zipDownloadBtn}
                 >
                   {t.batchProgress.downloadZip}
                 </a>
               )}
-              <button className="studio-btn-cancel" onClick={onClose}>
+              <button className={styles.closeStudioBtn} onClick={onClose}>
                 {t.batchProgress.closeStudio}
               </button>
-            </div>
+            </>
           ) : (
-            <div className="rendering-in-progress-hint">
+            <div className={styles.inProgressHint}>
               <span className="spinner-dots"></span>
               <span>{t.batchProgress.hardwareEncodingHint}</span>
             </div>

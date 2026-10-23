@@ -1,0 +1,132 @@
+/* ==========================================================================
+   HackerApiKeyInput.module.css
+   Scoped styles for Hacker Terminal Style API Key Input
+   ========================================================================== */
+
+.container {
+  display: flex;
+  align-items: stretch;
+  position: relative;
+  width: 100%;
+  background: var(--bg-main);
+  border: 1px solid rgba(255, 0, 255, 0.35);
+  box-shadow: 0 0 8px rgba(255, 0, 255, 0.15);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hasError {
+  border-color: var(--accent-red);
+  box-shadow: 0 0 8px var(--accent-red-glow);
+}
+
+.prefix {
+  display: flex;
+  align-items: center;
+  padding: 0 0.65rem;
+  background: rgba(255, 0, 255, 0.08);
+  border-right: 1px solid rgba(255, 0, 255, 0.25);
+  color: var(--primary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.inputWrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.input {
+  width: 100%;
+  height: 42px;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  color: transparent;
+  caret-color: var(--primary);
+  z-index: 2;
+}
+
+.isRevealed {
+  color: var(--text-primary);
+}
+
+.mask {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  color: var(--primary);
+  text-shadow: 0 0 6px var(--primary-glow);
+  pointer-events: none;
+  z-index: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 0.35rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-left: 1px solid var(--border-color);
+}
+
+.clearBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: 0.3rem 0.45rem;
+  transition: color var(--transition-fast);
+}
+
+.clearBtn:hover {
+  color: var(--accent-red);
+}
+
+.toggleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: transparent;
+  border: 1px solid rgba(255, 0, 255, 0.3);
+  color: var(--primary);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 0.35rem 0.6rem;
+  text-transform: uppercase;
+  transition: var(--transition-fast);
+  white-space: nowrap;
+}
+
+.toggleBtn:hover {
+  background: var(--primary);
+  color: #000;
+}
+
+.isActive {
+  background: rgba(255, 0, 255, 0.15);
+}

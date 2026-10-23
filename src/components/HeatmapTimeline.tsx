@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import type { HeatmapPoint } from '../types';
 import { useLanguage } from '../locales';
+import styles from './HeatmapTimeline.module.css';
 
 interface HeatmapTimelineProps {
   duration: number;
@@ -136,31 +137,23 @@ export const HeatmapTimeline: React.FC<HeatmapTimelineProps> = ({
   }
 
   return (
-    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+    <div className={styles.container}>
+      <div className={styles.topRow}>
+        <span className={styles.titleGroup}>
           {t.heatmap.title}
           {(!heatmap || heatmap.length === 0) && (
-            <span style={{
-              fontSize: '0.62rem',
-              fontWeight: 500,
-              color: 'rgba(255,255,255,0.3)',
-              background: 'rgba(255,255,255,0.06)',
-              padding: '0.1rem 0.4rem',
-              borderRadius: '4px',
-              border: '1px solid rgba(255,255,255,0.1)'
-            }}>{t.heatmap.notAvailable}</span>
+            <span className={styles.naBadge}>{t.heatmap.notAvailable}</span>
           )}
         </span>
         <span>{formatTime(currentTime)} / {formatTime(duration)}</span>
       </div>
       
-      <div style={{ position: 'relative', background: 'rgba(5, 7, 15, 0.6)', borderRadius: '8px', border: '1px solid var(--border-color)', padding: '2px', overflow: 'hidden' }}>
+      <div className={styles.canvasCard}>
         <svg
           ref={svgRef}
           width="100%"
           height={height}
-          style={{ cursor: 'pointer', display: 'block' }}
+          className={styles.svg}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
           onClick={handleClick}
@@ -214,7 +207,7 @@ export const HeatmapTimeline: React.FC<HeatmapTimelineProps> = ({
                 stroke="var(--secondary)"
                 strokeWidth="1.5"
                 strokeDasharray="3,3"
-                rx="4"
+                rx="0"
               />
             </g>
           )}
@@ -266,27 +259,14 @@ export const HeatmapTimeline: React.FC<HeatmapTimelineProps> = ({
         {/* Hover Tooltip HTML positioning */}
         {hoverX !== null && (
           <div
+            className={styles.tooltip}
             style={{
-              position: 'absolute',
-              top: '4px',
               left: `${Math.min(svgWidth - 90, Math.max(10, hoverX - 45))}px`,
-              background: 'rgba(15, 23, 42, 0.95)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '4px',
-              padding: '2px 6px',
-              fontSize: '0.65rem',
-              color: 'var(--text-primary)',
-              pointerEvents: 'none',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)',
-              zIndex: 10,
             }}
           >
-            <span style={{ fontWeight: 'bold' }}>{formatTime(hoverTime)}</span>
+            <span className={styles.tooltipTime}>{formatTime(hoverTime)}</span>
             {heatmap && heatmap.length > 0 && (
-              <span style={{ color: 'var(--secondary)', fontSize: '0.6rem' }}>
+              <span className={styles.tooltipInterest}>
                 {t.heatmap.interest(Math.round(hoverValue * 100))}
               </span>
             )}
@@ -295,17 +275,17 @@ export const HeatmapTimeline: React.FC<HeatmapTimelineProps> = ({
       </div>
       
       {/* Timeline legends */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+      <div className={styles.footerRow}>
         <span>00:00</span>
         {heatmap && heatmap.length > 0 && (
-          <span style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)' }}></span>
+          <span className={styles.legendGroup}>
+            <span className={styles.legendItem}>
+              <span className={styles.dotPrimary}></span>
               {t.heatmap.mostReplayed}
             </span>
             {activeClip && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '2px', border: '1px dashed var(--secondary)', background: 'rgba(255, 94, 58, 0.1)' }}></span>
+              <span className={styles.legendItem}>
+                <span className={styles.boxClip}></span>
                 {t.heatmap.activeClipZone}
               </span>
             )}

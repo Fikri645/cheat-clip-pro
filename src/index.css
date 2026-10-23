@@ -21,11 +21,11 @@
 /* Tab 03 — Batch Progress Modal */
 @import "./styles/studio-batch-modal.css";
 
-/* Tab 03 — Cookies & Cookie Warning Modals */
-@import "./styles/studio-cookies-modal.css";
-
 /* Tab 03 — Clip Studio Section, Live Preview & Player Controls */
 @import "./styles/studio-section.css";
 
 /* Tab 03 — BGM, Watermark, Subtitles & Filename Controls */
 @import "./styles/studio-controls.css";
+
+/* Modals & Precision Tools */
+@import "./styles/trimmer-modal.css";

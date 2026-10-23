@@ -1,0 +1,307 @@
+/* ==========================================================================
+   BatchRenderProgressModal.module.css
+   Scoped Cyberpunk Brutalist Batch Render Progress Modal
+   ========================================================================== */
+
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  width: 100%;
+  max-width: 680px;
+  padding: 1.75rem;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85), 0 0 25px rgba(255, 0, 255, 0.12);
+  animation: modalScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+}
+
+.title {
+  font-size: 1.2rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0.3rem 0 0 0;
+  font-family: var(--font-mono);
+}
+
+.closeBtn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 1rem;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-fast);
+}
+
+.closeBtn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Global Progress Bar */
+.overallBarWrap {
+  margin-bottom: 1.5rem;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-color);
+  padding: 0.85rem 1rem;
+}
+
+.overallBar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.overallFill {
+  height: 100%;
+  background: var(--gradient-primary);
+  transition: width 0.35s ease;
+  box-shadow: 0 0 12px var(--primary-glow);
+}
+
+.overallMeta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  margin-top: 0.45rem;
+}
+
+/* Clips List */
+.itemsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 280px;
+  overflow-y: auto;
+  margin-bottom: 1.5rem;
+  padding-right: 0.25rem;
+}
+
+.itemRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-color);
+  padding: 0.65rem 0.9rem;
+  transition: var(--transition-fast);
+}
+
+.itemRow:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.itemColTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: 60%;
+}
+
+.itemNum {
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--primary);
+}
+
+.itemText {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemStatusWrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Status Badges */
+.statusBadge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  padding: 0.2rem 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badgePending {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+}
+
+.badgeActive {
+  background: rgba(255, 0, 255, 0.12);
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  animation: pulse 1.5s infinite;
+}
+
+.badgeSuccess {
+  background: var(--status-success-bg);
+  border: 1px solid var(--status-success);
+  color: var(--status-success);
+}
+
+.badgeError {
+  background: var(--status-error-bg);
+  border: 1px solid var(--status-error);
+  color: var(--status-error);
+}
+
+.completedActionRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btnDownloadClip {
+  background: var(--status-success);
+  color: #000;
+  text-decoration: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  padding: 0.2rem 0.55rem;
+  box-shadow: 0 0 10px var(--status-success-glow);
+  transition: var(--transition-fast);
+}
+
+.btnDownloadClip:hover {
+  filter: brightness(1.15);
+}
+
+/* Error Column */
+.itemErrorCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.retrySingleBtn {
+  background: var(--status-warning-bg);
+  border: 1px solid var(--status-warning);
+  color: var(--status-warning);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.retrySingleBtn:hover {
+  background: rgba(245, 158, 11, 0.25);
+  box-shadow: 0 0 8px var(--status-warning-glow);
+}
+
+.errorMsgBox {
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  color: var(--status-error);
+  max-width: 300px;
+  line-height: 1.3;
+  text-align: right;
+  word-break: break-word;
+  background: var(--status-error-bg);
+  padding: 3px 8px;
+  border: 1px solid var(--status-error);
+  cursor: pointer;
+}
+
+/* Footer Actions */
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.retryAllBtn {
+  background: var(--status-warning);
+  border: 1px solid var(--status-warning);
+  color: #000;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 0.75rem;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  box-shadow: 0 0 12px var(--status-warning-glow);
+  transition: var(--transition-fast);
+}
+
+.retryAllBtn:hover {
+  filter: brightness(1.15);
+}
+
+.zipDownloadBtn {
+  padding: 0.5rem 1.15rem;
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-decoration: none;
+  background: var(--gradient-primary);
+  border: 1px solid var(--primary);
+  color: #fff;
+  box-shadow: 0 0 14px var(--primary-glow);
+  transition: var(--transition-fast);
+}
+
+.zipDownloadBtn:hover {
+  filter: brightness(1.15);
+}
+
+.closeStudioBtn {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.closeStudioBtn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.inProgressHint {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}

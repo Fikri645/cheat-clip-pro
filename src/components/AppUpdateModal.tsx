@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { RefreshCw, CheckCircle2, AlertTriangle, RotateCcw, X } from 'lucide-react';
 import { useLanguage } from '../locales';
+import styles from './AppUpdateModal.module.css';
 
 export interface VersionInfo {
   current_commit: string;
@@ -169,168 +171,65 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose 
 
   return (
     <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(5, 7, 12, 0.75)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 9999,
-        padding: '1rem',
-      }}
+      className={styles.overlay}
       onClick={(e) => {
         if (e.target === e.currentTarget && !isUpdating && !isRestarting) {
           onClose();
         }
       }}
     >
-      <div
-        className="glass-panel"
-        style={{
-          width: '100%',
-          maxWidth: '540px',
-          maxHeight: '90vh',
-          display: 'flex',
-          flexDirection: 'column',
-          backgroundColor: '#121620',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
-          borderRadius: '16px',
-          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.75), 0 0 20px rgba(255, 94, 58, 0.1)',
-          overflow: 'hidden',
-          animation: 'fadeInScale 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-        }}
-      >
+      <div className={styles.card}>
         {/* Modal Header */}
-        <div
-          style={{
-            padding: '1.25rem 1.5rem',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 100%)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            <span style={{ fontSize: '1.4rem' }}>[~]</span>
+        <div className={styles.header}>
+          <div className={styles.headerLeft}>
+            <span className={styles.headerIcon} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <RefreshCw size={18} color="var(--primary)" />
+            </span>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                {t.updateModal.title}
-              </h3>
-              <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                {t.updateModal.subtitle}
-              </p>
+              <h3 className={styles.title}>{t.updateModal.title}</h3>
+              <p className={styles.subtitle}>{t.updateModal.subtitle}</p>
             </div>
           </div>
           {!isUpdating && !isRestarting && (
             <button
               onClick={onClose}
-              style={{
-                background: 'rgba(255, 255, 255, 0.06)',
-                border: 'none',
-                borderRadius: '8px',
-                width: '32px',
-                height: '32px',
-                color: 'var(--text-secondary)',
-                fontSize: '1.1rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.15s ease',
-              }}
+              className={styles.closeBtn}
               title={t.updateModal.closeBtn}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
-              ✕
+              <X size={16} />
             </button>
           )}
         </div>
 
         {/* Modal Content */}
-        <div style={{ padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+        <div className={styles.body}>
           {/* Active Restarting Overlay / Screen */}
           {isRestarting ? (
-            <div
-              style={{
-                padding: '2.5rem 1.5rem',
-                textAlign: 'center',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '1rem',
-                background: 'rgba(255, 255, 255, 0.02)',
-                borderRadius: '12px',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-              }}
-            >
-              <div
-                style={{
-                  width: '48px',
-                  height: '48px',
-                  border: '3px solid rgba(255, 94, 58, 0.2)',
-                  borderTopColor: 'var(--primary)',
-                  borderRadius: '50%',
-                  animation: 'spin 0.8s linear infinite',
-                }}
-              />
+            <div className={styles.progressContainer}>
+              <div className={styles.spinnerPrimary} />
               <div>
-                <h4 style={{ margin: 0, fontSize: '1.15rem', color: 'var(--text-primary)', fontWeight: 700 }}>
+                <h4 className={styles.progressTitle}>
                   {t.updateModal.restartingTitle}
                 </h4>
-                <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                <p className={styles.progressDesc}>
                   {t.updateModal.restartingDesc}
                 </p>
               </div>
-              <div
-                style={{
-                  fontSize: '0.8rem',
-                  padding: '0.4rem 0.9rem',
-                  borderRadius: '20px',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  color: 'var(--text-secondary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                }}
-              >
+              <div className={styles.reconnectBadge}>
                 <span>{statusText || t.updateModal.reconnecting}</span>
                 {reconnectAttempt > 0 && <span>({reconnectAttempt})</span>}
               </div>
             </div>
           ) : isUpdating ? (
             /* Active Updating Progress */
-            <div
-              style={{
-                padding: '2rem 1.5rem',
-                textAlign: 'center',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '1rem',
-                background: 'rgba(255, 255, 255, 0.02)',
-                borderRadius: '12px',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-              }}
-            >
-              <div
-                style={{
-                  width: '44px',
-                  height: '44px',
-                  border: '3px solid rgba(16, 185, 129, 0.2)',
-                  borderTopColor: '#10b981',
-                  borderRadius: '50%',
-                  animation: 'spin 0.8s linear infinite',
-                }}
-              />
+            <div className={styles.progressContainer}>
+              <div className={styles.spinnerSuccess} />
               <div>
-                <h4 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--text-primary)', fontWeight: 700 }}>
+                <h4 className={styles.progressTitle}>
                   {t.updateModal.updatingApp}
                 </h4>
-                <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                <p className={styles.progressDesc}>
                   Pulling latest commits from GitHub and preparing restart...
                 </p>
               </div>
@@ -338,59 +237,29 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose 
           ) : (
             <>
               {/* Version Information Card */}
-              <div
-                style={{
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '12px',
-                  padding: '1rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.65rem',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>
+              <div className={styles.versionCard}>
+                <div className={styles.versionTop}>
+                  <span className={styles.versionLabel}>
                     {t.updateModal.currentVersion}
                   </span>
                   <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                    <span
-                      style={{
-                        padding: '0.2rem 0.5rem',
-                        background: 'rgba(255, 255, 255, 0.06)',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        borderRadius: '6px',
-                        fontSize: '0.75rem',
-                        fontFamily: 'monospace',
-                        color: 'var(--primary)',
-                        fontWeight: 600,
-                      }}
-                    >
+                    <span className={styles.commitBadge}>
                       {info?.current_commit || '...'}
                     </span>
-                    <span
-                      style={{
-                        padding: '0.2rem 0.5rem',
-                        background: 'rgba(255, 255, 255, 0.04)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                        borderRadius: '6px',
-                        fontSize: '0.75rem',
-                        color: 'var(--text-secondary)',
-                      }}
-                    >
+                    <span className={styles.branchBadge}>
                       {info?.branch || 'master'}
                     </span>
                   </div>
                 </div>
 
                 {info?.commit_message && (
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 500, lineHeight: 1.4 }}>
+                  <div className={styles.commitMessage}>
                     "{info.commit_message}"
                   </div>
                 )}
 
                 {info?.commit_date && (
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  <div className={styles.commitDate}>
                     {t.updateModal.lastUpdated}: {info.commit_date}
                   </div>
                 )}
@@ -398,47 +267,18 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose 
 
               {/* Update Status Banner */}
               {isChecking ? (
-                <div
-                  style={{
-                    padding: '1rem',
-                    background: 'rgba(255, 255, 255, 0.03)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    borderRadius: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: '18px',
-                      height: '18px',
-                      border: '2px solid rgba(255, 255, 255, 0.2)',
-                      borderTopColor: 'var(--primary)',
-                      borderRadius: '50%',
-                      animation: 'spin 0.8s linear infinite',
-                    }}
-                  />
+                <div className={styles.checkingCard}>
+                  <div className={styles.spinnerSm} />
                   <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                     {t.updateModal.checkingUpdate}
                   </span>
                 </div>
               ) : info?.allow_update === false ? (
                 /* Server Deployment Notice */
-                <div
-                  style={{
-                    background: 'rgba(59, 130, 246, 0.08)',
-                    border: '1px solid rgba(59, 130, 246, 0.25)',
-                    borderRadius: '12px',
-                    padding: '1.1rem',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '0.8rem',
-                  }}
-                >
-                  <span style={{ fontSize: '1.3rem' }}>[SEC]</span>
+                <div className={styles.serverDeployCard}>
+                  <span style={{ fontSize: '1.3rem', color: 'var(--status-info)' }}>[SEC]</span>
                   <div>
-                    <h4 style={{ margin: 0, fontSize: '0.88rem', color: '#60a5fa', fontWeight: 600 }}>
+                    <h4 style={{ margin: 0, fontSize: '0.88rem', color: 'var(--status-info)', fontWeight: 600 }}>
                       Server / Production Deployment
                     </h4>
                     <p style={{ margin: '5px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
@@ -447,21 +287,11 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose 
                   </div>
                 </div>
               ) : info?.update_available ? (
-                <div
-                  style={{
-                    background: 'rgba(16, 185, 129, 0.08)',
-                    border: '1px solid rgba(16, 185, 129, 0.25)',
-                    borderRadius: '12px',
-                    padding: '1rem',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.75rem',
-                  }}
-                >
+                <div className={styles.availableCard}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontSize: '1.2rem', fontFamily: 'var(--font-mono)' }}>&gt;</span>
+                    <span style={{ fontSize: '1.2rem', fontFamily: 'var(--font-mono)', color: 'var(--status-success)' }}>&gt;</span>
                     <div>
-                      <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#34d399', fontWeight: 700 }}>
+                      <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--status-success)', fontWeight: 700 }}>
                         {t.updateModal.updateAvailableTitle}
                       </h4>
                       <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
@@ -476,21 +306,10 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose 
                       <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>
                         {t.updateModal.newCommits}
                       </span>
-                      <div
-                        style={{
-                          maxHeight: '120px',
-                          overflowY: 'auto',
-                          background: 'rgba(0, 0, 0, 0.25)',
-                          borderRadius: '8px',
-                          padding: '0.5rem',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '0.35rem',
-                        }}
-                      >
+                      <div className={styles.changelogBox}>
                         {info.changelog.map((c, i) => (
                           <div key={i} style={{ fontSize: '0.78rem', display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-                            <span style={{ fontFamily: 'monospace', color: '#6ee7b7', fontWeight: 600, flexShrink: 0 }}>
+                            <span className={styles.changelogHash}>
                               {c.hash}
                             </span>
                             <span style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>
@@ -505,44 +324,18 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose 
                   {/* Primary Update & Restart Action */}
                   <button
                     onClick={handleUpdateAndRestart}
-                    style={{
-                      marginTop: '0.25rem',
-                      padding: '0.7rem 1rem',
-                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                      border: 'none',
-                      borderRadius: '8px',
-                      color: '#ffffff',
-                      fontSize: '0.9rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.5rem',
-                      boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)',
-                      transition: 'all 0.2s ease',
-                    }}
+                    className={styles.btnPrimary}
                   >
                     <span>* {t.updateModal.updateRestartBtn}</span>
                   </button>
                 </div>
               ) : (
                 /* Up to date Banner */
-                <div
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.02)',
-                    border: '1px solid rgba(255, 255, 255, 0.06)',
-                    borderRadius: '12px',
-                    padding: '1rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
+                <div className={styles.uptodateCard}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                    <span style={{ fontSize: '1.2rem' }}>[OK]</span>
+                    <CheckCircle2 size={20} color="var(--status-success)" style={{ flexShrink: 0 }} />
                     <div>
-                      <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#34d399', fontWeight: 600 }}>
+                      <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--status-success)', fontWeight: 600 }}>
                         {t.updateModal.upToDateTitle}
                       </h4>
                       <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
@@ -553,17 +346,7 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose 
                   <button
                     onClick={handleCheckUpdate}
                     disabled={isChecking}
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      borderRadius: '8px',
-                      padding: '0.4rem 0.75rem',
-                      fontSize: '0.78rem',
-                      color: 'var(--text-primary)',
-                      cursor: isChecking ? 'not-allowed' : 'pointer',
-                      fontWeight: 600,
-                      flexShrink: 0,
-                    }}
+                    className={styles.checkBtn}
                   >
                     {isChecking ? t.updateModal.checkingAgain : t.updateModal.checkUpdateBtn}
                   </button>
@@ -572,18 +355,9 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose 
 
               {/* Error Alert */}
               {errorMessage && (
-                <div
-                  style={{
-                    padding: '0.75rem 1rem',
-                    background: 'rgba(239, 68, 68, 0.1)',
-                    border: '1px solid rgba(239, 68, 68, 0.25)',
-                    borderRadius: '8px',
-                    color: '#f87171',
-                    fontSize: '0.8rem',
-                    lineHeight: 1.4,
-                  }}
-                >
-                  [!] {errorMessage}
+                <div className={styles.errorBanner} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <AlertTriangle size={15} color="#ff1e27" style={{ flexShrink: 0 }} />
+                  <span>{errorMessage}</span>
                 </div>
               )}
             </>
@@ -592,51 +366,22 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose 
 
         {/* Modal Footer */}
         {!isUpdating && !isRestarting && (
-          <div
-            style={{
-              padding: '1rem 1.5rem',
-              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-              display: 'flex',
-              justifyContent: info?.allow_update === false ? 'flex-end' : 'space-between',
-              alignItems: 'center',
-              background: 'rgba(255, 255, 255, 0.01)',
-            }}
-          >
+          <div className={styles.footer}>
             {info?.allow_update !== false && (
               <button
                 onClick={handleDirectRestart}
-                style={{
-                  background: 'transparent',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: '8px',
-                  padding: '0.45rem 0.85rem',
-                  fontSize: '0.78rem',
-                  color: 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  transition: 'all 0.15s ease',
-                }}
+                className={styles.restartBtn}
                 title="Restart backend and frontend dev server"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
               >
-                <span>[~] {t.updateModal.restartBtn}</span>
+                <RotateCcw size={13} />
+                <span>{t.updateModal.restartBtn}</span>
               </button>
             )}
 
             <button
               onClick={onClose}
-              style={{
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '0.5rem 1.1rem',
-                fontSize: '0.82rem',
-                color: 'var(--text-primary)',
-                cursor: 'pointer',
-                fontWeight: 600,
-                transition: 'all 0.15s ease',
-              }}
+              className={styles.closeFooterBtn}
             >
               {t.updateModal.closeBtn}
             </button>

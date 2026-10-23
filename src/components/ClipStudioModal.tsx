@@ -399,7 +399,7 @@ export const ClipStudioModal: React.FC<ClipStudioModalProps> = ({
                   {t.studio.strictlyOneLine}
                 </span>
               </label>
-              <div className="caption-styles-grid">
+              <div className="caption-styles-grid" style={{ fontFamily: captionFont }}>
                 <button
                   type="button"
                   className={`caption-style-card viral-pop ${captionStyle === 'viral_pop' ? 'active' : ''}`}
@@ -509,7 +509,7 @@ export const ClipStudioModal: React.FC<ClipStudioModalProps> = ({
                           type="button"
                           className={`pill-btn ${captionFont === font ? 'active' : ''}`}
                           onClick={() => setCaptionFont(font)}
-                          style={{ fontFamily: font, fontSize: '0.78rem' }}
+                          style={{ fontFamily: font, fontSize: '0.78rem', fontWeight: captionFont === font ? 700 : 400 }}
                         >
                           {font}
                         </button>
