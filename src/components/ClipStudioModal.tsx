@@ -750,7 +750,7 @@ export const ClipStudioModal: React.FC<ClipStudioModalProps> = ({
                     <span
                       className="wireframe-caption-text"
                       style={{
-                        fontFamily: captionFont,
+                        fontFamily: `'${captionFont}', sans-serif`,
                         fontSize: fontSize === 'small' ? '0.72rem' : fontSize === 'big' ? '0.96rem' : '0.82rem',
                       }}
                     >

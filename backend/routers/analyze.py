@@ -1073,17 +1073,32 @@ async def analyze_video(request: AnalyzeRequest):
 
         is_auto_duration = str(request.duration).lower() == "auto"
         if is_auto_duration:
-            dur_range = "Auto dynamic length (~15s to ~90s max)"
+            dur_range = "Auto dynamic length (~20s to ~90s max)"
+            min_target_duration = 18.0
+            max_target_duration = 90.0
             duration_instruction = (
                 "DYNAMIC AUTO CLIP DURATION GUIDELINES:\n"
-                "- Intelligently adjust the duration of each individual clip based on its natural narrative flow and context so that NO CONTEXT, setup, premise, punchline, or explanation is cut off mid-thought.\n"
-                "- Generate variant clip durations naturally: ranging flexibly from approximately 15 seconds up to around 90 seconds (1 minute 30 seconds maximum). Do NOT force all clips to be the same length (some can be ~20-30s, some ~40-60s, and deeper discussions or complex stories can be up to around 90s).\n"
+                "- STRICT MINIMUM DURATION: Every clip MUST be at least 18-20 seconds long. NEVER create micro-clips of 2, 3, 5, or 8 seconds! A 3-second clip is completely useless as a standalone Short/Reel/TikTok.\n"
+                "- Intelligently adjust the duration of each individual clip based on its natural narrative flow and context so that the setup, premise, context, punchline, and resolution are fully included.\n"
+                "- Generate variant clip durations naturally: ranging flexibly from approximately 20 seconds up to around 90 seconds (1 minute 30 seconds maximum). Do NOT force all clips to be the exact same length (some can be ~25-35s, some ~45-60s, and deeper discussions or stories up to around 90s).\n"
                 "- Strict maximum constraint: No clip should ever exceed 90 seconds (1 minute 30 seconds). Always ensure clips begin and end cleanly at complete sentence boundaries without mid-word or mid-sentence cuts."
             )
         else:
-            dur_target = {"15s": "10-20s", "30s": "20-40s", "60s": "45-75s"}.get(request.duration, "20-40s")
-            dur_range = dur_target
-            duration_instruction = f"Target clip length: {dur_target}. Keep clips tightly focused around this duration."
+            duration_presets = {
+                "15s": {"target": "14-22s", "min": 12.0, "max": 25.0},
+                "30s": {"target": "25-42s", "min": 20.0, "max": 48.0},
+                "60s": {"target": "48-75s", "min": 40.0, "max": 85.0}
+            }
+            preset_info = duration_presets.get(str(request.duration), {"target": "25-42s", "min": 20.0, "max": 48.0})
+            dur_range = preset_info["target"]
+            min_target_duration = preset_info["min"]
+            max_target_duration = preset_info["max"]
+            duration_instruction = (
+                f"STRICT CLIP DURATION REQUIREMENTS (Target: {preset_info['target']}):\n"
+                f"- ABSOLUTE MINIMUM DURATION: No clip may be shorter than {int(min_target_duration)} seconds! NEVER return tiny snippets or 3-second soundbites.\n"
+                f"- Include sufficient context: Ensure every clip contains the full setup, premise, conversation/gameplay context, and conclusion so it functions as a complete, engaging standalone video.\n"
+                f"- Target duration range: {preset_info['target']}. Keep the clip length strictly around this window."
+            )
 
         heatmap_note = (
             "Columns: start|end|audience_interest(0-1). Prioritise high-interest peaks."
@@ -1594,15 +1609,50 @@ async def analyze_video(request: AnalyzeRequest):
             if hook is None or not (start <= hook <= end):
                 hook = start
             
-            # Enforce max 90 seconds (1m 30s) duration constraint for auto duration mode
-            if is_auto_duration and (end - start) > 90.0:
-                max_end = start + 90.0
+            # Enforce max duration constraint (e.g. 90s max for auto)
+            if (end - start) > max_target_duration:
+                max_end = start + max_target_duration
                 best_end = max_end
                 for l in enriched_transcript:
-                    l_end = l.get('end', 0.0)
-                    if start + 15.0 <= l_end <= max_end:
+                    l_end = float(l.get('end', 0.0))
+                    if start + min_target_duration <= l_end <= max_end:
                         best_end = l_end
                 end = best_end
+
+            # Enforce minimum duration constraint: expand micro-clips (e.g. 3s, 5s) to at least min_target_duration
+            clip_dur = end - start
+            if clip_dur < min_target_duration:
+                deficit = min_target_duration - clip_dur
+                expand_backward = deficit / 2.0
+                expand_forward = deficit / 2.0
+                
+                # Check video start/end boundaries
+                new_start = max(start_bound, start - expand_backward)
+                new_end = min(end_bound, end + expand_forward)
+
+                # Snap new_start backward to previous sentence/dialogue line start if available
+                matching_starts = [
+                    float(l.get('start', 0.0)) for l in enriched_transcript
+                    if start_bound <= float(l.get('start', 0.0)) <= new_start + 1.5
+                ]
+                if matching_starts:
+                    new_start = min(matching_starts, key=lambda s_val: abs(s_val - new_start))
+
+                # Snap new_end forward to subsequent sentence/dialogue line end if available
+                matching_ends = [
+                    float(l.get('end', 0.0)) for l in enriched_transcript
+                    if new_end - 1.5 <= float(l.get('end', 0.0)) <= end_bound
+                ]
+                if matching_ends:
+                    new_end = min(matching_ends, key=lambda e_val: abs(e_val - new_end))
+
+                # Ensure minimum length is satisfied
+                if (new_end - new_start) >= min_target_duration or (new_end - new_start) > clip_dur:
+                    start = round(new_start, 2)
+                    end = round(new_end, 2)
+
+            if hook is None or not (start <= hook <= end):
+                hook = start
             
             clip_lines = [
                 line.get("text", "")

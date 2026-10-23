@@ -132,6 +132,17 @@ async def render_single_batch_clip(
                 logger.warning(f"Could not render color emoji title overlay: {ex}")
                 skip_ass_title = False
 
+        # Detect language from transcript or video context
+        target_lang = None
+        if transcript:
+            try:
+                from backend.utils.text import detect_transcript_language
+                detected = detect_transcript_language(transcript[:50], display_title or "")
+                if detected and detected.get("code") in ("id", "en"):
+                    target_lang = detected["code"]
+            except Exception:
+                pass
+
         if settings.caption_style != "none" or (display_title and settings.title_position != "none" and not skip_ass_title):
             words = []
             if settings.caption_style != "none":
@@ -140,7 +151,8 @@ async def render_single_batch_clip(
                     raw_path,
                     transcript,
                     start_t,
-                    end_t
+                    end_t,
+                    target_lang
                 )
             ass_filename = f"{batch_id}_clip_{idx}.ass"
             ass_path = str(TEMP_DIR / ass_filename)
@@ -371,6 +383,16 @@ async def render_merged_batch_clips(
             await asyncio.to_thread(subprocess.run, concat_cmd, check=True, timeout=concat_timeout)
 
         # 3. Transcribe & generate time-shifted subtitles
+        target_lang = None
+        if transcript:
+            try:
+                from backend.utils.text import detect_transcript_language
+                detected = detect_transcript_language(transcript[:50])
+                if detected and detected.get("code") in ("id", "en"):
+                    target_lang = detected["code"]
+            except Exception:
+                pass
+
         total_duration_sec = 0.0
         merged_words = []
         for i, seg in enumerate(clips):
@@ -383,7 +405,8 @@ async def render_merged_batch_clips(
                     part_paths[i],
                     transcript,
                     s_t,
-                    e_t
+                    e_t,
+                    target_lang
                 )
                 for w in seg_words:
                     w_copy = dict(w)

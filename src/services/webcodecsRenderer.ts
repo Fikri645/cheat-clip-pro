@@ -21,12 +21,16 @@ export function isWebCodecsGpuSupported(): boolean {
 }
 
 /**
- * Detects the client's GPU renderer information via WebGL.
+ * Detects the client's GPU renderer information via WebGL or WebGPU.
  */
 export function getClientGpuName(): string {
   try {
     const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    // Try WebGL2 first, then WebGL1
+    const gl = canvas.getContext('webgl2') ||
+      canvas.getContext('webgl') ||
+      canvas.getContext('experimental-webgl2') ||
+      canvas.getContext('experimental-webgl');
     if (!gl) return 'Browser GPU';
     const debugInfo = (gl as any).getExtension('WEBGL_debug_renderer_info');
     if (debugInfo) {
@@ -40,13 +44,13 @@ export function getClientGpuName(): string {
 }
 
 function cleanGpuName(raw: string): string {
-  // e.g. "ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)" -> "NVIDIA GeForce RTX 3060"
+  // e.g. "ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Ti Direct3D11 vs_5_0 ps_5_0, D3D11)" -> "NVIDIA GeForce RTX 3060 Ti"
   let clean = raw.replace(/^ANGLE\s*\(/i, '').replace(/\)$/, '');
   const parts = clean.split(',');
   if (parts.length > 1) {
     clean = parts[1].trim();
   }
-  clean = clean.split(' Direct3D')[0].split(' vs_')[0].trim();
+  clean = clean.split(' Direct3D')[0].split(' vs_')[0].split(' OpenGL')[0].split(' Vulkan')[0].trim();
   return clean || 'Hardware GPU';
 }
 
