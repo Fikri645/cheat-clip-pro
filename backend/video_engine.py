@@ -291,8 +291,14 @@ def get_whisper_model():
     if _WHISPER_MODEL is None:
         try:
             import whisper
-            logger.info("Loading Whisper 'base' model for word-level timestamps...")
-            _WHISPER_MODEL = whisper.load_model("base")
+            # Prefer 'small' model (better vocabulary & multi-lingual accuracy, esp. Indonesian speech)
+            # Falls back to 'base' if 'small' cannot be loaded
+            try:
+                logger.info("Loading Whisper 'small' model for high-accuracy word-level timestamps...")
+                _WHISPER_MODEL = whisper.load_model("small")
+            except Exception as e_small:
+                logger.warning(f"Could not load Whisper 'small' model ({e_small}). Falling back to 'base'...")
+                _WHISPER_MODEL = whisper.load_model("base")
         except Exception as e:
             logger.warning(f"Could not load Whisper model: {e}")
             _WHISPER_MODEL = False
@@ -337,6 +343,43 @@ ENCODER_CONFIGS: Dict[str, Tuple[str, List[str]]] = {
 _DETECTED_SUPPORT: Optional[Dict[str, Any]] = None
 
 
+def get_system_gpu_name() -> Optional[str]:
+    """Detects the physical GPU model name on the host system."""
+    # Try nvidia-smi query first
+    if shutil.which("nvidia-smi"):
+        try:
+            out = subprocess.check_output(
+                ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+                universal_newlines=True,
+                timeout=3,
+                stderr=subprocess.DEVNULL
+            ).strip()
+            if out:
+                return out.split("\n")[0].strip()
+        except Exception:
+            pass
+
+    # On Windows, query CIM VideoController
+    if sys.platform.startswith("win"):
+        try:
+            out = subprocess.check_output(
+                ["powershell", "-NoProfile", "-Command", "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"],
+                universal_newlines=True,
+                timeout=4,
+                stderr=subprocess.DEVNULL
+            ).strip()
+            lines = [l.strip() for l in out.split("\n") if l.strip()]
+            for l in lines:
+                if any(k in l.lower() for k in ["nvidia", "geforce", "rtx", "gtx", "radeon", "intel arc", "arc"]):
+                    return l
+            if lines:
+                return lines[0]
+        except Exception:
+            pass
+
+    return None
+
+
 def detect_hardware_support() -> Dict[str, Any]:
     """Detects host GPU/CPU hardware acceleration support and caches the result."""
     global _DETECTED_SUPPORT
@@ -356,12 +399,15 @@ def detect_hardware_support() -> Dict[str, Any]:
     else:
         recommended = "cpu"
 
+    gpu_name = get_system_gpu_name()
+
     _DETECTED_SUPPORT = {
         "nvenc": has_nvenc,
         "amf": has_amf,
         "qsv": has_qsv,
         "cpu": True,
         "recommended": recommended,
+        "gpu_name": gpu_name,
     }
     return _DETECTED_SUPPORT
 
@@ -1205,11 +1251,17 @@ def clean_caption_text(text: str) -> str:
     t = re.sub(r'\[.*?\]|\(.*?\)|[\*].*?[\*]', ' ', text)
     # 2. Remove common unbracketed sound tags
     t = re.sub(r'\b(laughter|applause|music|cheering|snickering|giggle|cough)\b', ' ', t, flags=re.IGNORECASE)
-    # 3. Remove all symbols except . , % & $ ? (keep letters, digits, whitespace, . , % & $ ?)
+    # 3. Strip leading and trailing ellipses / periods (e.g. "...Stroavirus..." -> "Stroavirus")
+    t = re.sub(r'^\s*[\.\,\…\:\;]+\s*', '', t)
+    t = re.sub(r'\s*[\.\,\…\:\;]+\s*$', '', t)
+    # 4. Remove all symbols except . , % & $ ? (keep letters, digits, whitespace, . , % & $ ?)
     # Note: in Python regex \w includes '_', so we explicitly eliminate '_'
     t = re.sub(r'[^\w\s.,%&$?]|_', '', t)
-    # 4. Collapse multiple spaces
+    # 5. Collapse multiple spaces and trim
     t = re.sub(r'\s+', ' ', t).strip()
+    # If the string consists purely of punctuation, clear it
+    if re.fullmatch(r'[\.\,\%\&\$\? ]+', t):
+        return ""
     return t
 
 
@@ -1217,28 +1269,72 @@ def transcribe_clip_words(
     video_path: str,
     fallback_transcript: Optional[List[Dict[str, Any]]] = None,
     clip_start_time: float = 0.0,
-    clip_end_time: float = 0.0
+    clip_end_time: float = 0.0,
+    target_language: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
     Transcribes word-level timestamps directly from the sliced clip audio using Whisper AI.
     Listens directly to the audio waveform of the sliced clip (0.0s = start of clip) for 100% acoustic accuracy.
+    Applies explicit language constraints, custom Indonesian/English initial prompt context,
+    condition_on_previous_text=False, and hallucination suppression to eliminate phantom/corrupted words.
     Falls back to transcript distribution only if Whisper AI is not available.
     """
+    # Auto-detect language from fallback transcript if not explicitly provided
+    if not target_language and fallback_transcript:
+        try:
+            from backend.utils.text import detect_transcript_language
+            detected = detect_transcript_language(fallback_transcript[:50])
+            if detected and detected.get("code") in ("id", "en"):
+                target_language = detected["code"]
+        except Exception:
+            pass
+
     # 1. Primary: Run Whisper directly on sliced clip audio for exact acoustic timestamps
     whisper_model = get_whisper_model()
     if whisper_model is not None and os.path.exists(video_path):
         try:
-            logger.info(f"Running Whisper acoustic word transcription on: {os.path.basename(video_path)}...")
+            logger.info(f"Running Whisper acoustic word transcription on: {os.path.basename(video_path)} (target_language={target_language})...")
+
+            # Extract dialogue context from fallback transcript for this time window to guide Whisper decoding
+            context_hint = ""
+            if fallback_transcript and clip_end_time > clip_start_time:
+                matching_lines = [
+                    l.get("text", "").strip() for l in fallback_transcript
+                    if float(l.get("start", 0.0)) <= clip_end_time + 1.0 and float(l.get("end", l.get("start", 0.0) + l.get("duration", 2.0))) >= clip_start_time - 1.0
+                ]
+                if matching_lines:
+                    context_hint = " ".join(matching_lines[:6])[:200]
+
+            if target_language == "id":
+                base_prompt = "Transkrip percakapan video dalam Bahasa Indonesia. Kosakata percakapan, gaming, dan santai."
+            elif target_language == "en":
+                base_prompt = "Video dialogue transcript in English. Conversational, gaming, and clear speech."
+            else:
+                base_prompt = "Transkrip video percakapan Bahasa Indonesia atau English."
+
+            initial_prompt = f"{base_prompt} {context_hint}".strip() if context_hint else base_prompt
+
+            transcribe_kwargs: Dict[str, Any] = {
+                "word_timestamps": True,
+                "fp16": False,
+                "verbose": False,
+                "condition_on_previous_text": False,  # Prevents repetition loops and hallucinations across silence
+                "hallucination_silence_threshold": 1.5,
+                "initial_prompt": initial_prompt,
+            }
+            if target_language in ("id", "en"):
+                transcribe_kwargs["language"] = target_language
+
             result = whisper_model.transcribe(
                 video_path,
-                word_timestamps=True,
-                fp16=False
+                **transcribe_kwargs
             )
             words = []
             for segment in result.get("segments", []):
                 for w in segment.get("words", []):
                     word_clean = clean_caption_text(w.get("word", "").strip())
-                    if word_clean:
+                    # Skip ellipses, single punctuation, or empty tokens
+                    if word_clean and word_clean not in (".", "..", "...", ",", "?"):
                         st = max(0.0, float(w.get("start", 0.0)))
                         et = max(st + 0.12, float(w.get("end", st + 0.25)))
                         words.append({

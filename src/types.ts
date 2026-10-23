@@ -78,12 +78,14 @@ export interface HardwareAccelInfo {
   status: string;
   active_default: string;
   recommended: string;
+  gpu_name?: string | null;
   support: {
     nvenc: boolean;
     amf: boolean;
     qsv: boolean;
     cpu: boolean;
     recommended: string;
+    gpu_name?: string | null;
   };
   options: Array<{
     id: HardwareAccelOption;

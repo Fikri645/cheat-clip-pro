@@ -438,11 +438,12 @@
   flex-direction: column;
   align-items: center;
   gap: 0.65rem;
-  max-height: calc(100vh - 2.5rem);
+  max-height: calc(100vh - 3.5rem);
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
-  padding-right: 2px;
+  padding-right: 4px;
+  overscroll-behavior: contain;
 }
 
 .preview-header-bar {
@@ -978,6 +979,13 @@
   margin-left: 0.2rem;
 }
 
+.player-ctrl-btn.active-mute {
+  background: rgba(255, 0, 255, 0.15);
+  border-color: #ff00ff;
+  color: #ff00ff;
+  box-shadow: 0 0 8px rgba(255, 0, 255, 0.35);
+}
+
 .player-loop-toggle {
   background: #060608;
   border: 1px solid #201e2c;
@@ -998,6 +1006,7 @@
 
 /* Bottom Full-Width Batch Dashboard Card */
 .bottom-batch-dashboard-card {
+  margin-top: 1rem;
   background: #0a0a0f;
   border: 1px solid #201e2c;
   border-radius: 0;
@@ -1006,6 +1015,12 @@
   animation: fadeIn 0.25s ease;
   width: 100%;
   box-sizing: border-box;
+  transition: all 0.3s ease;
+}
+
+.bottom-batch-dashboard-card.is-processing {
+  border-color: #ff00ff;
+  box-shadow: 0 0 25px rgba(255, 0, 255, 0.2), 0 8px 30px rgba(0, 0, 0, 0.8);
 }
 
 .bottom-batch-dashboard-card .batch-progress-header {
