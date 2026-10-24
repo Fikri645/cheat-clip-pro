@@ -457,17 +457,26 @@ async def analyze_video(request: AnalyzeRequest):
                     task = asyncio.create_task(
                         asyncio.to_thread(transcribe_local_video_file, uploaded_file_path, whisper_progress, expected_video_lang)
                     )
-                    while not task.done():
-                        try:
-                            evt = await asyncio.wait_for(progress_queue.get(), timeout=0.2)
-                            yield _sse(evt)
-                        except asyncio.TimeoutError:
-                            pass
+                    try:
+                        while not task.done():
+                            try:
+                                evt = await asyncio.wait_for(progress_queue.get(), timeout=0.2)
+                                yield _sse(evt)
+                            except asyncio.TimeoutError:
+                                pass
 
-                    while not progress_queue.empty():
-                        yield _sse(progress_queue.get_nowait())
+                        while not progress_queue.empty():
+                            yield _sse(progress_queue.get_nowait())
 
-                    transcript_lines = await task
+                        transcript_lines = await task
+                    finally:
+                        if task and not task.done():
+                            task.cancel()
+                        elif task and not task.cancelled():
+                            try:
+                                task.exception()
+                            except (asyncio.CancelledError, Exception):
+                                pass
                     if not transcript_lines:
                         if is_mock:
                             transcript_lines = [
@@ -809,16 +818,25 @@ async def analyze_video(request: AnalyzeRequest):
                                 w_task = asyncio.create_task(
                                     asyncio.to_thread(transcribe_local_video_file, audio_path, whisper_trans_progress, expected_video_lang)
                                 )
-                                while not w_task.done():
-                                    try:
-                                        evt = await asyncio.wait_for(whisper_trans_queue.get(), timeout=0.2)
-                                        yield _sse(evt)
-                                    except asyncio.TimeoutError:
-                                        pass
-                                while not whisper_trans_queue.empty():
-                                    yield _sse(whisper_trans_queue.get_nowait())
+                                try:
+                                    while not w_task.done():
+                                        try:
+                                            evt = await asyncio.wait_for(whisper_trans_queue.get(), timeout=0.2)
+                                            yield _sse(evt)
+                                        except asyncio.TimeoutError:
+                                            pass
+                                    while not whisper_trans_queue.empty():
+                                        yield _sse(whisper_trans_queue.get_nowait())
 
-                                transcript_lines = await w_task
+                                    transcript_lines = await w_task
+                                finally:
+                                    if w_task and not w_task.done():
+                                        w_task.cancel()
+                                    elif w_task and not w_task.cancelled():
+                                        try:
+                                            w_task.exception()
+                                        except (asyncio.CancelledError, Exception):
+                                            pass
                             except Exception as w_err:
                                 logger.warning(f"Whisper transcription failed: {w_err}")
                                 transcript_lines = []

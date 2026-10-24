@@ -12,6 +12,7 @@ import urllib.parse
 import urllib.request
 import contextlib
 import tempfile
+import threading
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple, Union, Callable
 from PIL import Image, ImageDraw, ImageFont
@@ -282,41 +283,44 @@ def ensure_ffmpeg_in_path():
 
 ensure_ffmpeg_in_path()
 
-# Global lazy-loaded whisper model
+# Global lazy-loaded whisper model and thread lock for PyTorch attention safety
 _WHISPER_MODEL = None
+_WHISPER_LOCK = threading.Lock()
 
 
 def get_whisper_model():
     global _WHISPER_MODEL
-    if _WHISPER_MODEL is None:
-        try:
-            import whisper
-            # Prefer 'small' model (better vocabulary & multi-lingual accuracy, esp. Indonesian speech)
-            # Falls back to 'base' if 'small' cannot be loaded
+    with _WHISPER_LOCK:
+        if _WHISPER_MODEL is None:
             try:
-                logger.info("Loading Whisper 'small' model for high-accuracy word-level timestamps...")
-                _WHISPER_MODEL = whisper.load_model("small")
-            except Exception as e_small:
-                logger.warning(f"Could not load Whisper 'small' model ({e_small}). Falling back to 'base'...")
-                _WHISPER_MODEL = whisper.load_model("base")
-        except Exception as e:
-            logger.warning(f"Could not load Whisper model: {e}")
-            _WHISPER_MODEL = False
+                import whisper
+                # Prefer 'small' model (better vocabulary & multi-lingual accuracy, esp. Indonesian speech)
+                # Falls back to 'base' if 'small' cannot be loaded
+                try:
+                    logger.info("Loading Whisper 'small' model for high-accuracy word-level timestamps...")
+                    _WHISPER_MODEL = whisper.load_model("small")
+                except Exception as e_small:
+                    logger.warning(f"Could not load Whisper 'small' model ({e_small}). Falling back to 'base'...")
+                    _WHISPER_MODEL = whisper.load_model("base")
+            except Exception as e:
+                logger.warning(f"Could not load Whisper model: {e}")
+                _WHISPER_MODEL = False
     return _WHISPER_MODEL if _WHISPER_MODEL is not False else None
 
 
 def release_whisper_model():
     """Explicitly frees Whisper PyTorch model from RAM to preserve memory on low-spec servers."""
     global _WHISPER_MODEL
-    if _WHISPER_MODEL is not None and _WHISPER_MODEL is not False:
-        try:
-            del _WHISPER_MODEL
-            _WHISPER_MODEL = None
-            import gc
-            gc.collect()
-            logger.info("Whisper model unloaded from memory to free server RAM.")
-        except Exception:
-            pass
+    with _WHISPER_LOCK:
+        if _WHISPER_MODEL is not None and _WHISPER_MODEL is not False:
+            try:
+                del _WHISPER_MODEL
+                _WHISPER_MODEL = None
+                import gc
+                gc.collect()
+                logger.info("Whisper model unloaded from memory to free server RAM.")
+            except Exception:
+                pass
 
 
 def check_encoder_support(encoder_name: str) -> bool:
@@ -747,20 +751,42 @@ def transcribe_local_video_file(
         else "Video dialogue transcript in English." if target_language == "en"
         else "Transkrip video percakapan dalam Bahasa Indonesia atau English."
     )
-    transcribe_kwargs = {
-        "word_timestamps": True,
+    transcribe_kwargs: Dict[str, Any] = {
+        "word_timestamps": False,  # Dialogue segment detection does not need word timestamps; avoids find_alignment DTW tensor shape mismatch
         "fp16": False,
         "verbose": False,
+        "condition_on_previous_text": False,
         "initial_prompt": whisper_prompt,
     }
     if target_language in ("id", "en"):
         transcribe_kwargs["language"] = target_language
 
-    result = whisper_model.transcribe(str(p), **transcribe_kwargs)
-    
+    result = None
+    with _WHISPER_LOCK:
+        try:
+            result = whisper_model.transcribe(str(p), **transcribe_kwargs)
+        except RuntimeError as e:
+            err_str = str(e).lower()
+            if "dimension" in err_str or "tensor" in err_str or "size" in err_str:
+                logger.warning(f"Whisper attention tensor mismatch ({e}), retrying without prompt/condition...")
+                minimal_kwargs: Dict[str, Any] = {
+                    "word_timestamps": False,
+                    "fp16": False,
+                    "verbose": False,
+                    "condition_on_previous_text": False,
+                }
+                if target_language in ("id", "en"):
+                    minimal_kwargs["language"] = target_language
+                result = whisper_model.transcribe(str(p), **minimal_kwargs)
+            else:
+                raise
+
+    if not result:
+        return []
+
     segments = result.get("segments", [])
     transcript_lines = []
-    
+
     for seg in segments:
         text = seg.get("text", "").strip()
         if not text:
@@ -773,7 +799,7 @@ def transcribe_local_video_file(
             "start": start,
             "duration": dur
         })
-        
+
     logger.info(f"Whisper transcribed {len(transcript_lines)} dialogue segments from {p.name}")
     return transcript_lines
 
@@ -1325,23 +1351,54 @@ def transcribe_clip_words(
             if target_language in ("id", "en"):
                 transcribe_kwargs["language"] = target_language
 
-            result = whisper_model.transcribe(
-                video_path,
-                **transcribe_kwargs
-            )
+            result = None
+            with _WHISPER_LOCK:
+                try:
+                    result = whisper_model.transcribe(
+                        video_path,
+                        **transcribe_kwargs
+                    )
+                except RuntimeError as re_err:
+                    logger.warning(f"Whisper word_timestamps failed ({re_err}). Retrying with standard segment timestamps...")
+                    transcribe_kwargs["word_timestamps"] = False
+                    result = whisper_model.transcribe(
+                        video_path,
+                        **transcribe_kwargs
+                    )
+
             words = []
-            for segment in result.get("segments", []):
-                for w in segment.get("words", []):
-                    word_clean = clean_caption_text(w.get("word", "").strip())
-                    # Skip ellipses, single punctuation, or empty tokens
-                    if word_clean and word_clean not in (".", "..", "...", ",", "?"):
-                        st = max(0.0, float(w.get("start", 0.0)))
-                        et = max(st + 0.12, float(w.get("end", st + 0.25)))
-                        words.append({
-                            "word": word_clean,
-                            "start": round(st, 2),
-                            "end": round(et, 2)
-                        })
+            if result:
+                for segment in result.get("segments", []):
+                    seg_words = segment.get("words", [])
+                    if seg_words:
+                        for w in seg_words:
+                            word_clean = clean_caption_text(w.get("word", "").strip())
+                            # Skip ellipses, single punctuation, or empty tokens
+                            if word_clean and word_clean not in (".", "..", "...", ",", "?"):
+                                st = max(0.0, float(w.get("start", 0.0)))
+                                et = max(st + 0.12, float(w.get("end", st + 0.25)))
+                                words.append({
+                                    "word": word_clean,
+                                    "start": round(st, 2),
+                                    "end": round(et, 2)
+                                })
+                    else:
+                        # Segment timestamps fallback: interpolate words across start and end
+                        seg_text = clean_caption_text(segment.get("text", "").strip())
+                        seg_st = max(0.0, float(segment.get("start", 0.0)))
+                        seg_et = max(seg_st + 0.5, float(segment.get("end", seg_st + 2.0)))
+                        tokens = seg_text.split()
+                        if tokens:
+                            step_dur = (seg_et - seg_st) / len(tokens)
+                            for idx, tok in enumerate(tokens):
+                                w_st = seg_st + (idx * step_dur)
+                                w_et = w_st + max(0.15, step_dur * 0.95)
+                                words.append({
+                                    "word": tok,
+                                    "start": round(w_st, 2),
+                                    "end": round(w_et, 2)
+                                })
+
             if words:
                 logger.info(f"Whisper successfully transcribed {len(words)} acoustic words for clip.")
                 return words
