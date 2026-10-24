@@ -181,8 +181,9 @@ def fetch_transcript_cli(
     logger.info(f"Executing CLI transcript extraction for {video_id} (languages: {effective_langs})...")
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-        if proc.returncode == 0 and proc.stdout.strip():
-            raw = json.loads(proc.stdout)
+        out_str = (proc.stdout or "").strip()
+        if proc.returncode == 0 and out_str and (out_str.startswith("[") or out_str.startswith("{")):
+            raw = json.loads(out_str)
             items = raw[0] if isinstance(raw, list) and len(raw) > 0 and isinstance(raw[0], list) else raw
             result = normalize_transcript(items)
             if result:
@@ -195,9 +196,10 @@ def fetch_transcript_cli(
                     return []
                 logger.info(f"Transcript fetched via CLI fallback ({check['name']}): {len(result)} lines")
                 return result
-        stderr_snippet = (proc.stderr or proc.stdout or "").strip()
-        first_err_line = stderr_snippet.split("\n")[0] if stderr_snippet else f"exit code {proc.returncode}"
-        raise Exception(f"CLI returned {proc.returncode}: {first_err_line}")
+
+        err_snippet = (proc.stderr or proc.stdout or "").strip()
+        first_err_line = err_snippet.split("\n")[0] if err_snippet else f"exit code {proc.returncode}"
+        raise Exception(f"CLI returned: {first_err_line}")
     except Exception as e:
         logger.warning(f"CLI transcript extraction failed: {e}")
         raise

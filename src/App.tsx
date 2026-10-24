@@ -936,7 +936,10 @@ export default function App() {
       }
       setLoadingModels(true);
       try {
-        const res = await resilientFetch(`/api/models?api_key=${encodeURIComponent(cleanKey)}`, {
+        const res = await resilientFetch('/api/models', {
+          headers: {
+            'X-Gemini-API-Key': cleanKey,
+          },
           maxRetries: 3,
           retryDelay: 800,
           silent: true
@@ -973,7 +976,11 @@ export default function App() {
       setLoadingOpenRouterModels(true);
       try {
         const cleanKey = openRouterKey.trim();
-        const res = await resilientFetch(`/api/openrouter-models?api_key=${encodeURIComponent(cleanKey)}`, {
+        const res = await resilientFetch('/api/openrouter-models', {
+          headers: cleanKey ? {
+            'X-OpenRouter-API-Key': cleanKey,
+            'Authorization': `Bearer ${cleanKey}`
+          } : undefined,
           maxRetries: 2,
           retryDelay: 800,
           silent: true

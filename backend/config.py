@@ -49,9 +49,12 @@ load_dotenv()
 
 ROOT_DIR = Path(_base_dir).parent
 
-# Setup logging
+# Setup logging with security redactor
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("cheat-clip-pro")
+
+from backend.security import install_security_logging
+install_security_logging()
 
 
 try:

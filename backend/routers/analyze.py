@@ -5,7 +5,7 @@ import os
 import re
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header
 from fastapi.responses import StreamingResponse
 from google import genai
 from google.genai import types
@@ -220,16 +220,32 @@ def supadata_usage_endpoint(refresh: bool = False):
 
 
 @router.get("/api/models")
-def list_available_models(api_key: str = ""):
-    """Fetches list of available Gemini models using the user's API key, prioritizing Flash models (newest first)."""
-    models = list_available_gemini_models(api_key)
+def list_available_models(
+    api_key: str = "",
+    x_gemini_api_key: Optional[str] = Header(None, alias="X-Gemini-API-Key"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+):
+    """Fetches list of available Gemini models using the user's API key, prioritizing Flash models (newest first).
+    Accepts API key securely via X-Gemini-API-Key or Authorization Bearer header, with query parameter fallback.
+    """
+    token_from_auth = authorization.replace("Bearer ", "").strip() if (authorization and authorization.startswith("Bearer ")) else None
+    effective_key = (x_gemini_api_key or token_from_auth or api_key or "").strip()
+    models = list_available_gemini_models(effective_key)
     return {"models": models}
 
 
 @router.get("/api/openrouter-models")
-async def list_openrouter_models_endpoint(api_key: str = ""):
-    """Fetches list of available OpenRouter text-based LLM models."""
-    models = await fetch_openrouter_available_models(api_key)
+async def list_openrouter_models_endpoint(
+    api_key: str = "",
+    x_openrouter_api_key: Optional[str] = Header(None, alias="X-OpenRouter-API-Key"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+):
+    """Fetches list of available OpenRouter text-based LLM models.
+    Accepts API key securely via X-OpenRouter-API-Key or Authorization Bearer header, with query parameter fallback.
+    """
+    token_from_auth = authorization.replace("Bearer ", "").strip() if (authorization and authorization.startswith("Bearer ")) else None
+    effective_key = (x_openrouter_api_key or token_from_auth or api_key or "").strip()
+    models = await fetch_openrouter_available_models(effective_key)
     return {"models": models}
 
 

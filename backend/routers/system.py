@@ -1,5 +1,6 @@
 import logging
 import os
+import secrets
 import subprocess
 import sys
 from pathlib import Path
@@ -40,7 +41,7 @@ def verify_admin_access(
     if not provided and authorization and authorization.startswith("Bearer "):
         provided = authorization[7:].strip()
 
-    if provided != admin_key:
+    if not secrets.compare_digest(provided, admin_key):
         raise HTTPException(status_code=401, detail="Unauthorized: Invalid or missing administrator API key")
     return True
 

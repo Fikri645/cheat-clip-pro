@@ -69,8 +69,14 @@ async def background_storage_cleanup_worker():
         await asyncio.sleep(interval_seconds)
 
 
+from backend.security import install_security_logging, mask_sensitive_text
+from fastapi.responses import JSONResponse
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Ensure all logger handlers (including Uvicorn) have the security masking filter attached
+    install_security_logging()
     # Startup: spawn auto-cleanup background task
     cleanup_task = asyncio.create_task(background_storage_cleanup_worker())
     logger.info("[Auto-Cleanup] Storage daemon active (Interval: 30m, TTL: 1h, Quota: 5GB).")
@@ -123,6 +129,17 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     return response
+
+
+@app.exception_handler(Exception)
+async def sanitized_exception_handler(request: Request, exc: Exception):
+    """Catches unhandled errors, logs a redacted error string, and returns a sanitized response."""
+    safe_err = mask_sensitive_text(str(exc))
+    logger.error(f"Internal server error on {request.method} {request.url.path}: {safe_err}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An internal server error occurred. Please try again or check logs."}
+    )
 
 
 # Include Modular Routers
