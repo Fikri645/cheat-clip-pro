@@ -7,6 +7,7 @@ import {
   RotateCcw, 
   Trash2, 
   ArrowLeft, 
+  ArrowRight, 
   X,
   Music,
   FileCode,
@@ -17,6 +18,7 @@ import { useLanguage } from '../locales';
 import { resilientFetch } from '../utils/api';
 import { getStoredCookies, hasStoredCookies } from '../utils/cookieUtils';
 import { detectFaceClientSide } from '../utils/clientFaceDetector';
+import { isMobileDevice } from '../utils/deviceUtils';
 import { isWebCodecsGpuSupported, getClientGpuName } from '../services/webcodecsRenderer';
 import type {
   ViralClip,
@@ -424,8 +426,14 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
   const [clientGpuName, setClientGpuName] = useState<string>(() => getClientGpuName());
   const [hasWebCodecs] = useState<boolean>(() => isWebCodecsGpuSupported());
 
-  // Hardware acceleration / Video Encoder state: default to 'auto' on localhost, 'client_gpu' or 'browser_wasm' on deployed domain
+  // Hardware acceleration / Video Encoder state:
+  // - On Mobile: default to 'auto' (Server Render) to avoid mobile OOM / tab crashes.
+  // - On Desktop (deployed): default to 'client_gpu' / 'browser_wasm' to use user's local GPU/CPU and avoid burdening the server.
+  // - On Desktop (localhost): default to 'auto'.
   const [hardwareAccel, setHardwareAccel] = useState<HardwareAccelOption>(() => {
+    if (isMobileDevice()) {
+      return 'auto';
+    }
     const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
     if (!isLocal) {
       return isWebCodecsGpuSupported() ? 'client_gpu' : 'browser_wasm';
@@ -452,8 +460,15 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
       }
     };
 
+    if (isMobileDevice()) {
+      // Mobile devices always use Server Engine (FFmpeg) to prevent mobile browser crash / OOM
+      setHardwareAccel('auto');
+      fetchHardwareSupport();
+      return;
+    }
+
     if (!isLocalhost) {
-      // On deployed domain, force client engine (prefer client_gpu)
+      // On deployed domain for desktop users, use client engine (prefer client_gpu) to spare server
       setHardwareAccel(isWebCodecsGpuSupported() ? 'client_gpu' : 'browser_wasm');
       return;
     }
@@ -1652,7 +1667,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
       originalAudioVolume,
       // Hardware Acceleration / Video Encoder
       hardwareAccel,
-      renderEngine: hardwareAccel === 'browser_wasm' ? 'client' : 'server',
+      renderEngine: isMobileDevice() ? 'server' : (hardwareAccel === 'browser_wasm' ? 'client' : 'server'),
       // Multi-Segment Merged Highlight Video
       renderMode,
       compilationTitle: compilationTitle.trim() || undefined,
@@ -1878,25 +1893,26 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                         border: `1px solid ${faceBox.type === 'salient_object' ? 'rgba(56, 189, 248, 0.3)' : 'rgba(34, 197, 94, 0.3)'}`,
                         fontWeight: 600
                       }}>
-                        {faceBox.type === 'salient_object' ? '> AI Object Focus' : '// AI Face Focus'}
+                        {faceBox.type === 'salient_object' ? 'AI Object Focus' : 'AI Face Focus'}
                       </span>
                     )}
                   </div>
                   <div className="pill-group framing-pills" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
                     {[
-                      { id: 'auto', label: t.studio.framingAuto || '[AI] AI Auto' },
-                      { id: 'center', label: t.studio.framingCenter || '> Center (50%)' },
-                      { id: 'left', label: t.studio.framingLeft || '⬅️ Left Focus (35%)' },
-                      { id: 'right', label: t.studio.framingRight || '-> Right Focus (65%)' },
+                      { id: 'auto', label: t.studio.framingAuto || 'AI Auto (Face & Object)' },
+                      { id: 'center', label: t.studio.framingCenter || 'Center (50%)' },
+                      { id: 'left', icon: <ArrowLeft size={13} />, label: t.studio.framingLeft || 'Left Focus (35%)' },
+                      { id: 'right', icon: <ArrowRight size={13} />, label: t.studio.framingRight || 'Right Focus (65%)' },
                     ].map(opt => (
                       <button
                         key={opt.id}
                         type="button"
                         className={`pill-btn ${facecamPosition === opt.id ? 'active' : ''}`}
-                        style={{ fontSize: '0.75rem', padding: '0.3rem 0.65rem' }}
+                        style={{ fontSize: '0.75rem', padding: '0.35rem 0.65rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                         onClick={() => setFacecamPosition(opt.id as FacecamPosition)}
                       >
-                        {opt.label}
+                        {opt.icon}
+                        <span>{opt.label.replace(/^[⬅️←<\->\s]+/, '')}</span>
                       </button>
                     ))}
                   </div>

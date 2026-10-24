@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { HeatmapTimeline } from './components/HeatmapTimeline';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { ClipStudioSection } from './components/ClipStudioSection';
@@ -11,6 +11,7 @@ import { getStoredCookies, hasStoredCookies } from './utils/cookieUtils';
 import { extractAudioFromVideoClient } from './utils/audioExtractor';
 import { renderClipClientSide, triggerBrowserDownload } from './services/clientRenderer';
 import { renderClipWebCodecs, isWebCodecsGpuSupported } from './services/webcodecsRenderer';
+import { isMobileDevice, requestWakeLock, releaseWakeLock } from './utils/deviceUtils';
 import { useLanguage } from './locales';
 import { HackerApiKeyInput } from './components/HackerApiKeyInput';
 import {
@@ -35,7 +36,11 @@ import {
   RefreshCw,
   Layers,
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  ChevronRight,
+  FileVideo,
+  Film,
+  Scissors
 } from 'lucide-react';
 import type { AnalyzeResponse, ViralClip, RenderSettings, BatchRenderProgress } from './types';
 
@@ -189,6 +194,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [loadingTooLong, setLoadingTooLong] = useState(false);
+  const analyzeAbortRef = useRef<AbortController | null>(null);
 
   // Real-time progress and cognitive stage tracking
   const [stepProgress, setStepProgress] = useState<Record<number, number>>({ 1: 0, 2: 0, 3: 0, 4: 0 });
@@ -201,16 +208,24 @@ export default function App() {
   // Active timer during loading so the user always sees live activity
   useEffect(() => {
     let interval: number | null = null;
+    let tooLongTimer: number | null = null;
     if (loading) {
       setLoadingElapsedTime(0);
+      setLoadingTooLong(false);
       interval = window.setInterval(() => {
         setLoadingElapsedTime(prev => prev + 1);
       }, 1000);
+      // Show "taking too long" warning after 35 seconds
+      tooLongTimer = window.setTimeout(() => {
+        setLoadingTooLong(true);
+      }, 35000);
     } else {
       setLoadingElapsedTime(0);
+      setLoadingTooLong(false);
     }
     return () => {
       if (interval !== null) clearInterval(interval);
+      if (tooLongTimer !== null) clearTimeout(tooLongTimer);
     };
   }, [loading]);
 
@@ -295,16 +310,6 @@ export default function App() {
   const [isLaunchingRender, setIsLaunchingRender] = useState(false);
   const batchEventSourceRef = useRef<EventSource | null>(null);
 
-  // Close SSE connection on unmount
-  useEffect(() => {
-    return () => {
-      if (batchEventSourceRef.current) {
-        batchEventSourceRef.current.close();
-        batchEventSourceRef.current = null;
-      }
-    };
-  }, []);
-
   const listenToBatchProgress = useCallback((batchId: string) => {
     if (batchEventSourceRef.current) {
       batchEventSourceRef.current.close();
@@ -336,6 +341,53 @@ export default function App() {
       }
     };
   }, []);
+
+  // Close SSE connection on unmount and handle mobile tab visibility reconnection
+  const activeBatchIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (batchProgress?.overall_status === 'running') {
+      activeBatchIdRef.current = batchProgress.batch_id;
+      requestWakeLock();
+    } else {
+      activeBatchIdRef.current = null;
+      if (!loading) {
+        releaseWakeLock();
+      }
+    }
+  }, [batchProgress?.overall_status, batchProgress?.batch_id, loading]);
+
+  useEffect(() => {
+    if (loading) {
+      requestWakeLock();
+    } else if (batchProgress?.overall_status !== 'running') {
+      releaseWakeLock();
+    }
+  }, [loading, batchProgress?.overall_status]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const runningBatchId = activeBatchIdRef.current;
+        if (runningBatchId && !runningBatchId.startsWith('client_')) {
+          listenToBatchProgress(runningBatchId);
+        }
+        if (loading || activeBatchIdRef.current) {
+          requestWakeLock();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (batchEventSourceRef.current) {
+        batchEventSourceRef.current.close();
+        batchEventSourceRef.current = null;
+      }
+      releaseWakeLock();
+    };
+  }, [listenToBatchProgress, loading]);
 
   const markedClipsList = useMemo(() => {
     if (!result?.clips) return [];
@@ -370,7 +422,7 @@ export default function App() {
 
     setIsLaunchingRender(true);
 
-    const isClientMode = settings.hardwareAccel === 'browser_wasm' || settings.renderEngine === 'client' || (sourceMode === 'upload' && Boolean(uploadedVideoFile));
+    const isClientMode = !isMobileDevice() && (settings.hardwareAccel === 'browser_wasm' || settings.renderEngine === 'client' || (sourceMode === 'upload' && Boolean(uploadedVideoFile)));
 
     if (isClientMode) {
       try {
@@ -1559,6 +1611,7 @@ export default function App() {
 
     if (sourceMode === 'upload') {
       setLoading(true);
+      setWorkflowTab('clips');
       setError(null);
       setResult(null);
       setActiveClip(null);
@@ -1590,7 +1643,7 @@ export default function App() {
                 const pct = Math.round((event.loaded / event.total) * 100);
                 const loadedMb = (event.loaded / (1024 * 1024)).toFixed(1);
                 const totalMb = (event.total / (1024 * 1024)).toFixed(1);
-                setAiDetail(`Uploading audio track (${pct}% â€” ${loadedMb}/${totalMb} MB)...`);
+                setAiDetail(`Uploading audio track (${pct}% - ${loadedMb}/${totalMb} MB)...`);
                 setStepProgress(prev => ({ ...prev, 1: Math.min(95, pct) }));
               }
             };
@@ -1715,12 +1768,17 @@ export default function App() {
     setCurrentStep(1);
     setStepProgress({ 1: 20, 2: 0, 3: 0, 4: 0 });
     setOverallProgress(5);
+    setWorkflowTab('clips');
     const isGDrive = isGoogleDriveUrl(targetAnalyzeUrl);
     setAiStage(isGDrive ? 'Connecting to Google Drive' : 'Initializing Analysis Pipeline');
     setAiDetail(sourceMode === 'upload' ? 'Inspecting local video container & audio track...' : isGDrive ? 'Connecting to Google Drive and resolving video...' : 'Connecting to YouTube and resolving media stream metadata...');
     const effectiveModel = apiProvider === 'openrouter' ? openRouterModel : selectedModel;
     setActiveProcessingModel(effectiveModel);
     setLoadingDetails(sourceMode === 'upload' ? 'Inspecting local video file...' : isGDrive ? 'Connecting to Google Drive...' : 'Connecting to YouTube...');
+
+    // Create AbortController for cancellation support
+    const abortCtrl = new AbortController();
+    analyzeAbortRef.current = abortCtrl;
 
     let resultData: AnalyzeResponse | null = null;
 
@@ -1729,6 +1787,7 @@ export default function App() {
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: abortCtrl.signal,
         body: JSON.stringify({
           url: targetAnalyzeUrl,
           duration: durationPref,
@@ -1892,6 +1951,14 @@ export default function App() {
       }, 250);
 
     } catch (err: any) {
+      // If user manually cancelled, reset silently
+      if (err?.name === 'AbortError') {
+        setLoading(false);
+        setCurrentStep(1);
+        setStepProgress({ 1: 0, 2: 0, 3: 0, 4: 0 });
+        setOverallProgress(0);
+        return;
+      }
       const msg = String(err?.message || '');
       if (
         msg.includes('Failed to fetch') ||
@@ -1911,6 +1978,18 @@ export default function App() {
       }
       setLoading(false);
     }
+  };
+
+  const handleCancelAnalyze = () => {
+    if (analyzeAbortRef.current) {
+      analyzeAbortRef.current.abort();
+      analyzeAbortRef.current = null;
+    }
+    setLoading(false);
+    setCurrentStep(1);
+    setStepProgress({ 1: 0, 2: 0, 3: 0, 4: 0 });
+    setOverallProgress(0);
+    setLoadingTooLong(false);
   };
 
   const formatSeconds = (secs: number) => {
@@ -2269,7 +2348,7 @@ Transcript:
 "${clip.transcript}"`;
 
     if (clip.key_quotes && clip.key_quotes.length > 0) {
-      copyText += `\n\nKey Quotes:\n` + clip.key_quotes.map(q => `â€œ${q}â€`).join('\n');
+      copyText += `\n\nKey Quotes:\n` + clip.key_quotes.map(q => `"${q}"`).join('\n');
     }
     if (clip.title_suggestion) {
       copyText += `\n\nTitle Suggestion: ${clip.title_suggestion}`;
@@ -2636,7 +2715,7 @@ Transcript:
             title="Dismiss notification"
             aria-label="Dismiss notification"
           >
-            âœ•
+            ✕
           </button>
         </div>
       )}
@@ -2671,15 +2750,15 @@ Transcript:
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
                   <Bookmark size={13} /> {t.header.cookiesBtn}
                 </span>
-                <span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
                   {hasCookies ? (
                     <>
-                      <span className="cookie-status-icon">âœ“</span>
-                      <span>{t.header.cookiesStatusActive}</span>
+                      <Check size={12} style={{ color: '#00ff66' }} />
+                      <span style={{ color: '#00ff66' }}>{t.header.cookiesStatusActive}</span>
                     </>
                   ) : (
                     <>
-                      <span className="cookie-status-icon inactive">â—‹</span>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--text-muted)', display: 'inline-block' }} />
                       <span>{t.header.cookiesStatusSetup}</span>
                     </>
                   )}
@@ -2726,57 +2805,94 @@ Transcript:
       </div>
 
       <div className="app-container">
-        {/* Workflow Navigation Tabs (01 // SOURCE, 02 // CLIPS, 03 // CLIPPER) */}
+        {/* Workflow Navigation Tabs Pipeline (01 SOURCE -> 02 RECOMMENDED CLIPS -> 03 AUTO CLIPPER) */}
         <nav className="workflow-tab-bar" aria-label="Workflow Navigation">
           <button
             type="button"
             id="tab-step-source"
-            className={`workflow-tab-btn ${workflowTab === 'source' ? 'active' : ''}`}
+            className={`workflow-tab-btn ${workflowTab === 'source' ? 'active' : ''} ${result ? 'step-done' : ''}`}
             onClick={() => setWorkflowTab('source')}
           >
-            <span className="workflow-tab-dot"></span>
-            <span>01 // SOURCE</span>
+            <span className="workflow-step-num">
+              {result ? <Check size={11} strokeWidth={3} /> : '01'}
+            </span>
+            <FileVideo size={15} className="workflow-step-icon" />
+            <span className="workflow-step-title">SOURCE</span>
           </button>
+
+          <div className={`workflow-process-connector ${result ? 'completed' : ''}`} aria-hidden="true">
+            <span className="connector-line" />
+            <span className="connector-arrow-box">
+              <ChevronRight size={13} strokeWidth={2.5} />
+            </span>
+            <span className="connector-line" />
+          </div>
 
           <button
             type="button"
             id="tab-step-clips"
-            className={`workflow-tab-btn ${workflowTab === 'clips' ? 'active' : ''}`}
+            className={`workflow-tab-btn ${workflowTab === 'clips' ? 'active' : ''} ${loading ? 'is-analyzing' : ''} ${result?.clips && result.clips.length > 0 ? 'step-has-content' : ''}`}
             onClick={() => {
               setWorkflowTab('clips');
             }}
-            disabled={!result && history.length === 0}
+            disabled={!loading && !result && history.length === 0}
             title={
-              result
-                ? 'Lihat hasil rekomendasi klip'
-                : history.length > 0
-                  ? 'Buka riwayat klip tersimpan'
-                  : 'Selesaikan analisis video terlebih dahulu'
+              loading
+                ? 'Sedang menganalisa video...'
+                : result
+                  ? 'Lihat hasil rekomendasi klip'
+                  : history.length > 0
+                    ? 'Buka riwayat klip tersimpan'
+                    : 'Selesaikan analisis video terlebih dahulu'
             }
           >
-            <span className="workflow-tab-dot"></span>
-            <span>{result ? '02 // RECOMMENDED CLIPS' : '02 // HISTORY CLIPS'}</span>
-            {result?.clips ? (
+            <span className="workflow-step-num">02</span>
+            {loading ? (
+              <RefreshCw size={15} className="spinner-icon workflow-step-icon" />
+            ) : (
+              <Film size={15} className="workflow-step-icon" />
+            )}
+            <span className="workflow-step-title">
+              {loading ? (
+                'ANALYZING...'
+              ) : result ? (
+                'RECOMMENDED CLIPS'
+              ) : (
+                'HISTORY CLIPS'
+              )}
+            </span>
+            {loading ? (
+              <span className="workflow-tab-count analyzing-badge">
+                {overallProgress}%
+              </span>
+            ) : result?.clips ? (
               <span className="workflow-tab-count">[{result.clips.length}]</span>
             ) : history.length > 0 ? (
-              <span className="workflow-tab-count">
-                [{history.length}]
-              </span>
+              <span className="workflow-tab-count">[{history.length}]</span>
             ) : null}
           </button>
+
+          <div className={`workflow-process-connector ${markedClipsList.length > 0 ? 'completed' : ''}`} aria-hidden="true">
+            <span className="connector-line" />
+            <span className="connector-arrow-box">
+              <ChevronRight size={13} strokeWidth={2.5} />
+            </span>
+            <span className="connector-line" />
+          </div>
 
           <button
             type="button"
             id="tab-step-clipper"
-            className={`workflow-tab-btn ${workflowTab === 'clipper' ? 'active' : ''}`}
+            className={`workflow-tab-btn ${workflowTab === 'clipper' ? 'active' : ''} ${markedClipsList.length > 0 ? 'step-has-content' : ''}`}
             onClick={() => {
               if (result) setWorkflowTab('clipper');
             }}
             disabled={!result}
             title={!result ? 'Selesaikan analisis video terlebih dahulu' : 'Buka Auto Clipper Studio'}
           >
-            <span className="workflow-tab-dot"></span>
-            <span>03 // AUTO CLIPPER</span>
+            <span className="workflow-step-num">03</span>
+            <Scissors size={15} className="workflow-step-icon" />
+            <span className="workflow-step-title">AUTO CLIPPER</span>
             {markedClipsList.length > 0 && (
               <span className="workflow-tab-count">
                 [{markedClipsList.length} READY]
@@ -2784,8 +2900,9 @@ Transcript:
             )}
           </button>
         </nav>
-        {/* Active Video Status Banner (Flow level - placed directly below workflow tabs for Tab 01 and Tab 03) */}
-        {result && workflowTab !== 'clips' && (
+
+        {/* Active Video Status Banner (Flow level - placed directly below workflow tabs for all steps) */}
+        {result && (
           <div className="active-video-banner">
             <div className="active-video-info">
               <span className="studio-tab-preview-title">&gt;_ ACTIVE VIDEO:</span>
@@ -2793,34 +2910,138 @@ Transcript:
               <span className="studio-tab-preview-count">[{result.clips?.length || 0} klip tersedia]</span>
             </div>
             <div className="active-video-actions">
-              <button
-                type="button"
-                className="glowing-btn"
-                onClick={() => setWorkflowTab('clips')}
-                style={{
-                  padding: '0.4rem 0.95rem',
-                  fontSize: '0.78rem',
-                  background: 'transparent',
-                  color: 'var(--text-primary)',
-                  fontWeight: 700
-                }}
-              >
-                [ 02 // LIHAT CLIPS âž” ]
-              </button>
-              <button
-                type="button"
-                className="glowing-btn"
-                onClick={() => setWorkflowTab('clipper')}
-                style={{
-                  padding: '0.4rem 0.95rem',
-                  fontSize: '0.78rem',
-                  background: workflowTab === 'clipper' ? 'var(--primary)' : 'transparent',
-                  color: workflowTab === 'clipper' ? '#000000' : 'var(--text-primary)',
-                  fontWeight: 700
-                }}
-              >
-                [ 03 // AUTO CLIPPER âž” ]
-              </button>
+              {/* If on Tab 01 (Source): Show 02 -> and 03 -> */}
+              {workflowTab === 'source' && (
+                <>
+                  <button
+                    type="button"
+                    className="glowing-btn"
+                    onClick={() => setWorkflowTab('clips')}
+                    style={{
+                      padding: '0.4rem 0.95rem',
+                      fontSize: '0.78rem',
+                      background: 'transparent',
+                      color: 'var(--text-primary)',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    <span>[ 02 LIHAT CLIPS</span>
+                    <ArrowRight size={13} />
+                    <span>]</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="glowing-btn"
+                    onClick={() => setWorkflowTab('clipper')}
+                    style={{
+                      padding: '0.4rem 0.95rem',
+                      fontSize: '0.78rem',
+                      background: 'transparent',
+                      color: 'var(--text-primary)',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    <span>[ 03 AUTO CLIPPER</span>
+                    <ArrowRight size={13} />
+                    <span>]</span>
+                  </button>
+                </>
+              )}
+
+              {/* If on Tab 02 (Clips): Show <- 01 and 03 -> */}
+              {workflowTab === 'clips' && (
+                <>
+                  <button
+                    type="button"
+                    className="glowing-btn"
+                    onClick={() => setWorkflowTab('source')}
+                    style={{
+                      padding: '0.4rem 0.95rem',
+                      fontSize: '0.78rem',
+                      background: 'transparent',
+                      color: 'var(--text-primary)',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    <span>[</span>
+                    <ArrowLeft size={13} />
+                    <span>01 SOURCE ]</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="glowing-btn"
+                    onClick={() => setWorkflowTab('clipper')}
+                    style={{
+                      padding: '0.4rem 0.95rem',
+                      fontSize: '0.78rem',
+                      background: 'var(--primary)',
+                      color: '#000000',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    <span>[ 03 AUTO CLIPPER</span>
+                    <ArrowRight size={13} />
+                    <span>]</span>
+                  </button>
+                </>
+              )}
+
+              {/* If on Tab 03 (Auto Clipper): Show <- 01 and <- 02 */}
+              {workflowTab === 'clipper' && (
+                <>
+                  <button
+                    type="button"
+                    className="glowing-btn"
+                    onClick={() => setWorkflowTab('source')}
+                    style={{
+                      padding: '0.4rem 0.95rem',
+                      fontSize: '0.78rem',
+                      background: 'transparent',
+                      color: 'var(--text-primary)',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    <span>[</span>
+                    <ArrowLeft size={13} />
+                    <span>01 SOURCE ]</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="glowing-btn"
+                    onClick={() => setWorkflowTab('clips')}
+                    style={{
+                      padding: '0.4rem 0.95rem',
+                      fontSize: '0.78rem',
+                      background: 'transparent',
+                      color: 'var(--text-primary)',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    <span>[</span>
+                    <ArrowLeft size={13} />
+                    <span>02 LIHAT CLIPS ]</span>
+                  </button>
+                </>
+              )}
+
               <button
                 type="button"
                 className="active-video-close-btn"
@@ -2828,7 +3049,7 @@ Transcript:
                 title="Tutup & Nonaktifkan Active Video (Deselect)"
                 aria-label="Close active video"
               >
-                [ âœ• ]
+                [ ✕ ]
               </button>
             </div>
           </div>
@@ -2945,7 +3166,7 @@ Transcript:
             {sourceMode === 'youtube' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', width: '100%' }}>
                 <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>{t.form.urlLabel}</label>
-                <div className="form-main-input-row" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <div className="form-main-input-row">
                   <div
                     style={{
                       display: 'flex',
@@ -3066,7 +3287,7 @@ Transcript:
             {sourceMode === 'gdrive' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
                 <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>{t.form.gdriveUrlLabel}</label>
-                <div className="form-main-input-row" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <div className="form-main-input-row">
                   <div
                     style={{
                       display: 'flex',
@@ -3330,7 +3551,7 @@ Transcript:
                           {uploadedVideoInfo && uploadedVideoInfo.duration > 0 && (
                             <span> {Math.round(uploadedVideoInfo.duration)}s</span>
                           )}
-                          <span>â€¢</span>
+                          <span>•</span>
                           <span style={{ color: '#10b981', fontWeight: 600 }}>* Whisper AI Auto-Transcribe</span>
                         </div>
                       </div>
@@ -3394,7 +3615,7 @@ Transcript:
               </div>
             )}
 
-            <div className="form-settings-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+            <div className="form-settings-grid">
               {/* Card 1: AI Engine Configuration */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '1.25rem', borderRadius: 0, background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3506,7 +3727,7 @@ Transcript:
                         <span>{t.form.aiModelLabel}</span>
                         {loadingModels && (
                           <span style={{ fontSize: '0.72rem', color: 'var(--primary)', animation: 'pulse 1.5s infinite ease-in-out' }}>
-                            âŒ› {t.form.fetchingModels}
+                            ⏳ {t.form.fetchingModels}
                           </span>
                         )}
                       </label>
@@ -3594,7 +3815,7 @@ Transcript:
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           {loadingOpenRouterModels && (
                             <span style={{ fontSize: '0.72rem', color: 'var(--primary)', animation: 'pulse 1.5s infinite ease-in-out' }}>
-                              âŒ› {t.form.fetchingModels}
+                              ⏳ {t.form.fetchingModels}
                             </span>
                           )}
                           <span
@@ -3641,16 +3862,16 @@ Transcript:
                           {openRouterModels.length > 0 ? (
                             openRouterModels.map((m) => (
                               <option key={m.id} value={m.id} style={{ background: '#0a0a0f', color: '#fff' }}>
-                                {m.name || m.id} {m.recommended ? 'â˜… [RECOMMENDED]' : ''}
+                                {m.name || m.id} {m.recommended ? '[RECOMMENDED]' : ''}
                               </option>
                             ))
                           ) : (
                             <>
-                              <option value="google/gemini-2.5-flash" style={{ background: '#0a0a0f', color: '#fff' }}>Google: Gemini 2.5 Flash â˜… [RECOMMENDED]</option>
+                              <option value="google/gemini-2.5-flash" style={{ background: '#0a0a0f', color: '#fff' }}>Google: Gemini 2.5 Flash [RECOMMENDED]</option>
                               <option value="google/gemini-2.0-flash-001" style={{ background: '#0a0a0f', color: '#fff' }}>Google: Gemini 2.0 Flash</option>
-                              <option value="anthropic/claude-3.5-sonnet" style={{ background: '#0a0a0f', color: '#fff' }}>Anthropic: Claude 3.5 Sonnet â˜… [RECOMMENDED]</option>
+                              <option value="anthropic/claude-3.5-sonnet" style={{ background: '#0a0a0f', color: '#fff' }}>Anthropic: Claude 3.5 Sonnet [RECOMMENDED]</option>
                               <option value="anthropic/claude-3.5-haiku" style={{ background: '#0a0a0f', color: '#fff' }}>Anthropic: Claude 3.5 Haiku</option>
-                              <option value="deepseek/deepseek-chat" style={{ background: '#0a0a0f', color: '#fff' }}>DeepSeek: DeepSeek V3 â˜… [RECOMMENDED]</option>
+                              <option value="deepseek/deepseek-chat" style={{ background: '#0a0a0f', color: '#fff' }}>DeepSeek: DeepSeek V3 [RECOMMENDED]</option>
                               <option value="meta-llama/llama-3.3-70b-instruct" style={{ background: '#0a0a0f', color: '#fff' }}>Meta: Llama 3.3 70B Instruct</option>
                               <option value="openai/gpt-4o-mini" style={{ background: '#0a0a0f', color: '#fff' }}>OpenAI: GPT-4o Mini</option>
                               <option value="openai/gpt-4o" style={{ background: '#0a0a0f', color: '#fff' }}>OpenAI: GPT-4o</option>
@@ -4174,260 +4395,16 @@ Transcript:
           </section>
         )}
 
-        {/* Loading Steps state with Real Progress Bars & Cognitive AI Diagnostics */}
-        {loading && (
-          <section
-            ref={loadingSectionRef}
-            id="loading-progress-section"
-            className="glass-panel"
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '1.5rem',
-              alignItems: 'center',
-              padding: '2.5rem 1.75rem',
-              scrollMarginTop: '2.5rem'
-            }}
-          >
-            <div style={{ width: '100%', maxWidth: '620px' }}>
-              <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
-                <h3 style={{ marginBottom: '0.4rem', fontSize: '1.4rem' }} className="text-gradient">
-                  {t.loading.decodingEngagement}
-                </h3>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>
-                  {t.loading.decodingSubtitle}
-                </p>
-              </div>
-
-              {/* Master Progress Bar */}
-              <div style={{ marginBottom: '2rem', padding: '0.85rem 1rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: 0, border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
-                  <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    {t.loading.pipelineCompletion}
-                  </span>
-                  <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--primary)', fontVariantNumeric: 'tabular-nums' }}>
-                    {overallProgress}%
-                  </span>
-                </div>
-                <div style={{ height: '7px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: 0, overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      height: '100%',
-                      background: 'linear-gradient(90deg, var(--primary) 0%, var(--secondary) 100%)',
-                      width: `${overallProgress}%`,
-                      transition: 'width 0.4s ease'
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Stepper with Individual Progress Bars */}
-              <div className="stepper-container">
-                {/* Step 1 */}
-                <div className={`step-item ${currentStep === 1 ? 'active' : currentStep > 1 ? 'completed' : ''}`}>
-                  <div className="step-circle">{currentStep > 1 ? 'âœ“' : '1'}</div>
-                  <div className="step-content">
-                    <div className="step-header-row">
-                      <span className="step-label">{t.loading.step1Label}</span>
-                      <span className="step-percentage">
-                        {currentStep > 1 ? '100%' : `${stepProgress[1] || 0}%`}
-                      </span>
-                    </div>
-                    <div className="step-mini-bar-track">
-                      <div
-                        className="step-mini-bar-fill"
-                        style={{ width: `${currentStep > 1 ? 100 : (stepProgress[1] || 0)}%` }}
-                      />
-                    </div>
-                    {currentStep === 1 && (
-                      <span className="step-subtext">{t.loading.step1Subtext}</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Step 2 */}
-                <div className={`step-item ${currentStep === 2 ? 'active' : currentStep > 2 ? 'completed' : ''}`}>
-                  <div className="step-circle">{currentStep > 2 ? 'âœ“' : '2'}</div>
-                  <div className="step-content">
-                    <div className="step-header-row">
-                      <span className="step-label">{t.loading.step2Label}</span>
-                      <span className="step-percentage">
-                        {currentStep > 2 ? '100%' : currentStep === 2 ? `${stepProgress[2] || 0}%` : '0%'}
-                      </span>
-                    </div>
-                    <div className="step-mini-bar-track">
-                      <div
-                        className="step-mini-bar-fill"
-                        style={{ width: `${currentStep > 2 ? 100 : currentStep === 2 ? (stepProgress[2] || 0) : 0}%` }}
-                      />
-                    </div>
-                    {currentStep === 2 && (
-                      <span className="step-subtext">{t.loading.step2Subtext}</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Step 3 */}
-                <div className={`step-item ${currentStep === 3 ? 'active' : currentStep > 3 ? 'completed' : ''}`}>
-                  <div className="step-circle">{currentStep > 3 ? 'âœ“' : '3'}</div>
-                  <div className="step-content">
-                    <div className="step-header-row">
-                      <span className="step-label">{t.loading.step3Label}</span>
-                      <span className="step-percentage">
-                        {currentStep > 3 ? '100%' : currentStep === 3 ? `${stepProgress[3] || 0}%` : '0%'}
-                      </span>
-                    </div>
-                    <div className="step-mini-bar-track">
-                      <div
-                        className="step-mini-bar-fill"
-                        style={{ width: `${currentStep > 3 ? 100 : currentStep === 3 ? (stepProgress[3] || 0) : 0}%` }}
-                      />
-                    </div>
-                    {currentStep === 3 && (
-                      <div style={{ marginTop: '0.45rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                        <div style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.4rem',
-                          padding: '0.2rem 0.6rem',
-                          background: 'rgba(59, 130, 246, 0.12)',
-                          border: '1px solid rgba(59, 130, 246, 0.25)',
-                          borderRadius: 0,
-                          fontSize: '0.75rem',
-                          color: '#60a5fa',
-                          fontWeight: 600,
-                          width: 'fit-content'
-                        }}>
-                          <span className="spinner-icon" style={{ fontSize: '0.75rem' }}>[~]</span>
-                          <span>{aiStage || t.loading.step3Label}</span>
-                        </div>
-                        <span className="step-subtext" style={{ color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                          {aiDetail || loadingDetails || t.loading.step3Subtext}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Step 4 */}
-                <div className={`step-item ${currentStep === 4 ? 'active' : ''}`}>
-                  <div className="step-circle">{currentStep > 4 ? 'âœ“' : '4'}</div>
-                  <div className="step-content">
-                    <div className="step-header-row">
-                      <span className="step-label">{t.loading.step4Label}</span>
-                      <span className="step-percentage">
-                        {currentStep === 4 ? `${stepProgress[4] || 0}%` : '0%'}
-                      </span>
-                    </div>
-                    <div className="step-mini-bar-track">
-                      <div
-                        className="step-mini-bar-fill"
-                        style={{ width: `${currentStep === 4 ? (stepProgress[4] || 0) : 0}%` }}
-                      />
-                    </div>
-
-                    {currentStep === 4 && (
-                      <div className="ai-activity-card">
-                        <div className="ai-activity-topbar">
-                          <div className="ai-engine-badge">
-                            <span style={{ fontSize: '0.85rem' }}>*</span>
-                            <span>{t.loading.aiEngineBadge}</span>
-                            {activeProcessingModel && (
-                              <span style={{ opacity: 0.85, fontWeight: 500 }}>({activeProcessingModel})</span>
-                            )}
-                          </div>
-                          <div className="ai-timer-badge">
-                            <span>{t.loading.timeElapsed(loadingElapsedTime)}</span>
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="ai-stage-title">
-                            <span style={{ animation: 'spin 2.5s linear infinite', display: 'inline-block' }}>[AI]</span>
-                            <span>{aiStage || t.loading.synthesizingHighlights}</span>
-                          </div>
-                        </div>
-
-                        <div className="ai-stage-detail">
-                          {aiDetail || loadingDetails || t.loading.evaluatingGradients}
-                        </div>
-
-                        {/* 4 Micro-phase progress pills */}
-                        <div className="ai-subphases-row">
-                          <div className={`ai-subphase-pill ${(stepProgress[4] || 0) >= 25 ? 'completed' : (stepProgress[4] || 0) >= 5 ? 'active' : ''}`}>
-                            {t.loading.subphase1}
-                          </div>
-                          <div className={`ai-subphase-pill ${(stepProgress[4] || 0) >= 55 ? 'completed' : (stepProgress[4] || 0) >= 25 ? 'active' : ''}`}>
-                            {t.loading.subphase2}
-                          </div>
-                          <div className={`ai-subphase-pill ${(stepProgress[4] || 0) >= 80 ? 'completed' : (stepProgress[4] || 0) >= 55 ? 'active' : ''}`}>
-                            {t.loading.subphase3}
-                          </div>
-                          <div className={`ai-subphase-pill ${(stepProgress[4] || 0) >= 95 ? 'completed' : (stepProgress[4] || 0) >= 80 ? 'active' : ''}`}>
-                            {t.loading.subphase4}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ marginTop: '1.75rem', textAlign: 'center', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                <span className="pulsing-text">[SYS] {loadingDetails}</span>
-              </div>
-            </div>
-          </section>
-        )}
-
         {/* Tab 02: CLIPS / HISTORY SECTION */}
         {workflowTab === 'clips' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
-            {/* Active Video Status Banner (When inside Tab 02, rendered directly above History Panel) */}
-            {result && (
-              <div className="active-video-banner" style={{ margin: 0 }}>
-                <div className="active-video-info">
-                  <span style={{ color: 'var(--primary, #ff00ff)', fontWeight: 800, textShadow: '0 0 10px rgba(255,0,255,0.6)' }}>&gt;_ ACTIVE VIDEO:</span>
-                  <span style={{ color: '#ffffff', fontWeight: 600, fontSize: '0.88rem' }}>{result.title}</span>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>[{result.clips?.length || 0} klip tersedia]</span>
-                </div>
-                <div className="active-video-actions">
-                  <button
-                    type="button"
-                    className="glowing-btn"
-                    onClick={() => setWorkflowTab('clipper')}
-                    style={{
-                      padding: '0.4rem 0.95rem',
-                      fontSize: '0.78rem',
-                      background: 'var(--primary)',
-                      color: '#000000',
-                      fontWeight: 700,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.35rem'
-                    }}
-                  >
-                    03 // AUTO CLIPPER <ArrowRight size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    className="active-video-close-btn"
-                    onClick={handleDeselectActiveVideo}
-                    title="Tutup & Nonaktifkan Active Video (Deselect)"
-                    aria-label="Close active video"
-                  >
-                    [ âœ• ]
-                  </button>
-                </div>
-              </div>
-            )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
 
             {/* Top-level Previously Analyzed Videos (History) Panel */}
             {history.length > 0 && (
               <section
                 className="history-highlight-panel"
                 aria-label="Previously analyzed clips"
-                style={{ marginTop: 0, marginBottom: '0.75rem', borderRadius: 0, border: '1px solid #201e2c', borderLeft: '3px solid #ff00ff', background: '#0a0a0f' }}
+                style={{ marginTop: 0, marginBottom: 0, borderRadius: 0, border: '1px solid #201e2c', borderLeft: '3px solid #ff00ff', background: '#0a0a0f' }}
               >
                 {/* Header Row */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
@@ -4491,7 +4468,7 @@ Transcript:
                           }}
                           title={t.form.clearSearch}
                         >
-                          âœ•
+                          ✕
                         </button>
                       )}
                     </div>
@@ -4705,11 +4682,11 @@ Transcript:
                                 </div>
                                 <div style={{ display: 'flex', gap: '0.65rem', marginTop: '0.25rem', fontSize: '0.74rem', color: 'var(--text-muted)', flexWrap: 'wrap', alignItems: 'center' }}>
                                   <span style={{ color: '#00ff66', fontWeight: 600 }}>{t.form.clipsCountMeta(entry.clip_count)}</span>
-                                  <span>â€¢</span>
+                                  <span>•</span>
                                   <span> {entry.duration_pref === 'auto' ? 'Auto' : entry.duration_pref}</span>
-                                  <span>â€¢</span>
+                                  <span>•</span>
                                   <span> {formatRelativeTime(entry.analyzed_at)}</span>
-                                  <span>â€¢</span>
+                                  <span>•</span>
                                   {entry.source_type === 'gdrive' ? (
                                     <a
                                       href={entry.url}
@@ -4802,6 +4779,272 @@ Transcript:
                     )}
                   </div>
                 )}
+              </section>
+            )}
+
+            {/* Decoding Video / Analyzing Progress Section (strictly rendered in Process #2 under History) */}
+            {loading && (
+              <section
+                ref={loadingSectionRef}
+                id="loading-progress-section"
+                className="glass-panel"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1.5rem',
+                  alignItems: 'center',
+                  padding: '2rem 1.75rem',
+                  scrollMarginTop: '2.5rem'
+                }}
+              >
+                <div style={{ width: '100%', maxWidth: '620px' }}>
+                  <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
+                    <h3 style={{ marginBottom: '0.4rem', fontSize: '1.4rem' }} className="text-gradient">
+                      {t.loading.decodingEngagement}
+                    </h3>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>
+                      {t.loading.decodingSubtitle}
+                    </p>
+                  </div>
+
+                  {/* Master Progress Bar */}
+                  <div style={{ marginBottom: '2rem', padding: '0.85rem 1rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: 0, border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {t.loading.pipelineCompletion}
+                      </span>
+                      <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--primary)', fontVariantNumeric: 'tabular-nums' }}>
+                        {overallProgress}%
+                      </span>
+                    </div>
+                    <div style={{ height: '7px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: 0, overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          height: '100%',
+                          background: 'linear-gradient(90deg, var(--primary) 0%, var(--secondary) 100%)',
+                          width: `${overallProgress}%`,
+                          transition: 'width 0.4s ease'
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Stepper with Individual Progress Bars */}
+                  <div className="stepper-container">
+                    {/* Step 1 */}
+                    <div className={`step-item ${currentStep === 1 ? 'active' : currentStep > 1 ? 'completed' : ''}`}>
+                      <div className="step-circle">{currentStep > 1 ? '✓' : '1'}</div>
+                      <div className="step-content">
+                        <div className="step-header-row">
+                          <span className="step-label">{t.loading.step1Label}</span>
+                          <span className="step-percentage">
+                            {currentStep > 1 ? '100%' : `${stepProgress[1] || 0}%`}
+                          </span>
+                        </div>
+                        <div className="step-mini-bar-track">
+                          <div
+                            className="step-mini-bar-fill"
+                            style={{ width: `${currentStep > 1 ? 100 : (stepProgress[1] || 0)}%` }}
+                          />
+                        </div>
+                        {currentStep === 1 && (
+                          <span className="step-subtext">{t.loading.step1Subtext}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Step 2 */}
+                    <div className={`step-item ${currentStep === 2 ? 'active' : currentStep > 2 ? 'completed' : ''}`}>
+                      <div className="step-circle">{currentStep > 2 ? '✓' : '2'}</div>
+                      <div className="step-content">
+                        <div className="step-header-row">
+                          <span className="step-label">{t.loading.step2Label}</span>
+                          <span className="step-percentage">
+                            {currentStep > 2 ? '100%' : currentStep === 2 ? `${stepProgress[2] || 0}%` : '0%'}
+                          </span>
+                        </div>
+                        <div className="step-mini-bar-track">
+                          <div
+                            className="step-mini-bar-fill"
+                            style={{ width: `${currentStep > 2 ? 100 : currentStep === 2 ? (stepProgress[2] || 0) : 0}%` }}
+                          />
+                        </div>
+                        {currentStep === 2 && (
+                          <span className="step-subtext">{t.loading.step2Subtext}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Step 3 */}
+                    <div className={`step-item ${currentStep === 3 ? 'active' : currentStep > 3 ? 'completed' : ''}`}>
+                      <div className="step-circle">{currentStep > 3 ? '✓' : '3'}</div>
+                      <div className="step-content">
+                        <div className="step-header-row">
+                          <span className="step-label">{t.loading.step3Label}</span>
+                          <span className="step-percentage">
+                            {currentStep > 3 ? '100%' : currentStep === 3 ? `${stepProgress[3] || 0}%` : '0%'}
+                          </span>
+                        </div>
+                        <div className="step-mini-bar-track">
+                          <div
+                            className="step-mini-bar-fill"
+                            style={{ width: `${currentStep > 3 ? 100 : currentStep === 3 ? (stepProgress[3] || 0) : 0}%` }}
+                          />
+                        </div>
+                        {currentStep === 3 && (
+                          <div style={{ marginTop: '0.45rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                            <div style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              padding: '0.2rem 0.6rem',
+                              background: 'rgba(59, 130, 246, 0.12)',
+                              border: '1px solid rgba(59, 130, 246, 0.25)',
+                              borderRadius: 0,
+                              fontSize: '0.75rem',
+                              color: '#60a5fa',
+                              fontWeight: 600,
+                              width: 'fit-content'
+                            }}>
+                              <span className="spinner-icon" style={{ fontSize: '0.75rem' }}>[~]</span>
+                              <span>{aiStage || t.loading.step3Label}</span>
+                            </div>
+                            <span className="step-subtext" style={{ color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                              {aiDetail || loadingDetails || t.loading.step3Subtext}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Step 4 */}
+                    <div className={`step-item ${currentStep === 4 ? 'active' : ''}`}>
+                      <div className="step-circle">{currentStep > 4 ? '✓' : '4'}</div>
+                      <div className="step-content">
+                        <div className="step-header-row">
+                          <span className="step-label">{t.loading.step4Label}</span>
+                          <span className="step-percentage">
+                            {currentStep === 4 ? `${stepProgress[4] || 0}%` : '0%'}
+                          </span>
+                        </div>
+                        <div className="step-mini-bar-track">
+                          <div
+                            className="step-mini-bar-fill"
+                            style={{ width: `${currentStep === 4 ? (stepProgress[4] || 0) : 0}%` }}
+                          />
+                        </div>
+
+                        {currentStep === 4 && (
+                          <div className="ai-activity-card">
+                            <div className="ai-activity-topbar">
+                              <div className="ai-engine-badge">
+                                <span style={{ fontSize: '0.85rem' }}>*</span>
+                                <span>{t.loading.aiEngineBadge}</span>
+                                {activeProcessingModel && (
+                                  <span style={{ opacity: 0.85, fontWeight: 500 }}>({activeProcessingModel})</span>
+                                )}
+                              </div>
+                              <div className="ai-timer-badge">
+                                <span>{t.loading.timeElapsed(loadingElapsedTime)}</span>
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="ai-stage-title">
+                                <span style={{ animation: 'spin 2.5s linear infinite', display: 'inline-block' }}>[AI]</span>
+                                <span>{aiStage || t.loading.synthesizingHighlights}</span>
+                              </div>
+                            </div>
+
+                            <div className="ai-stage-detail">
+                              {aiDetail || loadingDetails || t.loading.evaluatingGradients}
+                            </div>
+
+                            {/* 4 Micro-phase progress pills */}
+                            <div className="ai-subphases-row">
+                              <div className={`ai-subphase-pill ${(stepProgress[4] || 0) >= 25 ? 'completed' : (stepProgress[4] || 0) >= 5 ? 'active' : ''}`}>
+                                {t.loading.subphase1}
+                              </div>
+                              <div className={`ai-subphase-pill ${(stepProgress[4] || 0) >= 55 ? 'completed' : (stepProgress[4] || 0) >= 25 ? 'active' : ''}`}>
+                                {t.loading.subphase2}
+                              </div>
+                              <div className={`ai-subphase-pill ${(stepProgress[4] || 0) >= 80 ? 'completed' : (stepProgress[4] || 0) >= 55 ? 'active' : ''}`}>
+                                {t.loading.subphase3}
+                              </div>
+                              <div className={`ai-subphase-pill ${(stepProgress[4] || 0) >= 95 ? 'completed' : (stepProgress[4] || 0) >= 80 ? 'active' : ''}`}>
+                                {t.loading.subphase4}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '1.75rem', textAlign: 'center', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                    <span className="pulsing-text">[SYS] {loadingDetails}</span>
+                  </div>
+
+                  {/* Cancel button & Yellow Warning row */}
+                  <div style={{
+                    marginTop: '1.5rem',
+                    paddingTop: '1.25rem',
+                    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '0.85rem',
+                    width: '100%'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={handleCancelAnalyze}
+                      style={{
+                        background: 'rgba(255, 30, 39, 0.08)',
+                        border: '1px solid rgba(255, 30, 39, 0.4)',
+                        color: '#ff6b6b',
+                        borderRadius: 0,
+                        padding: '0.45rem 1.25rem',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        fontFamily: 'var(--font-mono)',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.45rem',
+                        transition: 'all 0.2s ease',
+                        boxShadow: '0 0 10px rgba(255, 30, 39, 0.15)'
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,30,39,0.2)'; e.currentTarget.style.borderColor = '#ff1e27'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,30,39,0.08)'; e.currentTarget.style.borderColor = 'rgba(255,30,39,0.4)'; }}
+                    >
+                      <X size={14} />
+                      <span>{t.studio?.cancelBtn || 'Cancel Analysis'}</span>
+                    </button>
+
+                    {/* Yellow Warning when process is taking longer than usual */}
+                    {loadingTooLong && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '0.5rem',
+                        padding: '0.65rem 0.95rem',
+                        background: 'rgba(245, 158, 11, 0.08)',
+                        border: '1px solid rgba(245, 158, 11, 0.35)',
+                        color: '#facc15',
+                        fontSize: '0.76rem',
+                        lineHeight: '1.5',
+                        textAlign: 'left',
+                        maxWidth: '540px'
+                      }}>
+                        <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: '2px', color: '#f59e0b' }} />
+                        <span>
+                          <strong>Proses analisis memakan waktu lebih lama dari biasanya.</strong> Jika Anda menggunakan free-tier AI model (seperti Gemini Flash / OpenRouter Free), antrean model sering kali mengalami delay atau rate limit. Anda dapat tetap menunggu atau batalkan proses ini dan coba ulangi.
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </section>
             )}
 
@@ -5051,7 +5294,7 @@ Transcript:
                                 }
                               }}
                             >
-                              {t.results.copyAllTimestamps} â–¾
+                              {t.results.copyAllTimestamps} ▼
                             </button>
                             {copyTimestampMenuTarget === 'overview' && renderTimestampFormatMenu('right')}
                           </div>
@@ -5119,7 +5362,7 @@ Transcript:
                                     title={t.results.copyTimestampTooltip}
                                     className="virality-mini-ts"
                                   >
-                                    {formatSeconds(clip.start_time)} â€“ {formatSeconds(clip.end_time)}
+                                    {formatSeconds(clip.start_time)} - {formatSeconds(clip.end_time)}
                                   </span>
                                 </div>
                               </div>
@@ -5265,7 +5508,7 @@ Transcript:
                               onClick={(e) => toggleTimestampMenu('toolbar', e)}
                               title={t.results.copyAllTimestampsTooltip}
                             >
-                              {t.results.copyAllTimestamps} â–¾
+                              {t.results.copyAllTimestamps} ▼
                             </button>
                             {copyTimestampMenuTarget === 'toolbar' && renderTimestampFormatMenu('left')}
                           </div>
@@ -5417,7 +5660,7 @@ Transcript:
                               {clip.key_quotes && clip.key_quotes.length > 0 && (
                                 <div className="clip-quotes">
                                   {clip.key_quotes.map((quote, qIdx) => (
-                                    <div key={qIdx} className="quote-item">â€œ{quote}â€</div>
+                                    <div key={qIdx} className="quote-item">"{quote}"</div>
                                   ))}
                                 </div>
                               )}
@@ -5598,46 +5841,6 @@ Transcript:
                     </div>
                   </div>
                 </main>
-
-                {/* Bottom Workflow Action Bar */}
-                <div className="bottom-workflow-action-bar">
-                  <button
-                    type="button"
-                    className="btn-confirm-cancel"
-                    onClick={() => setWorkflowTab('source')}
-                    style={{
-                      padding: '0.65rem 1.25rem',
-                      fontFamily: 'var(--font-mono)',
-                      background: '#141220',
-                      border: '1px solid #272238',
-                      color: 'var(--text-secondary)',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.45rem'
-                    }}
-                  >
-                    <ArrowLeft size={14} /> 01 // KEMBALI KE SUMBER / EDIT
-                  </button>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      {markedClipsList.length} klip dipilih untuk dirender
-                    </span>
-                    <button
-                      type="button"
-                      className="glowing-btn"
-                      onClick={() => setWorkflowTab('clipper')}
-                      style={{
-                        padding: '0.65rem 1.6rem',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.45rem'
-                      }}
-                    >
-                      03 // BUKA AUTO CLIPPER STUDIO <ArrowRight size={14} />
-                    </button>
-                  </div>
-                </div>
               </>
             )}
 
@@ -5729,7 +5932,7 @@ Transcript:
                   style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.1rem' }}
                   aria-label="Tutup"
                 >
-                  âœ•
+                  ✕
                 </button>
               </div>
 
@@ -5767,7 +5970,7 @@ Transcript:
                   >
                     <span>[EN]</span>
                     <span>ENGLISH</span>
-                    {transcriptLanguage === 'en' && <span style={{ color: '#ff00ff', marginLeft: '0.25rem' }}>âœ“</span>}
+                    {transcriptLanguage === 'en' && <span style={{ color: '#ff00ff', marginLeft: '0.25rem' }}>✓</span>}
                   </button>
                   <button
                     type="button"
@@ -5793,7 +5996,7 @@ Transcript:
                   >
                     <span>[ID]</span>
                     <span>INDONESIA</span>
-                    {transcriptLanguage === 'id' && <span style={{ color: '#ff00ff', marginLeft: '0.25rem' }}>âœ“</span>}
+                    {transcriptLanguage === 'id' && <span style={{ color: '#ff00ff', marginLeft: '0.25rem' }}>✓</span>}
                   </button>
                 </div>
               </div>
@@ -5829,7 +6032,7 @@ Transcript:
                   }}
                   style={{ padding: '0.65rem 1.75rem' }}
                 >
-                  [ LANJUTKAN HACK CLIPS âž” ]
+                  [ LANJUTKAN HACK CLIPS → ]
                 </button>
               </div>
             </div>
@@ -5906,7 +6109,7 @@ Transcript:
                 fontSize: '0.78rem'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#4ade80' }}>
-                  <span>âœ“</span>
+                  <span>✓</span>
                   <strong>{t.studio.confirmModalNotice}</strong>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#38bdf8' }}>

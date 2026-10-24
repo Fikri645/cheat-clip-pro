@@ -621,8 +621,12 @@
 }
 
 @media (max-width: 768px) {
+  .app-header-inner {
+    padding: 0.85rem 0.75rem !important;
+  }
+
   .app-container {
-    padding: 0.75rem 0.75rem 2rem 0.75rem;
+    padding: 0.75rem 0.75rem 2rem 0.75rem !important;
     gap: 1rem;
     width: 100%;
     max-width: 100vw;
@@ -635,7 +639,7 @@
     flex-direction: column;
     align-items: stretch;
     gap: 0.75rem;
-    padding-bottom: 0.75rem;
+    padding-bottom: 0;
   }
 
   .header-logo {
@@ -648,21 +652,28 @@
 
   .header-nav {
     width: 100%;
+    display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem;
+    gap: 0.35rem;
     justify-content: flex-start;
   }
 
+  .header-nav .header-nav-btn,
   .header-nav .cookie-header-btn,
   .header-nav .glowing-btn,
   .header-nav a.glowing-btn {
-    flex: 1 1 calc(50% - 0.4rem);
+    flex: 1 1 calc(50% - 0.25rem);
     min-width: 0;
-    padding: 0.45rem 0.5rem;
+    padding: 0.45rem 0.45rem;
     font-size: 0.72rem;
     text-align: center;
     justify-content: center;
     box-sizing: border-box;
+  }
+
+  .header-nav .header-nav-btn.support-btn {
+    flex: 1 1 100%;
+    margin-top: 0.15rem;
   }
 
   /* Workflow Navigation Tabs on Mobile */
@@ -670,6 +681,11 @@
     flex-direction: column;
     gap: 0.35rem;
     padding: 0.35rem;
+  }
+
+  .workflow-step-separator,
+  .workflow-process-connector {
+    display: none;
   }
 
   .workflow-tab-btn {
@@ -707,22 +723,38 @@
   }
 
   .glass-panel {
-    padding: 1rem 0.85rem;
+    padding: 1rem 0.85rem !important;
   }
 
   .form-main-input-row {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+    width: 100% !important;
+  }
+
+  .form-main-input-row .hacker-api-key-container {
+    width: 100% !important;
+    min-width: 0 !important;
   }
 
   .form-main-input-row button {
-    width: 100%;
-    height: 48px;
+    width: 100% !important;
+    height: 48px !important;
+    justify-content: center !important;
+    padding: 0 1rem !important;
   }
 
   .form-settings-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1rem !important;
+    width: 100% !important;
+  }
+
+  .form-settings-grid > div {
+    padding: 1rem 0.85rem !important;
   }
 
   .duration-selector {

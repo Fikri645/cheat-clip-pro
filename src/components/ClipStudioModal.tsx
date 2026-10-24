@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useLanguage } from '../locales';
 import type {
   ViralClip,
@@ -250,19 +251,20 @@ export const ClipStudioModal: React.FC<ClipStudioModalProps> = ({
                       </div>
                       <div className="pill-group framing-pills" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
                         {[
-                          { id: 'auto', label: t.studio.framingAuto || '[AI] AI Auto' },
-                          { id: 'center', label: t.studio.framingCenter || '> Center (50%)' },
-                          { id: 'left', label: t.studio.framingLeft || '⬅️ Left Focus (35%)' },
-                          { id: 'right', label: t.studio.framingRight || '-> Right Focus (65%)' },
+                          { id: 'auto', label: t.studio.framingAuto || 'AI Auto (Face & Object)' },
+                          { id: 'center', label: t.studio.framingCenter || 'Center (50%)' },
+                          { id: 'left', icon: <ArrowLeft size={13} />, label: t.studio.framingLeft || 'Left Focus (35%)' },
+                          { id: 'right', icon: <ArrowRight size={13} />, label: t.studio.framingRight || 'Right Focus (65%)' },
                         ].map(opt => (
                           <button
                             key={opt.id}
                             type="button"
                             className={`pill-btn ${facecamPosition === opt.id ? 'active' : ''}`}
-                            style={{ fontSize: '0.75rem', padding: '0.3rem 0.65rem' }}
+                            style={{ fontSize: '0.75rem', padding: '0.35rem 0.65rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                             onClick={() => setFacecamPosition(opt.id as FacecamPosition)}
                           >
-                            {opt.label}
+                            {opt.icon}
+                            <span>{opt.label.replace(/^[⬅️←<\->\s]+/, '')}</span>
                           </button>
                         ))}
                       </div>
