@@ -99,7 +99,7 @@ async def run_raw_clip_download_job(
         clean_title = f"clip_{int(start_time)}_{int(end_time)}"
     download_title = f"{clean_title} (raw)"
     safe_id = re.sub(r'[^a-zA-Z0-9_-]', '_', video_id or "clip")
-    seg_filename = f"{safe_id}_clip_{int(start_time)}_{int(end_time)}_{int(time.time())}_raw.mp4"
+    seg_filename = f"source_{job_id}_{safe_id}_clip_{int(start_time)}_{int(end_time)}_{int(time.time())}_raw.mp4"
     out_path = EXPORTS_DIR / seg_filename
 
     try:
@@ -117,7 +117,7 @@ async def run_raw_clip_download_job(
 
         all_dirs = [UPLOADS_DIR, EXPORTS_DIR, TEMP_DIR]
         raw_vid_id = (video_id or "").replace("gdrive_", "").replace("upload_", "")
-        
+
         for d in all_dirs:
             if d.exists():
                 for f in d.iterdir():

@@ -112,7 +112,7 @@ def track_frames(frames, position="auto", streamer_preset="none"):
     return smooth_trajectory(points)
 
 
-def detect_crop_trajectory(video_path, facecam_position="auto", streamer_preset="none", interval=.5):
+def _detect_crop_trajectory_uncached(video_path, facecam_position="auto", streamer_preset="none", interval=.5):
     import cv2
     cap = cv2.VideoCapture(str(video_path))
     try:
@@ -130,3 +130,9 @@ def detect_crop_trajectory(video_path, facecam_position="auto", streamer_preset=
         return track_frames(frames(), facecam_position, streamer_preset)
     finally:
         cap.release()
+
+
+def detect_crop_trajectory(video_path, facecam_position="auto", streamer_preset="none", interval=.5):
+    from backend.services.render_cache import cached, source_identity
+    return cached("tracking-v1", [source_identity(video_path), facecam_position, streamer_preset, interval],
+        lambda: _detect_crop_trajectory_uncached(video_path, facecam_position, streamer_preset, interval))

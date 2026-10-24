@@ -25,3 +25,6 @@ Pillow>=10.0.0
 
 # Durable worker ownership across API reloads
 filelock>=3.13.0
+
+# Stop encoders and download subprocesses when a job is cancelled
+psutil>=5.9.0

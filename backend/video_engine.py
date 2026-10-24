@@ -586,7 +586,7 @@ def get_video_file_metadata(file_path: Union[str, Path]) -> Dict[str, Any]:
     p = Path(file_path)
     if not p.exists():
         raise FileNotFoundError(f"Video file not found: {p}")
-    
+
     title = p.stem
     duration = 0.0
     width = 1920
@@ -608,7 +608,7 @@ def get_video_file_metadata(file_path: Union[str, Path]) -> Dict[str, Any]:
             format_info = data.get("format", {})
             if "duration" in format_info:
                 duration = float(format_info["duration"])
-            
+
             streams = data.get("streams", [])
             audio_streams = [s for s in streams if s.get("codec_type") == "audio"]
             has_audio = len(audio_streams) > 0
@@ -664,10 +664,10 @@ def compute_audio_energy_heatmap(file_path: Union[str, Path], duration: float, n
     p = Path(file_path)
     if duration <= 0:
         duration = 60.0
-    
+
     seg_dur = duration / max(1, num_points)
     raw_scores = [0.2] * num_points
-    
+
     try:
         temp_wav = TEMP_DIR / f"temp_heat_{p.stem}_{int(time.time())}.wav"
         cmd = [
@@ -685,7 +685,7 @@ def compute_audio_energy_heatmap(file_path: Union[str, Path], duration: float, n
                 n_frames = wf.getnframes()
                 audio_bytes = wf.readframes(n_frames)
                 audio_data = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32)
-                
+
                 if len(audio_data) > 0:
                     samples_per_seg = int(len(audio_data) / num_points)
                     if samples_per_seg > 0:
@@ -704,7 +704,7 @@ def compute_audio_energy_heatmap(file_path: Union[str, Path], duration: float, n
     min_v = min(raw_scores)
     max_v = max(raw_scores)
     diff = max_v - min_v
-    
+
     heatmap = []
     for i in range(num_points):
         st = round(i * seg_dur, 2)
@@ -1296,7 +1296,14 @@ def clean_caption_text(text: str) -> str:
 
 
 @protect_media
-def transcribe_clip_words(
+def transcribe_clip_words(video_path, fallback_transcript=None, clip_start_time=0.0, clip_end_time=0.0, target_language=None, cache_identity=None):
+    from backend.services.render_cache import source_identity, word_cache
+    identity = cache_identity or source_identity(video_path)
+    return word_cache(identity, clip_start_time, clip_end_time, fallback_transcript, target_language,
+        lambda: _transcribe_clip_words_uncached(video_path, fallback_transcript, clip_start_time, clip_end_time, target_language))
+
+
+def _transcribe_clip_words_uncached(
     video_path: str,
     fallback_transcript: Optional[List[Dict[str, Any]]] = None,
     clip_start_time: float = 0.0,

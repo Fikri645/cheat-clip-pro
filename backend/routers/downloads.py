@@ -16,6 +16,8 @@ from backend.services.download_service import (
     run_raw_download_job,
 )
 
+from backend.services.download_process import managed_clip_download
+
 router = APIRouter(tags=["Downloads"])
 
 
@@ -91,7 +93,7 @@ async def handle_download_raw_clip(req: RawClipDownloadRequest, background_tasks
     }
 
     background_tasks.add_task(
-        run_raw_clip_download_job,
+        managed_clip_download,
         job_id,
         v_url,
         req.video_id,
@@ -108,4 +110,14 @@ async def get_raw_clip_download_status(job_id: str):
     job = raw_clip_download_jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Clip download job not found")
+    return job
+
+
+@router.post("/api/download-raw-clip/{job_id}/cancel")
+def cancel_clip_download(job_id: str):
+    job = raw_clip_download_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Clip download job not found")
+    if job["status"] not in {"ready", "failed", "cancelled"}:
+        job["cancel_requested"] = True
     return job

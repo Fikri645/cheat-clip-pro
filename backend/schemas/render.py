@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, model_validator
 import math
+from backend.utils.caption_words import validate_words
 
 class RenderSettingsModel(BaseModel):
     aspect_ratio: str = "9:16"
@@ -71,6 +72,9 @@ class RenderBatchRequest(BaseModel):
                 raise ValueError("Each clip needs numeric start_time and end_time")
             if not math.isfinite(start) or not math.isfinite(end) or not 0 <= start < end:
                 raise ValueError("Clip timestamps must be finite and satisfy 0 <= start < end")
+        for clip in self.clips:
+            if clip.get("caption_words") is not None:
+                validate_words(clip["caption_words"], float(clip["end_time"])-float(clip["start_time"]))
         return self
 
 class RetryBatchRequest(BaseModel):

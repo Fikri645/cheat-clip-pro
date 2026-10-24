@@ -1,5 +1,7 @@
-import { ALL_FORMATS, BlobSource, CanvasSink, Input, UrlSource } from 'mediabunny';
-import type { RenderSettings, TranscriptLine, ViralClip } from '../types';
+import {mediaAssetUrl} from '../utils/mediaAssets';
+export {mediaAssetUrl} from '../utils/mediaAssets';
+import { ALL_FORMATS,BlobSource,CanvasSink,Input,UrlSource } from 'mediabunny';
+import type { RenderSettings,TranscriptLine,ViralClip } from '../types';
 
 export interface CropPoint { time: number; cx: number; cy: number; w: number; h: number; cut?: boolean }
 export interface CaptionWord { word: string; word_text?:string; start: number; end: number }
@@ -32,7 +34,7 @@ export interface BrowserPlan {
   input: Input|null; sink: FrameSink; hasAudio:boolean; canvas: HTMLCanvasElement;
   context: CanvasRenderingContext2D; duration: number; start: number;
   words: CaptionWord[]; captionEvents:CaptionEvent[]; captionStyle:CaptionStyle; trajectory: CropPoint[]; settings: RenderSettings;
-  title: string; titleTimeOffset?:number; watermark?: HTMLImageElement;
+  dispose:()=>void; title: string; titleTimeOffset?:number; watermark?: HTMLImageElement;
 }
 
 export function cropAt(points: CropPoint[], time: number): CropPoint {
@@ -45,14 +47,6 @@ export function cropAt(points: CropPoint[], time: number): CropPoint {
   return { time, cx: a.cx+(b.cx-a.cx)*t, cy: a.cy+(b.cy-a.cy)*t, w: a.w+(b.w-a.w)*t, h: a.h+(b.h-a.h)*t };
 }
 
-export function mediaAssetUrl(path: string | undefined, kind: 'audio' | 'watermark'): string | undefined {
-  if (!path) return;
-  if (path.startsWith('blob:') || path.startsWith('/api/render-asset/')) return path;
-  const name = decodeURIComponent(path.split('?')[0].replace(/\\/g, '/').split('/').pop() || '');
-  if (kind === 'watermark') return `/api/watermark/${encodeURIComponent(name)}`;
-  const token = btoa(String.fromCharCode(...new TextEncoder().encode(name))).replaceAll('+','-').replaceAll('/','_').replace(/=+$/,'');
-  return `/api/render-asset/${token}`;
-}
 
 function defaultSettings(options: BrowserRenderOptions): RenderSettings {
   return options.settings || {
@@ -69,6 +63,8 @@ export async function prepareBrowserPlan(options: BrowserRenderOptions): Promise
     ? new BlobSource(await (await fetch(options.videoSourceUrl, { signal: options.signal })).blob())
     : new UrlSource(options.videoSourceUrl);
   let input:Input|null = new Input({ source, formats: ALL_FORMATS });
+  const abortInput=()=>input?.dispose();options.signal?.addEventListener('abort',abortInput,{once:true});
+  const dispose=()=>{options.signal?.removeEventListener('abort',abortInput);input?.dispose();};
   try {
     let sink:FrameSink, sourceDuration:number, hasAudio:boolean;
     try {
@@ -107,7 +103,7 @@ export async function prepareBrowserPlan(options: BrowserRenderOptions): Promise
       method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: options.signal,
       body: JSON.stringify({ frames, audio_source: options.audioSource || options.videoSourceUrl,
         start_time: options.timelineStart ?? start, audio_start_time: options.audioSourceStart, end_time: (options.timelineStart ?? start)+duration,
-        transcript: options.transcript || [], text_case: settings.textCase, caption_style: settings.subtitlesEnabled === false ? 'none' : settings.captionStyle,
+        caption_words: options.clip?.caption_words, transcript: options.transcript || [], text_case: settings.textCase, caption_style: settings.subtitlesEnabled === false ? 'none' : settings.captionStyle,
         facecam_position: settings.facecamPosition || 'auto', streamer_preset: settings.streamerPreset }),
     });
     if (!response.ok) throw new Error((await response.json()).detail || 'Could not prepare browser rendering');
@@ -129,8 +125,8 @@ export async function prepareBrowserPlan(options: BrowserRenderOptions): Promise
     }
     const clipTitle = options.clip?.title_suggestion || options.clip?.title || settings.titleText || '';
     const title = `${settings.titlePrefix || ''}${clipTitle}${settings.titleSuffix || ''}`;
-    return { input, sink, hasAudio, canvas, context, duration, start, words: data.words, captionEvents:data.caption_events, captionStyle:data.caption_style, trajectory: data.trajectory, settings, title, watermark };
-  } catch (error) { input?.dispose(); throw error; }
+    return { dispose, input, sink, hasAudio, canvas, context, duration, start, words: data.words, captionEvents:data.caption_events, captionStyle:data.caption_style, trajectory: data.trajectory, settings, title, watermark };
+  } catch (error) { dispose(); throw error; }
 }
 
 function textCase(text: string, mode: string | undefined): string {

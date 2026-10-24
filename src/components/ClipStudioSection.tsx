@@ -1,45 +1,30 @@
-import { getErrorMessage } from '../utils/errors';
-import React, { useState, useEffect, useRef, useMemo, useEffectEvent } from 'react';
-import { 
-  AlertTriangle, 
-  RefreshCw, 
-  Copy, 
-  Check, 
-  RotateCcw, 
-  Trash2, 
-  ArrowLeft, 
-  ArrowRight, 
-  X,
-  Music,
-  FileCode,
-  Play,
-  Pause
+import {
+ArrowLeft,
+ArrowRight,
+FileCode,
+Music,
+Pause,
+Play,
+RefreshCw,
+RotateCcw,
+Trash2
 } from 'lucide-react';
-import { useLanguage, type Translations } from '../locales';
-import { resilientFetch } from '../utils/api';
-import { getStoredCookies, hasStoredCookies } from '../utils/cookieUtils';
-import { detectFaceClientSide } from '../utils/clientFaceDetector';
-import { isMobileDevice } from '../utils/deviceUtils';
-import { isWebCodecsGpuSupported, getClientGpuName } from '../services/webcodecsRenderer';
+import React,{ useEffect,useEffectEvent,useMemo,useRef,useState } from 'react';
+import { useLanguage } from '../locales';
+import { getClientGpuName,isWebCodecsGpuSupported } from '../services/webcodecsRenderer';
 import type {
-  ViralClip,
-  RenderSettings,
-  AspectRatioOption,
-  BackgroundStyle,
-  CaptionStyle,
-  CaptionFont,
-  TitlePosition,
-  StreamerPreset,
-  FacecamPosition,
-  FontSizeOption,
-  TextCaseOption,
-  TitleDurationOption,
-  SubtitlePositionMode,
-  BatchRenderProgress,
-  HardwareAccelOption,
-  HardwareAccelInfo,
-  FontItem,
+AnalyzeResponse,AspectRatioOption,
+BackgroundStyle,BatchRenderProgress,CaptionFont,CaptionStyle,CaptionWord,FacecamPosition,FontItem,FontSizeOption,HardwareAccelInfo,HardwareAccelOption,RenderSettings,StreamerPreset,SubtitlePositionMode,TextCaseOption,
+TitleDurationOption,TitlePosition,ViralClip
 } from '../types';
+import { resilientFetch } from '../utils/api';
+import { detectFaceClientSide } from '../utils/clientFaceDetector';
+import { getStoredCookies,hasStoredCookies } from '../utils/cookieUtils';
+import { isMobileDevice } from '../utils/deviceUtils';
+import { getErrorMessage } from '../utils/errors';
+import { DEFAULT_STUDIO_PREFS,getSavedStudioPreferences,STUDIO_PREFS_KEY,type StudioDraft,type StudioPreferences } from './studio/preferences';
+import { RenderQueuePanel } from './studio/RenderQueuePanel';
+import { SubtitleEditor } from './SubtitleEditor';
 
 interface ClipStudioSectionProps {
   videoUrl: string;
@@ -57,230 +42,11 @@ interface ClipStudioSectionProps {
   allowAppUpdates?: boolean;
   onOpenCookiesModal?: () => void;
   onBackToClips?: () => void;
-}
-
-function getFriendlyErrorMessage(rawMsg: string): string {
-  if (!rawMsg) return 'Rendering failed unexpectedly.';
-  const lower = rawMsg.toLowerCase();
-  if (lower.includes("moov atom not found")) {
-    return 'Download interrupted by internet lag ("moov atom not found"). The video stream was cut off before finishing. Click "[~] Retry" to re-download.';
-  }
-  if (lower.includes("bot verification") || lower.includes("sign in") || lower.includes("confirm you're not a bot")) {
-    return 'YouTube requires cookies verification. Click the [*] Cookies Manager button in the top navbar to save your YouTube cookies.';
-  }
-  if (lower.includes("rendering timed out") || (lower.includes("timed out") && lower.includes("rendering"))) {
-    return 'Video rendering timed out due to duration/complexity. Click "[~] Retry" or switch to Universal CPU encoder in Studio Settings.';
-  }
-  if (lower.includes("timed out") || lower.includes("timeout")) {
-    return 'Video download timed out due to slow/laggy internet connection. Click "[~] Retry" to try downloading again.';
-  }
-  if (lower.includes("hardware encoder") || (lower.includes("ffmpeg") && (lower.includes("nvenc") || lower.includes("amf") || lower.includes("qsv")))) {
-    return 'GPU hardware encoder failed. Please switch Video Encoder to "Universal CPU (libx264)" in Studio Settings.';
-  }
-  if (lower.includes("no space left") || lower.includes("disk full") || lower.includes("out of disk")) {
-    return 'Disk storage is full. Please click "[x] Clear Temp" to free up storage space.';
-  }
-  if (lower.includes("whisper") || lower.includes("transcribe")) {
-    return 'Word transcription failed. Check your audio track or switch subtitle style to none.';
-  }
-  if (lower.includes("ffmpeg") || lower.includes("filter_complex")) {
-    return 'FFmpeg video rendering failed during composition. Check error details below.';
-  }
-  return rawMsg.length > 140 ? rawMsg.slice(0, 140) + '...' : rawMsg;
-}
-
-const ClipRenderErrorBox: React.FC<{ errorMessage: string; t: Translations; onRetry?: () => void }> = ({ errorMessage, t, onRetry }) => {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    navigator.clipboard.writeText(errorMessage);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const friendly = getFriendlyErrorMessage(errorMessage);
-
-  return (
-    <div
-      style={{
-        marginTop: '0.4rem',
-        padding: '0.55rem 0.75rem',
-        background: 'rgba(255, 30, 39, 0.12)',
-        border: '1px solid #ff1e27',
-        borderRadius: 0,
-        fontSize: '0.72rem',
-        color: '#fca5a5',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.35rem',
-        lineHeight: 1.4,
-        wordBreak: 'break-word',
-        boxShadow: '0 0 10px rgba(255, 30, 39, 0.25)'
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.6rem' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem' }}>
-          <AlertTriangle size={15} color="#ff1e27" style={{ flexShrink: 0, marginTop: '1px' }} />
-          <span style={{ fontWeight: 700, color: '#fff' }}>{friendly}</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
-          {onRetry && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onRetry();
-              }}
-              style={{
-                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                border: '1px solid rgba(245, 158, 11, 0.6)',
-                borderRadius: 0,
-                color: '#ffffff',
-                fontSize: '0.65rem',
-                padding: '2px 8px',
-                cursor: 'pointer',
-                fontWeight: 700,
-                transition: 'all 0.2s ease',
-                boxShadow: '0 0 8px rgba(245, 158, 11, 0.35)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.25rem'
-              }}
-              title="Retry rendering this clip"
-            >
-              <RefreshCw size={11} />
-              {t.studio.retryClipBtn || 'Retry'}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={handleCopy}
-            style={{
-              background: copied ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.08)',
-              border: `1px solid ${copied ? 'rgba(16, 185, 129, 0.4)' : 'rgba(255, 255, 255, 0.15)'}`,
-              borderRadius: 0,
-              color: copied ? '#34d399' : '#e2e8f0',
-              fontSize: '0.65rem',
-              padding: '2px 7px',
-              cursor: 'pointer',
-              fontWeight: 600,
-              transition: 'all 0.2s ease',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.25rem'
-            }}
-            title="Copy full error details"
-          >
-            {copied ? <Check size={11} /> : <Copy size={11} />}
-            {copied ? (t.studio.copiedErrorBtn || 'Copied!') : (t.studio.copyErrorBtn || 'Copy')}
-          </button>
-        </div>
-      </div>
-
-      <details style={{ fontSize: '0.67rem', color: '#94a3b8', marginTop: '0.15rem' }}>
-        <summary style={{ cursor: 'pointer', color: '#cbd5e1', userSelect: 'none', fontWeight: 500 }}>
-          {t.studio.errorDetails || 'Technical Log Details'}
-        </summary>
-        <pre
-          style={{
-            margin: '0.35rem 0 0 0',
-            padding: '0.4rem 0.55rem',
-            background: 'rgba(0, 0, 0, 0.55)',
-            border: '1px solid rgba(239, 68, 68, 0.2)',
-            borderRadius: '4px',
-            color: '#f87171',
-            fontSize: '0.65rem',
-            fontFamily: 'Consolas, Monaco, monospace',
-            whiteSpace: 'pre-wrap',
-            maxHeight: '130px',
-            overflowY: 'auto',
-          }}
-        >
-          {errorMessage}
-        </pre>
-      </details>
-    </div>
-  );
-};
-
-export const STUDIO_PREFS_KEY = 'cheat_clip_studio_preferences';
-
-export interface StudioPreferences {
-  aspectRatio?: AspectRatioOption;
-  backgroundStyle?: BackgroundStyle;
-  enableFaceTracking?: boolean;
-  streamerPreset?: StreamerPreset;
-  facecamPosition?: FacecamPosition;
-  titlePosition?: TitlePosition;
-  captionStyle?: CaptionStyle;
-  captionFont?: CaptionFont;
-  titleFont?: CaptionFont;
-  fontSize?: FontSizeOption;
-  fontSizePx?: number;
-  titleFontSize?: FontSizeOption;
-  titleFontSizePx?: number;
-  textCase?: TextCaseOption;
-  titleTextCase?: TextCaseOption;
-  subtitlePositionMode?: SubtitlePositionMode;
-  titleDuration?: TitleDurationOption;
-  originalAudioVolume?: number;
-  hardwareAccel?: HardwareAccelOption;
-  titleYPercent?: number;
-  subtitleYPercent?: number;
-  subtitleCenterYPercent?: number;
-  isCustomTitleY?: boolean;
-  bgmVolume?: number;
-  hookSfxVolume?: number;
-  renderMode?: 'separate' | 'merged';
-  fileNamePrefix?: string;
-  fileNameSuffix?: string;
-  titlePrefix?: string;
-  titleSuffix?: string;
-}
-
-const DEFAULT_STUDIO_PREFS: Required<StudioPreferences> = {
-  aspectRatio: '9:16',
-  backgroundStyle: 'black',
-  enableFaceTracking: true,
-  streamerPreset: 'none',
-  facecamPosition: 'auto',
-  titlePosition: 'auto',
-  captionStyle: 'viral_pop',
-  captionFont: 'Outfit',
-  titleFont: 'Outfit',
-  fontSize: 'medium',
-  fontSizePx: 75,
-  titleFontSize: 'medium',
-  titleFontSizePx: 75,
-  textCase: 'uppercase',
-  titleTextCase: 'uppercase',
-  subtitlePositionMode: 'bottom',
-  titleDuration: 'entire',
-  originalAudioVolume: 100,
-  hardwareAccel: 'browser_wasm',
-  titleYPercent: 17,
-  subtitleYPercent: 21,
-  subtitleCenterYPercent: 50,
-  isCustomTitleY: false,
-  bgmVolume: 25,
-  hookSfxVolume: 100,
-  renderMode: 'separate',
-  fileNamePrefix: '',
-  fileNameSuffix: '',
-  titlePrefix: '',
-  titleSuffix: '',
-};
-
-function getSavedStudioPreferences(): Partial<StudioPreferences> {
-  try {
-    const raw = localStorage.getItem(STUDIO_PREFS_KEY);
-    if (!raw) return {};
-    return JSON.parse(raw) as Partial<StudioPreferences>;
-  } catch (e) {
-    console.warn('Failed to parse studio preferences from localStorage:', e);
-    return {};
-  }
+  analysis:AnalyzeResponse;
+  onApplyCaptions:(clip:ViralClip,words:CaptionWord[])=>void;
+  initialDraft?:StudioDraft;
+  onDraftChange?:(draft:StudioDraft)=>void;
+  onCancelRender?:()=>void;
 }
 
 export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
@@ -298,7 +64,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
   onRetryClip,
   allowAppUpdates = false,
   onOpenCookiesModal,
-  onBackToClips,
+  analysis,onApplyCaptions,onBackToClips, initialDraft, onDraftChange, onCancelRender,
 }) => {
   const { t } = useLanguage();
   const isYouTube = !videoId?.startsWith('upload_') && !videoId?.startsWith('gdrive_') && !videoUrl?.includes('/api/video');
@@ -318,32 +84,32 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
   const [selectedClips, setSelectedClips] = useState<ViralClip[]>(markedClips);
   const [previewClipIndex, setPreviewClipIndex] = useState<number>(0);
 
-  const [aspectRatio, setAspectRatio] = useState<AspectRatioOption>(() => getSavedStudioPreferences().aspectRatio ?? DEFAULT_STUDIO_PREFS.aspectRatio);
-  const [backgroundStyle, setBackgroundStyle] = useState<BackgroundStyle>(() => getSavedStudioPreferences().backgroundStyle ?? DEFAULT_STUDIO_PREFS.backgroundStyle);
-  const [enableFaceTracking, setEnableFaceTracking] = useState<boolean>(() => getSavedStudioPreferences().enableFaceTracking ?? DEFAULT_STUDIO_PREFS.enableFaceTracking);
-  const [streamerPreset, setStreamerPreset] = useState<StreamerPreset>(() => getSavedStudioPreferences().streamerPreset ?? DEFAULT_STUDIO_PREFS.streamerPreset);
-  const [facecamPosition, setFacecamPosition] = useState<FacecamPosition>(() => getSavedStudioPreferences().facecamPosition ?? DEFAULT_STUDIO_PREFS.facecamPosition);
-  const [titlePrefix, setTitlePrefix] = useState<string>(() => getSavedStudioPreferences().titlePrefix ?? DEFAULT_STUDIO_PREFS.titlePrefix);
-  const [titleSuffix, setTitleSuffix] = useState<string>(() => getSavedStudioPreferences().titleSuffix ?? DEFAULT_STUDIO_PREFS.titleSuffix);
-  const [customClipTitles, setCustomClipTitles] = useState<Record<string, string>>({});
-  const [titlePosition, setTitlePosition] = useState<TitlePosition>(() => getSavedStudioPreferences().titlePosition ?? DEFAULT_STUDIO_PREFS.titlePosition);
-  const [captionStyle, setCaptionStyle] = useState<CaptionStyle>(() => getSavedStudioPreferences().captionStyle ?? DEFAULT_STUDIO_PREFS.captionStyle);
+  const [aspectRatio, setAspectRatio] = useState<AspectRatioOption>(() => initialDraft?.aspectRatio ?? (getSavedStudioPreferences().aspectRatio ?? DEFAULT_STUDIO_PREFS.aspectRatio));
+  const [backgroundStyle, setBackgroundStyle] = useState<BackgroundStyle>(() => initialDraft?.backgroundStyle ?? (getSavedStudioPreferences().backgroundStyle ?? DEFAULT_STUDIO_PREFS.backgroundStyle));
+  const [enableFaceTracking, setEnableFaceTracking] = useState<boolean>(() => initialDraft?.enableFaceTracking ?? (getSavedStudioPreferences().enableFaceTracking ?? DEFAULT_STUDIO_PREFS.enableFaceTracking));
+  const [streamerPreset, setStreamerPreset] = useState<StreamerPreset>(() => initialDraft?.streamerPreset ?? (getSavedStudioPreferences().streamerPreset ?? DEFAULT_STUDIO_PREFS.streamerPreset));
+  const [facecamPosition, setFacecamPosition] = useState<FacecamPosition>(() => initialDraft?.facecamPosition ?? (getSavedStudioPreferences().facecamPosition ?? DEFAULT_STUDIO_PREFS.facecamPosition));
+  const [titlePrefix, setTitlePrefix] = useState<string>(() => initialDraft?.titlePrefix ?? (getSavedStudioPreferences().titlePrefix ?? DEFAULT_STUDIO_PREFS.titlePrefix));
+  const [titleSuffix, setTitleSuffix] = useState<string>(() => initialDraft?.titleSuffix ?? (getSavedStudioPreferences().titleSuffix ?? DEFAULT_STUDIO_PREFS.titleSuffix));
+  const [customClipTitles, setCustomClipTitles] = useState<Record<string, string>>(() => initialDraft?.customClipTitles ?? ({}));
+  const [titlePosition, setTitlePosition] = useState<TitlePosition>(() => initialDraft?.titlePosition ?? (getSavedStudioPreferences().titlePosition ?? DEFAULT_STUDIO_PREFS.titlePosition));
+  const [captionStyle, setCaptionStyle] = useState<CaptionStyle>(() => initialDraft?.captionStyle ?? (getSavedStudioPreferences().captionStyle ?? DEFAULT_STUDIO_PREFS.captionStyle));
   const [lastActiveCaptionStyle, setLastActiveCaptionStyle] = useState<CaptionStyle>(() => {
     const cap = getSavedStudioPreferences().captionStyle ?? DEFAULT_STUDIO_PREFS.captionStyle;
     return cap !== 'none' ? cap : 'viral_pop';
   });
-  const [captionFont, setCaptionFont] = useState<CaptionFont>(() => getSavedStudioPreferences().captionFont ?? DEFAULT_STUDIO_PREFS.captionFont);
-  const [titleFont, setTitleFont] = useState<CaptionFont>(() => getSavedStudioPreferences().titleFont ?? DEFAULT_STUDIO_PREFS.titleFont);
-  const [fontSize, setFontSize] = useState<FontSizeOption>(() => getSavedStudioPreferences().fontSize ?? DEFAULT_STUDIO_PREFS.fontSize);
-  const [fontSizePx, setFontSizePx] = useState<number>(() => getSavedStudioPreferences().fontSizePx ?? DEFAULT_STUDIO_PREFS.fontSizePx);
-  const [titleFontSize, setTitleFontSize] = useState<FontSizeOption>(() => getSavedStudioPreferences().titleFontSize ?? DEFAULT_STUDIO_PREFS.titleFontSize);
-  const [titleFontSizePx, setTitleFontSizePx] = useState<number>(() => getSavedStudioPreferences().titleFontSizePx ?? DEFAULT_STUDIO_PREFS.titleFontSizePx);
-  const [textCase, setTextCase] = useState<TextCaseOption>(() => getSavedStudioPreferences().textCase ?? DEFAULT_STUDIO_PREFS.textCase);
-  const [titleTextCase, setTitleTextCase] = useState<TextCaseOption>(() => getSavedStudioPreferences().titleTextCase ?? DEFAULT_STUDIO_PREFS.titleTextCase);
+  const [captionFont, setCaptionFont] = useState<CaptionFont>(() => initialDraft?.captionFont ?? (getSavedStudioPreferences().captionFont ?? DEFAULT_STUDIO_PREFS.captionFont));
+  const [titleFont, setTitleFont] = useState<CaptionFont>(() => initialDraft?.titleFont ?? (getSavedStudioPreferences().titleFont ?? DEFAULT_STUDIO_PREFS.titleFont));
+  const [fontSize, setFontSize] = useState<FontSizeOption>(() => initialDraft?.fontSize ?? (getSavedStudioPreferences().fontSize ?? DEFAULT_STUDIO_PREFS.fontSize));
+  const [fontSizePx, setFontSizePx] = useState<number>(() => initialDraft?.fontSizePx ?? (getSavedStudioPreferences().fontSizePx ?? DEFAULT_STUDIO_PREFS.fontSizePx));
+  const [titleFontSize, setTitleFontSize] = useState<FontSizeOption>(() => initialDraft?.titleFontSize ?? (getSavedStudioPreferences().titleFontSize ?? DEFAULT_STUDIO_PREFS.titleFontSize));
+  const [titleFontSizePx, setTitleFontSizePx] = useState<number>(() => initialDraft?.titleFontSizePx ?? (getSavedStudioPreferences().titleFontSizePx ?? DEFAULT_STUDIO_PREFS.titleFontSizePx));
+  const [textCase, setTextCase] = useState<TextCaseOption>(() => initialDraft?.textCase ?? (getSavedStudioPreferences().textCase ?? DEFAULT_STUDIO_PREFS.textCase));
+  const [titleTextCase, setTitleTextCase] = useState<TextCaseOption>(() => initialDraft?.titleTextCase ?? (getSavedStudioPreferences().titleTextCase ?? DEFAULT_STUDIO_PREFS.titleTextCase));
 
   // Multi-Segment Merged Render Mode
-  const [renderMode, setRenderMode] = useState<'separate' | 'merged'>(() => getSavedStudioPreferences().renderMode ?? DEFAULT_STUDIO_PREFS.renderMode);
-  const [compilationTitle, setCompilationTitle] = useState<string>('');
+  const [renderMode, setRenderMode] = useState<'separate' | 'merged'>(() => initialDraft?.renderMode ?? (getSavedStudioPreferences().renderMode ?? DEFAULT_STUDIO_PREFS.renderMode));
+  const [compilationTitle, setCompilationTitle] = useState<string>(() => initialDraft?.compilationTitle ?? (''));
 
   // Custom Font Library State
   const [availableFonts, setAvailableFonts] = useState<FontItem[]>([
@@ -361,57 +127,57 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
   const [isSubFontDragging, setIsSubFontDragging] = useState<boolean>(false);
   const titleFontInputRef = useRef<HTMLInputElement | null>(null);
   const subtitleFontInputRef = useRef<HTMLInputElement | null>(null);
-  const [fileNamePrefix, setFileNamePrefix] = useState<string>(() => getSavedStudioPreferences().fileNamePrefix ?? DEFAULT_STUDIO_PREFS.fileNamePrefix);
-  const [fileNameSuffix, setFileNameSuffix] = useState<string>(() => getSavedStudioPreferences().fileNameSuffix ?? DEFAULT_STUDIO_PREFS.fileNameSuffix);
+  const [fileNamePrefix, setFileNamePrefix] = useState<string>(() => initialDraft?.fileNamePrefix ?? (getSavedStudioPreferences().fileNamePrefix ?? DEFAULT_STUDIO_PREFS.fileNamePrefix));
+  const [fileNameSuffix, setFileNameSuffix] = useState<string>(() => initialDraft?.fileNameSuffix ?? (getSavedStudioPreferences().fileNameSuffix ?? DEFAULT_STUDIO_PREFS.fileNameSuffix));
 
   // Manual Up/Down positioning for All Formats
-  const [titleYPercent, setTitleYPercent] = useState<number>(() => getSavedStudioPreferences().titleYPercent ?? DEFAULT_STUDIO_PREFS.titleYPercent);
-  const [subtitleYPercent, setSubtitleYPercent] = useState<number>(() => getSavedStudioPreferences().subtitleYPercent ?? DEFAULT_STUDIO_PREFS.subtitleYPercent);
-  const [subtitlePositionMode, setSubtitlePositionMode] = useState<SubtitlePositionMode>(() => getSavedStudioPreferences().subtitlePositionMode ?? DEFAULT_STUDIO_PREFS.subtitlePositionMode);
-  const [subtitleCenterYPercent, setSubtitleCenterYPercent] = useState<number>(() => getSavedStudioPreferences().subtitleCenterYPercent ?? DEFAULT_STUDIO_PREFS.subtitleCenterYPercent);
-  const [isCustomTitleY, setIsCustomTitleY] = useState<boolean>(() => getSavedStudioPreferences().isCustomTitleY ?? DEFAULT_STUDIO_PREFS.isCustomTitleY);
-  const [titleDuration, setTitleDuration] = useState<TitleDurationOption>(() => getSavedStudioPreferences().titleDuration ?? DEFAULT_STUDIO_PREFS.titleDuration);
+  const [titleYPercent, setTitleYPercent] = useState<number>(() => initialDraft?.titleYPercent ?? (getSavedStudioPreferences().titleYPercent ?? DEFAULT_STUDIO_PREFS.titleYPercent));
+  const [subtitleYPercent, setSubtitleYPercent] = useState<number>(() => initialDraft?.subtitleYPercent ?? (getSavedStudioPreferences().subtitleYPercent ?? DEFAULT_STUDIO_PREFS.subtitleYPercent));
+  const [subtitlePositionMode, setSubtitlePositionMode] = useState<SubtitlePositionMode>(() => initialDraft?.subtitlePositionMode ?? (getSavedStudioPreferences().subtitlePositionMode ?? DEFAULT_STUDIO_PREFS.subtitlePositionMode));
+  const [subtitleCenterYPercent, setSubtitleCenterYPercent] = useState<number>(() => initialDraft?.subtitleCenterYPercent ?? (getSavedStudioPreferences().subtitleCenterYPercent ?? DEFAULT_STUDIO_PREFS.subtitleCenterYPercent));
+  const [isCustomTitleY, setIsCustomTitleY] = useState<boolean>(() => initialDraft?.isCustomTitleY ?? (getSavedStudioPreferences().isCustomTitleY ?? DEFAULT_STUDIO_PREFS.isCustomTitleY));
+  const [titleDuration, setTitleDuration] = useState<TitleDurationOption>(() => initialDraft?.titleDuration ?? (getSavedStudioPreferences().titleDuration ?? DEFAULT_STUDIO_PREFS.titleDuration));
   const [isClearingTemp, setIsClearingTemp] = useState<boolean>(false);
   const [tempClearMsg, setTempClearMsg] = useState<string>('');
   const [showClearConfirmModal, setShowClearConfirmModal] = useState<boolean>(false);
 
   // Original Voice Audio Boost (0% - 200%, default 100%)
-  const [originalAudioVolume, setOriginalAudioVolume] = useState<number>(() => getSavedStudioPreferences().originalAudioVolume ?? DEFAULT_STUDIO_PREFS.originalAudioVolume);
+  const [originalAudioVolume, setOriginalAudioVolume] = useState<number>(() => initialDraft?.originalAudioVolume ?? (getSavedStudioPreferences().originalAudioVolume ?? DEFAULT_STUDIO_PREFS.originalAudioVolume));
 
   // Background Music (BGM) state
-  const [bgmEnabled, setBgmEnabled] = useState<boolean>(false);
-  const [bgmFileName, setBgmFileName] = useState<string>('');
-  const [bgmFilePath, setBgmFilePath] = useState<string>('');
-  const [bgmAudioUrl, setBgmAudioUrl] = useState<string>('');
-  const [bgmVolume, setBgmVolume] = useState<number>(() => getSavedStudioPreferences().bgmVolume ?? DEFAULT_STUDIO_PREFS.bgmVolume);
-  const [bgmDuration, setBgmDuration] = useState<number>(0);
-  const [bgmStartOffset, setBgmStartOffset] = useState<number>(0);
+  const [bgmEnabled, setBgmEnabled] = useState<boolean>(() => initialDraft?.bgmEnabled ?? (false));
+  const [bgmFileName, setBgmFileName] = useState<string>(() => initialDraft?.bgmFileName ?? (''));
+  const [bgmFilePath, setBgmFilePath] = useState<string>(() => initialDraft?.bgmFilePath ?? (''));
+  const [bgmAudioUrl, setBgmAudioUrl] = useState<string>(() => initialDraft?.bgmAudioUrl ?? (''));
+  const [bgmVolume, setBgmVolume] = useState<number>(() => initialDraft?.bgmVolume ?? (getSavedStudioPreferences().bgmVolume ?? DEFAULT_STUDIO_PREFS.bgmVolume));
+  const [bgmDuration, setBgmDuration] = useState<number>(() => initialDraft?.bgmDuration ?? (0));
+  const [bgmStartOffset, setBgmStartOffset] = useState<number>(() => initialDraft?.bgmStartOffset ?? (0));
   const [isBgmPlaying, setIsBgmPlaying] = useState<boolean>(false);
   const [isUploadingBgm, setIsUploadingBgm] = useState<boolean>(false);
   const [isBgmDragging, setIsBgmDragging] = useState<boolean>(false);
   const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Hook Sound Effect (SFX) state
-  const [hookSfxFileName, setHookSfxFileName] = useState<string>('');
-  const [hookSfxFilePath, setHookSfxFilePath] = useState<string>('');
-  const [hookSfxAudioUrl, setHookSfxAudioUrl] = useState<string>('');
-  const [hookSfxVolume, setHookSfxVolume] = useState<number>(() => getSavedStudioPreferences().hookSfxVolume ?? DEFAULT_STUDIO_PREFS.hookSfxVolume);
+  const [hookSfxFileName, setHookSfxFileName] = useState<string>(() => initialDraft?.hookSfxFileName ?? (''));
+  const [hookSfxFilePath, setHookSfxFilePath] = useState<string>(() => initialDraft?.hookSfxFilePath ?? (''));
+  const [hookSfxAudioUrl, setHookSfxAudioUrl] = useState<string>(() => initialDraft?.hookSfxAudioUrl ?? (''));
+  const [hookSfxVolume, setHookSfxVolume] = useState<number>(() => initialDraft?.hookSfxVolume ?? (getSavedStudioPreferences().hookSfxVolume ?? DEFAULT_STUDIO_PREFS.hookSfxVolume));
   const [isHookSfxPlaying, setIsHookSfxPlaying] = useState<boolean>(false);
   const [isUploadingHookSfx, setIsUploadingHookSfx] = useState<boolean>(false);
   const [isHookSfxDragging, setIsHookSfxDragging] = useState<boolean>(false);
   const hookSfxAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Watermark state & default configs
-  const [watermarkEnabled, setWatermarkEnabled] = useState<boolean>(false);
-  const [watermarkType, setWatermarkType] = useState<'image' | 'text'>('image');
-  const [watermarkImageFileName, setWatermarkImageFileName] = useState<string>('');
-  const [watermarkImageFilePath, setWatermarkImageFilePath] = useState<string>('');
-  const [watermarkImageUrl, setWatermarkImageUrl] = useState<string>('');
-  const [watermarkText, setWatermarkText] = useState<string>('');
-  const [watermarkSize, setWatermarkSize] = useState<number>(20);
-  const [watermarkOpacity, setWatermarkOpacity] = useState<number>(80);
-  const [watermarkX, setWatermarkX] = useState<number>(88);
-  const [watermarkY, setWatermarkY] = useState<number>(8);
+  const [watermarkEnabled, setWatermarkEnabled] = useState<boolean>(() => initialDraft?.watermarkEnabled ?? (false));
+  const [watermarkType, setWatermarkType] = useState<'image' | 'text'>(() => initialDraft?.watermarkType ?? ('image'));
+  const [watermarkImageFileName, setWatermarkImageFileName] = useState<string>(() => initialDraft?.watermarkImageFileName ?? (''));
+  const [watermarkImageFilePath, setWatermarkImageFilePath] = useState<string>(() => initialDraft?.watermarkImageFilePath ?? (''));
+  const [watermarkImageUrl, setWatermarkImageUrl] = useState<string>(() => initialDraft?.watermarkImageUrl ?? (''));
+  const [watermarkText, setWatermarkText] = useState<string>(() => initialDraft?.watermarkText ?? (''));
+  const [watermarkSize, setWatermarkSize] = useState<number>(() => initialDraft?.watermarkSize ?? (20));
+  const [watermarkOpacity, setWatermarkOpacity] = useState<number>(() => initialDraft?.watermarkOpacity ?? (80));
+  const [watermarkX, setWatermarkX] = useState<number>(() => initialDraft?.watermarkX ?? (88));
+  const [watermarkY, setWatermarkY] = useState<number>(() => initialDraft?.watermarkY ?? (8));
   const [isUploadingWatermark, setIsUploadingWatermark] = useState<boolean>(false);
   const [isWatermarkDragging, setIsWatermarkDragging] = useState<boolean>(false);
   const phoneContainerRef = useRef<HTMLDivElement | null>(null);
@@ -432,6 +198,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
   // - On Desktop (deployed): default to 'client_gpu' / 'browser_wasm' to use user's local GPU/CPU and avoid burdening the server.
   // - On Desktop (localhost): default to 'auto'.
   const [hardwareAccel, setHardwareAccel] = useState<HardwareAccelOption>(() => {
+    if(initialDraft?.hardwareAccel)return initialDraft.hardwareAccel;
     if (isMobileDevice()) {
       return 'auto';
     }
@@ -1542,6 +1309,9 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
     titlePrefix,
     titleSuffix,
   ]);
+
+  const notifyDraftChange = useEffectEvent((draft:StudioDraft)=>onDraftChange?.(draft));
+  useEffect(()=>{notifyDraftChange({aspectRatio,backgroundStyle,enableFaceTracking,streamerPreset,facecamPosition,titlePrefix,titleSuffix,customClipTitles,titlePosition,captionStyle,captionFont,titleFont,fontSize,fontSizePx,titleFontSize,titleFontSizePx,textCase,titleTextCase,renderMode,compilationTitle,fileNamePrefix,fileNameSuffix,titleYPercent,subtitleYPercent,subtitlePositionMode,subtitleCenterYPercent,isCustomTitleY,titleDuration,originalAudioVolume,bgmEnabled,bgmFileName,bgmFilePath,bgmAudioUrl,bgmVolume,bgmDuration,bgmStartOffset,hookSfxFileName,hookSfxFilePath,hookSfxAudioUrl,hookSfxVolume,watermarkEnabled,watermarkType,watermarkImageFileName,watermarkImageFilePath,watermarkImageUrl,watermarkText,watermarkSize,watermarkOpacity,watermarkX,watermarkY,hardwareAccel});}, [aspectRatio,backgroundStyle,enableFaceTracking,streamerPreset,facecamPosition,titlePrefix,titleSuffix,customClipTitles,titlePosition,captionStyle,captionFont,titleFont,fontSize,fontSizePx,titleFontSize,titleFontSizePx,textCase,titleTextCase,renderMode,compilationTitle,fileNamePrefix,fileNameSuffix,titleYPercent,subtitleYPercent,subtitlePositionMode,subtitleCenterYPercent,isCustomTitleY,titleDuration,originalAudioVolume,bgmEnabled,bgmFileName,bgmFilePath,bgmAudioUrl,bgmVolume,bgmDuration,bgmStartOffset,hookSfxFileName,hookSfxFilePath,hookSfxAudioUrl,hookSfxVolume,watermarkEnabled,watermarkType,watermarkImageFileName,watermarkImageFilePath,watermarkImageUrl,watermarkText,watermarkSize,watermarkOpacity,watermarkX,watermarkY,hardwareAccel]);
 
   const handleResetToDefaults = () => {
     setAspectRatio(DEFAULT_STUDIO_PREFS.aspectRatio);
@@ -4369,7 +4139,9 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                         display: 'inline-block',
                       }}
                     >
-                      {captionStyle === 'viral_pop' && (
+                      {currentPreviewClip?.caption_words !== undefined
+                        ? applyLetterCase(currentPreviewClip.caption_words.filter(word=>word.start<=currentTime-clipStart && word.end>currentTime-clipStart).map(word=>word.word).join(' '),textCase)
+                        : <>                      {captionStyle === 'viral_pop' && (
                         <>
                           <span style={{ color: '#ffffff' }}>{applyLetterCase('VIRAL', textCase)}</span>{' '}
                           <span style={{ color: '#FFE600' }}>{applyLetterCase('POP', textCase)}</span>
@@ -4409,7 +4181,8 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                         <span style={{ color: '#ffffff' }}>
                           {applyLetterCase('CLEAN SUBTITLE', textCase)}
                         </span>
-                      )}
+                      )}</>}
+
                     </span>
                   </div>
                 )}
@@ -4739,7 +4512,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                       }
                       const finalClipName = dupCount > 0 ? `${cleanTitle} (${dupCount})` : cleanTitle;
                       const dlUrlWithTitle = c.download_url
-                        ? `${c.download_url}${c.download_url.includes('?') ? '&' : '?'}title=${encodeURIComponent(finalClipName)}`
+                        ? c.download_url.startsWith('blob:') ? c.download_url : `${c.download_url}${c.download_url.includes('?') ? '&' : '?'}title=${encodeURIComponent(finalClipName)}`
                         : '';
 
                       return (
@@ -4767,6 +4540,8 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
         </div>
       </div>
 
+      {currentPreviewClip && <SubtitleEditor key={`${currentPreviewClip.start_time}:${currentPreviewClip.end_time}`} result={analysis} clip={currentPreviewClip} onApply={words=>onApplyCaptions(currentPreviewClip,words)}/>}
+      {batchProgress && ['running','cancelling'].includes(batchProgress.overall_status) && <div className="project-actions"><button type="button" disabled={batchProgress.overall_status==='cancelling'} onClick={onCancelRender}>{batchProgress.overall_status==='cancelling'?'Cancelling…':'Cancel render'}</button></div>}
       {/* Bottom Sticky Action Footer */}
       <div className="studio-bottom-action-bar">
         <div className="action-bar-meta">
@@ -4857,7 +4632,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
         <button
           className="studio-btn-render glowing-btn big-render-cta"
           onClick={handleLaunch}
-          disabled={isRendering || batchProgress?.overall_status === 'running' || selectedClips.length === 0}
+          disabled={isRendering || ['running','cancelling'].includes(batchProgress?.overall_status || '') || selectedClips.length === 0}
         >
           {batchProgress?.overall_status === 'running' ? (
             <>{t.studio.renderingInProgressBadge}</>
@@ -4875,314 +4650,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
         </button>
       </div>
 
-      {/* Batch Render Queue & Results Dashboard Card - Located below bottom action bar */}
-      {batchProgress && (
-        <div className={`bottom-batch-dashboard-card ${batchProgress.overall_status === 'running' ? 'is-processing' : ''}`}>
-          <div className="batch-progress-header">
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <h4 className="batch-queue-title">{t.studio.batchQueueTitle}</h4>
-                {batchProgress.overall_status === 'running' && (
-                  <span className="queue-generating-pill">
-                    <span className="queue-pulse-dot"></span> * GENERATING VIDEO...
-                  </span>
-                )}
-              </div>
-              <p className="batch-subtitle">
-                {batchProgress.overall_status === 'completed'
-                  ? (batchProgress.clips.some(c => c.status === 'error')
-                      ? t.studio.someClipsFailed(batchProgress.clips.filter(c => c.status === 'error').length, batchProgress.total_clips)
-                      : t.studio.allClipsRendered(batchProgress.total_clips))
-                  : batchProgress.overall_status === 'error'
-                  ? (batchProgress.error_message || t.studio.allClipsFailed)
-                  : t.studio.processingClip((batchProgress.current_clip_index || 0) + 1, batchProgress.total_clips)}
-              </p>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-              {batchProgress.clips.some(c => c.status === 'error') && batchProgress.overall_status !== 'running' && onRetryClip && (
-                <button
-                  type="button"
-                  onClick={() => onRetryClip()}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.35rem',
-                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                    border: '1px solid rgba(245, 158, 11, 0.7)',
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    fontSize: '0.72rem',
-                    padding: '0.3rem 0.65rem',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    boxShadow: '0 0 10px rgba(245, 158, 11, 0.35)',
-                    transition: 'all 0.2s ease',
-                  }}
-                  title="Retry all failed clips in this batch"
-                >
-                  {t.studio.retryAllFailedBtn
-                    ? t.studio.retryAllFailedBtn(batchProgress.clips.filter(c => c.status === 'error').length)
-                    : `[~] Retry Failed (${batchProgress.clips.filter(c => c.status === 'error').length})`}
-                </button>
-              )}
-
-              {(batchProgress.overall_status === 'completed' || batchProgress.clips.some(c => c.status === 'completed')) && (
-                <a
-                  href={batchProgress.zip_url || `/api/download-batch-zip/${batchProgress.batch_id}`}
-                  download={`cheat_clip_pro_${batchProgress.batch_id}.zip`}
-                  className="glowing-btn batch-zip-download-btn"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.35rem',
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    border: '1px solid rgba(16, 185, 129, 0.6)',
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    fontSize: '0.72rem',
-                    padding: '0.3rem 0.65rem',
-                    borderRadius: '6px',
-                    textDecoration: 'none',
-                    boxShadow: '0 0 12px rgba(16, 185, 129, 0.35)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  [PKG] ZIP
-                </a>
-              )}
-
-              {(batchProgress.overall_status === 'completed' || batchProgress.overall_status === 'error') && onDismissProgress && (
-                <button
-                  type="button"
-                  className="studio-close-btn"
-                  onClick={onDismissProgress}
-                  style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1rem', padding: '0.1rem 0.3rem' }}
-                  title={t.studio.dismissQueue}
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Overall Batch Error Notice if all clips failed */}
-          {batchProgress.overall_status === 'error' && (
-            <div style={{
-              margin: '0.5rem 0 0.2rem',
-              padding: '0.55rem 0.75rem',
-              background: 'rgba(255, 30, 39, 0.12)',
-              border: '1px solid #ff1e27',
-              borderRadius: 0,
-              color: '#fca5a5',
-              fontSize: '0.74rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '0.45rem',
-              fontWeight: 600,
-              boxShadow: '0 0 10px rgba(255, 30, 39, 0.25)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                <AlertTriangle size={15} color="#ff1e27" />
-                <span style={{ color: '#fff', fontWeight: 700 }}>{batchProgress.error_message || t.studio.allClipsFailed}</span>
-              </div>
-              {onRetryClip && (
-                <button
-                  type="button"
-                  onClick={() => onRetryClip()}
-                  style={{
-                    background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                    border: '1px solid rgba(245, 158, 11, 0.6)',
-                    color: '#fff',
-                    fontWeight: 700,
-                    fontSize: '0.7rem',
-                    padding: '3px 9px',
-                    borderRadius: 0,
-                    cursor: 'pointer',
-                    boxShadow: '0 0 8px rgba(245, 158, 11, 0.35)',
-                    flexShrink: 0,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.25rem'
-                  }}
-                >
-                  <RefreshCw size={11} />
-                  {t.studio.retryClipBtn || 'Retry'}
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Overall Progress Bar */}
-          <div className="batch-overall-bar-wrap">
-            <div className="batch-overall-bar" style={{ height: '5px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-              <div
-                className="batch-overall-fill"
-                style={{
-                  height: '100%',
-                  background: batchProgress.overall_status === 'error'
-                    ? '#ef4444'
-                    : 'linear-gradient(90deg, #ff5e3a, #ff2a5f)',
-                  width: `${Math.round((batchProgress.clips.filter(c => c.status === 'completed').length / (batchProgress.total_clips || 1)) * 100)}%`,
-                  transition: 'width 0.3s ease'
-                }}
-              ></div>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-              <span>{t.batchProgress.completedMeta(batchProgress.clips.filter(c => c.status === 'completed').length, batchProgress.total_clips)}</span>
-              <span>{Math.round((batchProgress.clips.filter(c => c.status === 'completed').length / (batchProgress.total_clips || 1)) * 100)}%</span>
-            </div>
-          </div>
-
-          {/* Render Items List */}
-          <div className="batch-render-items-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginTop: '0.6rem' }}>
-            {batchProgress.clips.map((clip, idx) => {
-              let rawBaseTitle = (clip.base_title || '').trim();
-              if (!rawBaseTitle) {
-                let t = (clip.title || `clip_${idx + 1}`).trim();
-                if (titlePrefix && t.startsWith(titlePrefix)) {
-                  t = t.slice(titlePrefix.length);
-                }
-                if (titleSuffix && t.endsWith(titleSuffix)) {
-                  t = t.slice(0, t.length - titleSuffix.length);
-                }
-                rawBaseTitle = t.trim() || `clip_${idx + 1}`;
-              }
-              rawBaseTitle = rawBaseTitle.replace(/[\\/*?:"<>|]/g, '').trim() || `clip_${idx + 1}`;
-              const fnPfx = (fileNamePrefix || '').replace(/[\\/*?:"<>|]/g, '');
-              const fnSfx = (fileNameSuffix || '').replace(/[\\/*?:"<>|]/g, '');
-              const cleanTitle = `${fnPfx}${rawBaseTitle}${fnSfx}`.trim() || rawBaseTitle;
-              let dupCount = 0;
-              for (let i = 0; i < idx; i++) {
-                let priorBase = (batchProgress.clips[i].base_title || '').trim();
-                if (!priorBase) {
-                  let pt = (batchProgress.clips[i].title || `clip_${i + 1}`).trim();
-                  if (titlePrefix && pt.startsWith(titlePrefix)) {
-                    pt = pt.slice(titlePrefix.length);
-                  }
-                  if (titleSuffix && pt.endsWith(titleSuffix)) {
-                    pt = pt.slice(0, pt.length - titleSuffix.length);
-                  }
-                  priorBase = pt.trim() || `clip_${i + 1}`;
-                }
-                priorBase = priorBase.replace(/[\\/*?:"<>|]/g, '').trim() || `clip_${i + 1}`;
-                const priorTitle = `${fnPfx}${priorBase}${fnSfx}`.trim() || priorBase;
-                if (priorTitle.toLowerCase() === cleanTitle.toLowerCase()) {
-                  dupCount++;
-                }
-              }
-              const finalClipName = dupCount > 0 ? `${cleanTitle} (${dupCount})` : cleanTitle;
-              const dlUrlWithTitle = clip.download_url
-                ? `${clip.download_url}${clip.download_url.includes('?') ? '&' : '?'}title=${encodeURIComponent(finalClipName)}`
-                : '';
-
-              const isError = clip.status === 'error';
-              const rawError = clip.error_message || clip.error || '';
-
-              return (
-                <div
-                  key={idx}
-                  className={`batch-item-row status-${clip.status}`}
-                  style={{
-                    padding: '0.5rem 0.75rem',
-                    borderRadius: '8px',
-                    background: isError ? 'rgba(239, 68, 68, 0.05)' : 'rgba(255,255,255,0.03)',
-                    border: isError ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255,255,255,0.06)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.25rem',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', maxWidth: '65%' }}>
-                      <span style={{ fontSize: '0.7rem', color: isError ? '#f87171' : 'var(--text-muted)', fontWeight: 600 }}>#{idx + 1}</span>
-                      <span style={{ fontSize: '0.75rem', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{clip.title}</span>
-                    </div>
-                    <div>
-                      {clip.status === 'pending' && <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{t.studio.statusWaitingShort}</span>}
-                      {clip.status === 'downloading' && <span style={{ fontSize: '0.68rem', color: '#f59e0b' }}>{t.studio.statusSlicingShort}</span>}
-                      {clip.status === 'transcribing' && <span style={{ fontSize: '0.68rem', color: '#8b5cf6' }}>{t.studio.statusCaptionsShort}</span>}
-                      {clip.status === 'rendering' && <span style={{ fontSize: '0.68rem', color: '#3b82f6' }}>{t.studio.statusRenderingShort}</span>}
-                      {clip.status === 'completed' && (
-                        clip.download_url ? (
-                          <a
-                            href={dlUrlWithTitle}
-                            download={`${finalClipName}.mp4`}
-                            className="quick-dl-btn"
-                            title={`Download ${finalClipName}.mp4`}
-                          >
-                            ⬇️ MP4
-                          </a>
-                        ) : (
-                          <span className="quick-dl-btn" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
-                            ✓ Done
-                          </span>
-                        )
-                      )}
-                      {isError && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                          <span
-                            style={{
-                              fontSize: '0.68rem',
-                              fontWeight: 800,
-                              color: '#ff1e27',
-                              background: 'rgba(255, 30, 39, 0.15)',
-                              padding: '2px 8px',
-                              borderRadius: 0,
-                              border: '1px solid #ff1e27',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.25rem'
-                            }}
-                          >
-                            <X size={11} /> {t.studio.statusFailedShort}
-                          </span>
-                          {onRetryClip && batchProgress.overall_status !== 'running' && (
-                            <button
-                              type="button"
-                              onClick={() => onRetryClip(idx)}
-                              style={{
-                                background: 'rgba(245, 158, 11, 0.18)',
-                                border: '1px solid rgba(245, 158, 11, 0.5)',
-                                borderRadius: 0,
-                                color: '#fbbf24',
-                                fontSize: '0.68rem',
-                                fontWeight: 700,
-                                padding: '2px 8px',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s ease',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.25rem'
-                              }}
-                              title="Retry rendering this clip"
-                            >
-                              <RefreshCw size={11} />
-                              {t.studio.retryClipBtn || 'Retry'}
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Visible Error Box when clip fails */}
-                  {isError && rawError && (
-                    <ClipRenderErrorBox
-                      errorMessage={rawError}
-                      t={t}
-                      onRetry={onRetryClip && batchProgress.overall_status !== 'running' ? () => onRetryClip(idx) : undefined}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Custom Clear Temp Confirmation Modal */}
+<RenderQueuePanel batchProgress={batchProgress} t={t} onRetryClip={onRetryClip} onDismissProgress={onDismissProgress} titlePrefix={titlePrefix} titleSuffix={titleSuffix} fileNamePrefix={fileNamePrefix} fileNameSuffix={fileNameSuffix}/>      {/* Custom Clear Temp Confirmation Modal */}
       {showClearConfirmModal && (
         <div className="custom-confirm-modal-overlay">
           <div className="custom-confirm-modal-card">

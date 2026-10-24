@@ -12,7 +12,10 @@ export interface TranscriptLine {
   engagement?: number;
 }
 
+export interface CaptionWord { word:string; start:number; end:number }
+
 export interface ViralClip {
+  caption_words?: CaptionWord[];
   quality_scores?: {hook:number;context:number;payoff:number;signal?:number|null};
   selection_reason?: string;
   score_source?: string;
@@ -47,23 +50,23 @@ export interface AnalyzeResponse {
 
 export type AspectRatioOption = '9:16' | '1:1' | '4:3' | '16:9' | '16:9_landscape';
 export type BackgroundStyle = 'black' | 'blurred';
-export type CaptionStyle = 
-  | 'viral_pop' 
-  | 'beast_punch' 
-  | 'cyber_violet' 
-  | 'fire_red' 
-  | 'electric_cyan' 
-  | 'golden_aura' 
-  | 'clean_minimal' 
+export type CaptionStyle =
+  | 'viral_pop'
+  | 'beast_punch'
+  | 'cyber_violet'
+  | 'fire_red'
+  | 'electric_cyan'
+  | 'golden_aura'
+  | 'clean_minimal'
   | 'none';
-export type CaptionFont = 
-  | 'Outfit' 
-  | 'Montserrat' 
-  | 'Inter' 
-  | 'Impact' 
-  | 'Bebas Neue' 
-  | 'Anton' 
-  | 'Poppins' 
+export type CaptionFont =
+  | 'Outfit'
+  | 'Montserrat'
+  | 'Inter'
+  | 'Impact'
+  | 'Bebas Neue'
+  | 'Anton'
+  | 'Poppins'
   | 'Arial Black'
   | (string & {});
 export type TitlePosition = 'auto' | 'safe_zone' | 'middle' | 'none';
@@ -166,7 +169,7 @@ export interface RenderClipStatus {
   clip_index: number;
   title: string;
   base_title?: string;
-  status: 'pending' | 'downloading' | 'transcribing' | 'tracking' | 'rendering' | 'completed' | 'error';
+  status: 'pending' | 'downloading' | 'transcribing' | 'tracking' | 'rendering' | 'completed' | 'error' | 'cancelled';
   progress_percent: number;
   download_url?: string;
   error_message?: string;
@@ -174,10 +177,11 @@ export interface RenderClipStatus {
 }
 
 export interface BatchRenderProgress {
+  video_id?:string;
   batch_id: string;
   total_clips: number;
   current_clip_index: number;
-  overall_status: 'running' | 'completed' | 'error';
+  overall_status: 'running' | 'completed' | 'error' | 'cancelling' | 'cancelled' | 'cancelled';
   zip_url?: string;
   error_message?: string;
   warning_message?: string;

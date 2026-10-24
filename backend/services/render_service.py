@@ -27,6 +27,13 @@ BATCH_REQUESTS: Dict[str, RenderBatchRequest] = {}
 _RENDER_SEMAPHORE = asyncio.Semaphore(1)
 
 
+def render_source_identity(target_url, raw_path):
+    from backend.routers.media import _find_video_file_on_disk
+    from backend.services.render_cache import source_identity
+    original = _find_video_file_on_disk(target_url.split("?")[0].split("/")[-1]) if target_url.startswith("/api/video/") else None
+    return source_identity(original or raw_path)
+
+
 async def render_single_batch_clip(
     batch_id: str,
     idx: int,
@@ -148,13 +155,14 @@ async def render_single_batch_clip(
         if ("none" if settings.subtitles_enabled is False else settings.caption_style) != "none" or (display_title and settings.title_position != "none" and not skip_ass_title):
             words = []
             if ("none" if settings.subtitles_enabled is False else settings.caption_style) != "none":
-                words = await asyncio.to_thread(
+                words = clip["caption_words"] if clip.get("caption_words") is not None else await asyncio.to_thread(
                     transcribe_clip_words,
                     raw_path,
                     transcript,
                     start_t,
                     end_t,
-                    target_lang
+                    target_lang,
+                    cache_identity=render_source_identity(target_url, raw_path)
                 )
             ass_filename = f"{artifact_id}_clip_{idx}.ass"
             ass_path = str(TEMP_DIR / ass_filename)
@@ -405,13 +413,14 @@ async def render_merged_batch_clips(
             e_t = float(seg.get("end_time", s_t + 30.0))
             seg_dur = max(0.1, e_t - s_t)
             if ("none" if settings.subtitles_enabled is False else settings.caption_style) != "none":
-                seg_words = await asyncio.to_thread(
+                seg_words = seg["caption_words"] if seg.get("caption_words") is not None else await asyncio.to_thread(
                     transcribe_clip_words,
                     part_paths[i],
                     transcript,
                     s_t,
                     e_t,
-                    target_lang
+                    target_lang,
+                    cache_identity=render_source_identity(target_url, part_paths[i])
                 )
                 for w in seg_words:
                     w_copy = dict(w)

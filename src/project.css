@@ -1,0 +1,14 @@
+.project-panel { padding:1rem; margin:1rem 0; border:1px solid var(--border-color,#343445); background:var(--bg-card,#12121c); border-radius:8px; min-width:0; }
+.project-panel h2,.project-panel h3 {font-size:1rem;margin:0 0 .6rem;color:var(--text-primary,#fff)}
+.project-panel p {font-size:.85rem;line-height:1.5;color:var(--text-secondary,#bbc);margin:.5rem 0}
+.project-actions {display:flex;flex-wrap:wrap;gap:.6rem;margin:.6rem 0}
+.project-panel button,.project-actions button {padding:.5rem .8rem;border:1px solid #756587;background:#231b30;color:#f7f3ff;border-radius:4px;cursor:pointer;font:inherit;font-size:.82rem}
+.project-panel button:disabled,.project-actions button:disabled {opacity:.5;cursor:default}
+.project-panel button:focus-visible,.project-panel input:focus-visible {outline:2px solid #e879f9;outline-offset:2px}
+.project-panel li {margin:.5rem 0}
+.caption-word-list {max-height:22rem;overflow:auto;display:grid;gap:.4rem;margin:.8rem 0}
+.caption-word-row {display:grid;grid-template-columns:minmax(6rem,1fr) 5.5rem 5.5rem 2.5rem;gap:.4rem}
+.caption-word-row input {min-width:0;width:100%;background:#11101a;border:1px solid #51445d;color:white;padding:.5rem;border-radius:4px}
+@media(max-width:480px) {.caption-word-row {grid-template-columns:minmax(4rem,1fr) 4rem 4rem 2rem}.project-panel{padding:.75rem}}
+
+.caption-word-head {font-size:.72rem;color:var(--text-secondary,#bbc);margin-top:.8rem}

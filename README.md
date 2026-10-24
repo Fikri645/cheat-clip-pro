@@ -223,3 +223,16 @@ The integration suite uses real FFmpeg output, terminates a worker, starts a rep
 3. Select a model and analyze your video. The interface remembers your provider and key in the current browser.
 
 Optional server defaults can be configured as `GEMINI_API_KEY` or `OPENROUTER_API_KEY` in `backend/.env` (see `backend/.env.template`).
+
+
+## Editing and saving projects
+
+- Open **Auto Clipper**, choose the preview clip, and use **Subtitle editor**. Load the acoustic words, edit text/start/end (seconds relative to the clip), then **Apply subtitles**. Add/delete words as needed. Edited words take precedence over transcription in browser and server exports, including merged videos. Overlapping or out-of-range edits are rejected.
+- **Projects** autosaves the current analysis, selected clips, subtitle edits, studio settings, custom titles, local source media, music, SFX, watermark and selected custom fonts in IndexedDB on the current device. The save status confirms when the transaction is committed. Browser storage availability and quota errors are shown; keep an exported project as a portable copy.
+- **Export project** creates a `.cheatclip.zip` containing the project manifest, media assets, and finished exports. **Import project** restores them. Browser output blobs are stored as bytes and receive fresh download URLs after reload. If backend temporary media has expired, reopening the project uploads its saved assets again. YouTube projects keep the remote source reference; YouTube cookies and AI API keys are not included.
+- Current ZIP exports support archives below 4 GB. Larger sources can still be used in the editor, but export a smaller project/batch when the archive exceeds that limit.
+- **Cancel render** stops the job's download/encoder process tree (server), or its WebCodecs/WASM work and owned source download (browser). Finished clips remain downloadable. **Retry unfinished clips** starts the remaining clips with a fresh encoder. Browser work interrupted by closing/reloading the page is marked cancelled and can be retried after reopening its project.
+- Word timing and tracking artifacts are cached on disk under `backend/data/render_cache` (override with `RENDER_CACHE_DIR`). Keys include media contents, time interval, transcript, language/model, and tracking options. Font/color/layout choices reuse the analysis artifacts. The cache retains the 2,048 most recently used entries.
+- The Windows development launcher isolates API reloads so a Python change does not send a console interrupt to the frontend. Durable jobs recover after the API restarts.
+
+Frontend responsibilities are separated into `components/app` (AI settings, upload, history, source player), `components/studio` (preferences, queue, errors), and hooks for render ownership and project persistence.

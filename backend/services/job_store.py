@@ -46,7 +46,7 @@ def get_job(batch_id: str):
 def save_state(batch: dict):
     status = batch["overall_status"]
     with connect() as db:
-        db.execute("UPDATE jobs SET state=?,status=?,heartbeat=? WHERE id=?",
+        db.execute("UPDATE jobs SET state=?,status=?,heartbeat=? WHERE id=? AND status NOT IN ('cancelling','cancelled')",
                    (json.dumps(batch), status, time.time(), batch["batch_id"]))
 
 
@@ -70,10 +70,40 @@ def claim_next(stale_seconds=120):
 
 def protected_requests():
     with connect() as db:
-        rows = db.execute("SELECT id,request FROM jobs WHERE status IN ('queued','running')").fetchall()
+        rows = db.execute("SELECT id,request FROM jobs WHERE status IN ('queued','running','cancelling')").fetchall()
     return [(batch_id, json.loads(payload)) for batch_id, payload in rows]
 
 
 def interrupt(batch_id: str):
     with connect() as db:
         db.execute("UPDATE jobs SET heartbeat=0 WHERE id=? AND status='running'", (batch_id,))
+
+
+def request_cancel(batch_id):
+    with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        row = db.execute("SELECT status,state FROM jobs WHERE id=?", (batch_id,)).fetchone()
+        if not row:
+            return None
+        state = json.loads(row[1])
+        if row[0] in {"queued", "running", "cancelling"}:
+            status = "cancelled" if row[0] == "queued" else "cancelling"
+            state["overall_status"] = status
+            if status == "cancelled":
+                for clip in state["clips"]:
+                    if clip["status"] != "completed":
+                        clip.update(status="cancelled", progress_percent=0)
+            db.execute("UPDATE jobs SET status=?,state=? WHERE id=?", (status, json.dumps(state), batch_id))
+        return state
+
+
+def finish_cancel(batch_id):
+    with connect() as db:
+        row = db.execute("SELECT state FROM jobs WHERE id=?", (batch_id,)).fetchone()
+        state = json.loads(row[0])
+        state["overall_status"] = "cancelled"
+        for clip in state["clips"]:
+            if clip["status"] != "completed":
+                clip.update(status="cancelled", progress_percent=0, error_message=None)
+        db.execute("UPDATE jobs SET status='cancelled',state=? WHERE id=?", (json.dumps(state), batch_id))
+        return state

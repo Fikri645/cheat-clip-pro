@@ -241,25 +241,16 @@ async function start() {
   const baseArgs = selectedCandidate.args;
   const backendEnv = getSanitizedEnv(pythonExe);
 
-  const uvicornArgs = [
-    ...baseArgs,
-    '-m',
-    'uvicorn',
-    'backend.main:app',
-    '--host',
-    '0.0.0.0',
-    '--port',
-    '8000',
-    '--reload',
-    '--reload-dir',
-    path.join(rootDir, 'backend')
-  ];
+  const uvicornArgs = process.platform === 'win32'
+    ? [...baseArgs, path.join(rootDir, 'scripts', 'dev_backend.py')]
+    : [...baseArgs, '-m', 'uvicorn', 'backend.main:app', '--host', '0.0.0.0', '--port', '8000', '--reload', '--reload-dir', path.join(rootDir, 'backend')];
 
   console.log('\x1b[34m%s\x1b[0m', `🚀 Launching FastAPI server on http://127.0.0.1:8000 ...`);
 
   const backendProc = spawn(pythonExe, uvicornArgs, {
     cwd: rootDir,
     shell: false,
+    windowsHide: true,
     stdio: 'inherit',
     env: backendEnv
   });

@@ -1,9 +1,8 @@
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile } from '@ffmpeg/util';
-import { BufferTarget, CanvasSource, Mp4OutputFormat, Output, canEncodeVideo } from 'mediabunny';
-import coreURL from '@ffmpeg/core?url';
 import wasmURL from '@ffmpeg/core/wasm?url';
-import { composedFrames, mediaAssetUrl, prepareBrowserPlan, type BrowserRenderOptions, type BrowserPlan, type DecoderFallback, type FrameSink } from './browserCompositor';
+import coreURL from '@ffmpeg/core?url';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { BufferTarget,CanvasSource,Mp4OutputFormat,Output,canEncodeVideo } from 'mediabunny';
+import { composedFrames,mediaAssetUrl,prepareBrowserPlan,type BrowserPlan,type BrowserRenderOptions,type DecoderFallback,type FrameSink } from './browserCompositor';
 
 let ffmpeg: FFmpeg | undefined;
 let loading: Promise<FFmpeg> | undefined;
@@ -19,18 +18,25 @@ export async function getFFmpeg(): Promise<FFmpeg> {
   return loading;
 }
 
-export async function withFFmpeg<T>(work: (instance: FFmpeg)=>Promise<T>): Promise<T> {
+export async function withFFmpeg<T>(work: (instance: FFmpeg)=>Promise<T>, signal?:AbortSignal): Promise<T> {
   const previous=exclusive; let release!: ()=>void;
   exclusive=new Promise<void>(resolve=>{release=resolve;});
   await previous;
-  try { return await work(await getFFmpeg()); }
+  let owned:FFmpeg|undefined;
+  const cancel=()=>{if(owned){owned.terminate();ffmpeg=undefined;loading=undefined;}};
+  try {
+    signal?.throwIfAborted();
+    owned=await getFFmpeg();signal?.throwIfAborted();
+    signal?.addEventListener('abort',cancel,{once:true});
+    return await work(owned);
+  }
   catch(error) {
     // A fatal WASM abort poisons its worker; the next retry must load a fresh one.
     if(error instanceof Error && /Aborted|memory access|out of memory/i.test(error.message)) {
       ffmpeg?.terminate();ffmpeg=undefined;loading=undefined;
     }
     throw error;
-  } finally { release(); }
+  } finally { signal?.removeEventListener('abort',cancel);release(); }
 }
 
 async function execute(instance: FFmpeg,args: string[]) {
@@ -53,11 +59,11 @@ export async function encodeBrowser(options: BrowserBatchOptions, engine:'gpu'|'
     const cached = new Map<string,string>();
     async function inputFile(url:string) {
       if(cached.has(url))return cached.get(url)!;
-      const name=filename(`asset_${cached.size}`);await instance.writeFile(name,await fetchFile(url));cached.set(url,name);return name;
+      const name=filename(`asset_${cached.size}`);await instance.writeFile(name,new Uint8Array(await (await fetch(url,{signal:options.signal})).arrayBuffer()));cached.set(url,name);return name;
     }
     const segments=options.segments || [options];
     try {
-      for(const segment of segments) plans.push(await prepareBrowserPlan({...segment,onProgress:options.onProgress,decoderFallback:async(url)=>createFFmpegDecoder(instance,await inputFile(url),prefix,files)}));
+      for(const segment of segments) plans.push(await prepareBrowserPlan({...segment,onProgress:options.onProgress,signal:options.signal,decoderFallback:async(url)=>createFFmpegDecoder(instance,await inputFile(url),prefix,files)}));
       let titleOffset=0;
       for(const plan of plans){plan.titleTimeOffset=titleOffset;titleOffset+=plan.duration;}
       const duration=plans.reduce((sum,p)=>sum+p.duration,0);
@@ -139,10 +145,10 @@ export async function encodeBrowser(options: BrowserBatchOptions, engine:'gpu'|'
       options.onProgress?.(100,'Rendering complete');
       return new Blob([new Uint8Array(data)],{type:'video/mp4'});
     } finally {
-      plans.forEach(plan=>plan.input?.dispose());
+      plans.forEach(plan=>plan.dispose());
       for(const file of files)try {await instance.deleteFile(file);}catch{/* Already removed after encoding a chunk. */}
     }
-  });
+  },options.signal);
 }
 
 
@@ -186,12 +192,12 @@ export async function encodeRawBrowser(options:BrowserRenderOptions):Promise<Blo
   return withFFmpeg(async instance=>{
     const prefix=`raw_${Array.from(crypto.getRandomValues(new Uint8Array(16)),byte=>byte.toString(16).padStart(2,'0')).join('')}`,input=prefix+'_in',output=prefix+'.mp4';
     try {
-      await instance.writeFile(input,await fetchFile(options.videoSourceUrl));
+      await instance.writeFile(input,new Uint8Array(await (await fetch(options.videoSourceUrl,{signal:options.signal})).arrayBuffer()));
       const args=['-y','-ss',String(options.startTime || 0),'-i',input];
       if(options.endTime!==undefined)args.push('-t',String(options.endTime-(options.startTime || 0)));
       await execute(instance,[...args,'-map','0:v:0','-map','0:a?','-c:v','libx264','-preset','veryfast','-crf','20','-c:a','aac','-movflags','+faststart',output]);
       const data=await instance.readFile(output);if(typeof data==='string')throw new Error('Invalid raw video output');
       return new Blob([new Uint8Array(data)],{type:'video/mp4'});
     } finally {for(const path of [input,output])try{await instance.deleteFile(path);}catch{/* No partial output left. */}}
-  });
+  },options.signal);
 }

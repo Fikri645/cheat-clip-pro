@@ -86,10 +86,19 @@ async def start_batch_render(request: RenderBatchRequest, http_request: Request)
             "is_merged": False
         }
 
+    batch["video_id"] = request.video_id
     if request.cookies:
         http_request.app.state.render_credentials.put((batch_id, request.cookies))
     job_store.enqueue(batch, request.model_dump())
     return {"batch_id": batch_id, "total_clips": 1 if is_merged else len(request.clips), "is_merged": is_merged}
+
+
+@router.post("/api/render-batch/{batch_id}/cancel")
+def cancel_batch(batch_id: str):
+    state = job_store.request_cancel(batch_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    return state
 
 
 @router.post("/api/render-batch/{batch_id}/retry")
@@ -97,10 +106,10 @@ async def retry_batch_rendering(batch_id: str, http_request: Request, body: Opti
     job = job_store.get_job(batch_id)
     if not job:
         raise HTTPException(status_code=404, detail="Batch not found")
-    if job["status"] in {"queued", "running"}:
+    if job["status"] in {"queued", "running", "cancelling"}:
         raise HTTPException(status_code=409, detail="Batch is already queued or running")
     batch = job["state"]
-    indices = body.clip_indices if body and body.clip_indices is not None else [i for i,c in enumerate(batch["clips"]) if c["status"] == "error"]
+    indices = body.clip_indices if body and body.clip_indices is not None else [i for i,c in enumerate(batch["clips"]) if c["status"] in {"error", "cancelled"}]
     if not indices or any(i < 0 or i >= len(batch["clips"]) for i in indices):
         raise HTTPException(status_code=400, detail="No valid failed clips to retry")
     for index in indices:
@@ -146,7 +155,7 @@ async def get_render_progress(batch_id: str):
                 # Send SSE keep-alive comment every 5 iterations (~2.5s) to prevent client/proxy timeout during lag
                 if idle_count % 5 == 0:
                     yield ": keep-alive\n\n"
-            if batch.get("overall_status") in ["completed", "error"]:
+            if batch.get("overall_status") in ["completed", "error", "cancelled"]:
                 # Yield final state once and break
                 yield f"data: {batch_json}\n\n"
                 break
