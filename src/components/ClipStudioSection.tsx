@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { getErrorMessage } from '../utils/errors';
+import React, { useState, useEffect, useRef, useMemo, useEffectEvent } from 'react';
 import { 
   AlertTriangle, 
   RefreshCw, 
@@ -14,7 +15,7 @@ import {
   Play,
   Pause
 } from 'lucide-react';
-import { useLanguage } from '../locales';
+import { useLanguage, type Translations } from '../locales';
 import { resilientFetch } from '../utils/api';
 import { getStoredCookies, hasStoredCookies } from '../utils/cookieUtils';
 import { detectFaceClientSide } from '../utils/clientFaceDetector';
@@ -88,7 +89,7 @@ function getFriendlyErrorMessage(rawMsg: string): string {
   return rawMsg.length > 140 ? rawMsg.slice(0, 140) + '...' : rawMsg;
 }
 
-const ClipRenderErrorBox: React.FC<{ errorMessage: string; t: any; onRetry?: () => void }> = ({ errorMessage, t, onRetry }) => {
+const ClipRenderErrorBox: React.FC<{ errorMessage: string; t: Translations; onRetry?: () => void }> = ({ errorMessage, t, onRetry }) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = (e: React.MouseEvent) => {
@@ -238,7 +239,7 @@ export interface StudioPreferences {
   titleSuffix?: string;
 }
 
-export const DEFAULT_STUDIO_PREFS: Required<StudioPreferences> = {
+const DEFAULT_STUDIO_PREFS: Required<StudioPreferences> = {
   aspectRatio: '9:16',
   backgroundStyle: 'black',
   enableFaceTracking: true,
@@ -460,20 +461,8 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
       }
     };
 
-    if (isMobileDevice()) {
-      // Mobile devices always use Server Engine (FFmpeg) to prevent mobile browser crash / OOM
-      setHardwareAccel('auto');
-      fetchHardwareSupport();
-      return;
-    }
-
-    if (!isLocalhost) {
-      // On deployed domain for desktop users, use client engine (prefer client_gpu) to spare server
-      setHardwareAccel(isWebCodecsGpuSupported() ? 'client_gpu' : 'browser_wasm');
-      return;
-    }
-    fetchHardwareSupport();
-  }, []);
+    if (isMobileDevice() || isLocalhost) void fetchHardwareSupport();
+  }, [isLocalhost]);
 
   const loadCustomFontFace = (name: string, url: string) => {
     try {
@@ -557,27 +546,24 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
     found: false,
   });
 
-  const previewPlayerRef = useRef<any>(null);
+  const previewPlayerRef = useRef<YT.Player | null>(null);
   const directVideoRef = useRef<HTMLVideoElement | null>(null);
   const ambientVideoRef = useRef<HTMLVideoElement | null>(null);
   const trackingTimerRef = useRef<number | null>(null);
 
-  // Keep selectedClips in sync if markedClips updates from outside (including 0 clips)
-  useEffect(() => {
+  const [previousMarkedClips,setPreviousMarkedClips] = useState(markedClips);
+  if(previousMarkedClips!==markedClips) {
+    setPreviousMarkedClips(markedClips);
     setSelectedClips(markedClips);
-  }, [markedClips]);
-
-  // Sync active clip from external selection into preview
-  useEffect(() => {
-    if (activeClip) {
-      const idx = allClips.findIndex(
-        c => c.start_time === activeClip.start_time && c.end_time === activeClip.end_time
-      );
-      if (idx !== -1) {
-        setPreviewClipIndex(idx);
-      }
+  }
+  const [previousPreviewSelection,setPreviousPreviewSelection] = useState({activeClip,allClips});
+  if(previousPreviewSelection.activeClip!==activeClip || previousPreviewSelection.allClips!==allClips) {
+    setPreviousPreviewSelection({activeClip,allClips});
+    if(activeClip) {
+      const index=allClips.findIndex(c=>c.start_time===activeClip.start_time && c.end_time===activeClip.end_time);
+      if(index!==-1)setPreviewClipIndex(index);
     }
-  }, [activeClip, allClips]);
+  }
 
   const currentPreviewClip = allClips[previewClipIndex] || allClips[0] || null;
   const clipStart = currentPreviewClip ? currentPreviewClip.start_time : 0;
@@ -659,11 +645,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
     if (!videoId && !videoUrl) return;
 
     const isDirect = Boolean(videoUrl && (videoUrl.endsWith('.mp4') || videoUrl.endsWith('.webm') || videoUrl.endsWith('.mov') || videoUrl.endsWith('.mkv') || videoUrl.includes('/api/video') || videoUrl.startsWith('blob:') || videoId?.startsWith('upload_') || videoId?.startsWith('gdrive_')));
-    if (isDirect) {
-      setPlayerReady(true);
-      setCurrentTime(clipStart);
-      return;
-    }
+    if (isDirect) return;
 
     if (window.YT && window.YT.Player) {
       const container = document.getElementById('studio-preview-yt-container');
@@ -672,7 +654,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
       if (previewPlayerRef.current) {
         try {
           previewPlayerRef.current.destroy();
-        } catch (e) {}
+        } catch { /* The media element may already be detached. */ }
         previewPlayerRef.current = null;
       }
 
@@ -698,7 +680,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
             origin: window.location.origin,
           },
           events: {
-            onReady: (event: any) => {
+            onReady: (event: YT.PlayerEvent) => {
               setPlayerReady(true);
               try {
                 event.target.mute();
@@ -709,9 +691,9 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                 }
                 event.target.seekTo(clipStart, true);
                 setCurrentTime(clipStart);
-              } catch (e) {}
+              } catch { /* The media element may already be detached. */ }
             },
-            onStateChange: (event: any) => {
+            onStateChange: (event: YT.OnStateChangeEvent) => {
               if (event.data === 1) {
                 // PLAYING
                 setIsPlaying(true);
@@ -721,9 +703,9 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                 stopTracking();
                 if (event.data === 0 && isLooping && currentPreviewClip) {
                   try {
-                    previewPlayerRef.current.seekTo(clipStart, true);
-                    previewPlayerRef.current.playVideo();
-                  } catch (e) {}
+                    previewPlayerRef.current?.seekTo(clipStart, true);
+                    previewPlayerRef.current?.playVideo();
+                  } catch { /* The media element may already be detached. */ }
                 }
               }
             },
@@ -780,7 +762,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
             }
           }
         }
-      } catch (e) {}
+      } catch { /* The media element may already be detached. */ }
     }, 150);
   };
 
@@ -791,26 +773,32 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
     }
   };
 
+  const onPreviewSourceReady = useEffectEvent(() => initPreviewPlayer());
   useEffect(() => {
-    initPreviewPlayer();
+    onPreviewSourceReady();
     return () => {
       stopTracking();
       if (previewPlayerRef.current) {
         try {
           previewPlayerRef.current.destroy();
-        } catch (e) {}
+        } catch { /* The media element may already be detached. */ }
         previewPlayerRef.current = null;
       }
     };
-  }, [videoId, previewClipIndex]);
+  }, [videoId, videoUrl, previewClipIndex, clipStart]);
+
+  const [previousClipStart,setPreviousClipStart] = useState<number|null>(null);
+  if(previousClipStart!==clipStart) {
+    setPreviousClipStart(clipStart);
+    setCurrentTime(clipStart);
+  }
 
   // When previewClipIndex changes, seek player to new clip start
   useEffect(() => {
-    setCurrentTime(clipStart);
     if (previewPlayerRef.current && typeof previewPlayerRef.current.seekTo === 'function') {
       try {
         previewPlayerRef.current.seekTo(clipStart, true);
-      } catch (e) {}
+      } catch { /* The media element may already be detached. */ }
     } else if (directVideoRef.current) {
       directVideoRef.current.currentTime = clipStart;
       if (ambientVideoRef.current) ambientVideoRef.current.currentTime = clipStart;
@@ -828,7 +816,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
           }
           previewPlayerRef.current.playVideo();
         }
-      } catch (e) {}
+      } catch { /* The media element may already be detached. */ }
     } else if (directVideoRef.current) {
       if (isPlaying) {
         directVideoRef.current.pause();
@@ -852,7 +840,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
     if (previewPlayerRef.current && typeof previewPlayerRef.current.seekTo === 'function') {
       try {
         previewPlayerRef.current.seekTo(newTime, true);
-      } catch (e) {}
+      } catch { /* The media element may already be detached. */ }
     } else if (directVideoRef.current) {
       directVideoRef.current.currentTime = newTime;
       if (ambientVideoRef.current) ambientVideoRef.current.currentTime = newTime;
@@ -865,7 +853,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
       try {
         previewPlayerRef.current.seekTo(clipStart, true);
         previewPlayerRef.current.playVideo();
-      } catch (e) {}
+      } catch { /* The media element may already be detached. */ }
     } else if (directVideoRef.current) {
       directVideoRef.current.currentTime = clipStart;
       directVideoRef.current.play();
@@ -884,7 +872,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
           previewPlayerRef.current.mute();
           setIsMuted(true);
         }
-      } catch (e) {}
+      } catch { /* The media element may already be detached. */ }
     } else if (directVideoRef.current) {
       directVideoRef.current.muted = !isMuted;
       setIsMuted(!isMuted);
@@ -1141,7 +1129,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
       setWatermarkEnabled(true);
     } catch (err) {
       console.error('Watermark upload error:', err);
-      const msg = err instanceof Error ? err.message : 'Failed to upload watermark image.';
+      const msg = err instanceof Error ? getErrorMessage(err) : 'Failed to upload watermark image.';
       alert(msg);
       if (localUrl) {
         try { URL.revokeObjectURL(localUrl); } catch { /* ignore */ }
@@ -1459,13 +1447,8 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
   const safeSubtitleY = Math.min(subtitleYPercent, maxSubY);
   const safeSubCenterY = Math.max(minCenterY, Math.min(subtitleCenterYPercent, maxCenterY));
 
-  // If user hasn't explicitly customized positions, auto-keep optimal default for ratio & lines
-  useEffect(() => {
-    if (!isCustomTitleY) {
-      const defaults = getDefaultPositions(aspectRatio, titleLineCount, streamerPreset);
-      setTitleYPercent(defaults.titleY);
-    }
-  }, [aspectRatio, titleLineCount, streamerPreset, isCustomTitleY]);
+  const defaultTitleY=getDefaultPositions(aspectRatio,titleLineCount,streamerPreset).titleY;
+  if(!isCustomTitleY && titleYPercent!==defaultTitleY)setTitleYPercent(defaultTitleY);
 
   const handleSelectAspectRatio = (newRatio: AspectRatioOption) => {
     setAspectRatio(newRatio);
@@ -1667,7 +1650,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
       originalAudioVolume,
       // Hardware Acceleration / Video Encoder
       hardwareAccel,
-      renderEngine: isMobileDevice() ? 'server' : (hardwareAccel === 'browser_wasm' ? 'client' : 'server'),
+      renderEngine: isMobileDevice() ? 'server' : ((hardwareAccel === 'browser_wasm' || hardwareAccel === 'client_gpu') ? 'client' : 'server'),
       // Multi-Segment Merged Highlight Video
       renderMode,
       compilationTitle: compilationTitle.trim() || undefined,
@@ -1714,7 +1697,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
               }}
             >
               <ArrowLeft size={14} />
-              <span>02 {(t.studio as any).backToClips || 'KEMBALI KE CLIPS'}</span>
+              <span>02 {t.studio.backToClips || 'KEMBALI KE CLIPS'}</span>
             </button>
           )}
           <button
@@ -1912,7 +1895,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                         onClick={() => setFacecamPosition(opt.id as FacecamPosition)}
                       >
                         {opt.icon}
-                        <span>{opt.label.replace(/^[⬅️←<\->\s]+/, '')}</span>
+                        <span>{opt.label.replace(/^(?:⬅️|[←<>\s-])+/u, '')}</span>
                       </button>
                     ))}
                   </div>
@@ -4206,6 +4189,10 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                       {videoUrl && (videoUrl.endsWith('.mp4') || videoUrl.endsWith('.webm') || videoUrl.endsWith('.mov') || videoUrl.endsWith('.mkv') || videoUrl.includes('/api/video') || videoUrl.startsWith('blob:') || videoId?.startsWith('upload_') || videoId?.startsWith('gdrive_')) ? (
                         <video
                           ref={directVideoRef}
+                        onLoadedMetadata={event => {
+                          event.currentTarget.currentTime=clipStart;
+                          setPlayerReady(true);
+                        }}
                           src={videoUrl ? encodeURI(videoUrl) : `/api/video/${encodeURIComponent(videoId || '')}`}
                           playsInline
                           muted={isMuted}
@@ -4258,8 +4245,8 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                           style={{
                             opacity: playerReady ? 1 : 0,
                             transition: 'opacity 0.25s ease',
-                            ['--preview-crop-pct' as any]: previewCropPercent,
-                          }}
+                            '--preview-crop-pct': previewCropPercent,
+                          } as React.CSSProperties}
                         >
                           <div id="studio-yt-iframe-slot"></div>
                         </div>
@@ -4474,7 +4461,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
             {/* Hidden Audio element for background music preview */}
             <audio
               ref={bgmAudioRef}
-              src={bgmAudioUrl}
+              src={bgmAudioUrl || undefined}
               onEnded={() => setIsBgmPlaying(false)}
               onLoadedMetadata={handleBgmLoadedMetadata}
               style={{ display: 'none' }}
@@ -4483,7 +4470,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
             {/* Hidden Audio element for hook sound effect preview */}
             <audio
               ref={hookSfxAudioRef}
-              src={hookSfxAudioUrl}
+              src={hookSfxAudioUrl || undefined}
               onEnded={() => setIsHookSfxPlaying(false)}
               style={{ display: 'none' }}
             />

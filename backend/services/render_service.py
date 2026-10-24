@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 import zipfile
+import uuid
 from typing import Any, Dict, List, Optional
 
 from backend.config import (
@@ -40,6 +41,7 @@ async def render_single_batch_clip(
     if not batch:
         return
 
+    artifact_id = f"{batch_id}_{uuid.uuid4().hex[:8]}"
     clip_status = batch["clips"][idx]
     clip_status["status"] = "downloading"
     clip_status["progress_percent"] = 15
@@ -54,7 +56,7 @@ async def render_single_batch_clip(
         # 1. Download
         start_t = float(clip.get("start_time", 0.0))
         end_t = float(clip.get("end_time", start_t + 30.0))
-        seg_filename = f"{batch_id}_clip_{idx}_raw.mp4"
+        seg_filename = f"{artifact_id}_clip_{idx}_raw.mp4"
 
         raw_path = await asyncio.to_thread(
             download_clip_segment,
@@ -101,7 +103,7 @@ async def render_single_batch_clip(
 
         # Check if title has emoji -> render transparent color emoji PNG overlay
         if display_title and settings.title_position != "none" and has_emoji(display_title):
-            title_png_filename = f"{batch_id}_clip_{idx}_title.png"
+            title_png_filename = f"{artifact_id}_clip_{idx}_title.png"
             title_png_path = str(TEMP_DIR / title_png_filename)
             try:
                 canvas_w = 1920 if (settings.aspect_ratio == "16:9_landscape") else 1080
@@ -143,9 +145,9 @@ async def render_single_batch_clip(
             except Exception:
                 pass
 
-        if settings.caption_style != "none" or (display_title and settings.title_position != "none" and not skip_ass_title):
+        if ("none" if settings.subtitles_enabled is False else settings.caption_style) != "none" or (display_title and settings.title_position != "none" and not skip_ass_title):
             words = []
-            if settings.caption_style != "none":
+            if ("none" if settings.subtitles_enabled is False else settings.caption_style) != "none":
                 words = await asyncio.to_thread(
                     transcribe_clip_words,
                     raw_path,
@@ -154,12 +156,12 @@ async def render_single_batch_clip(
                     end_t,
                     target_lang
                 )
-            ass_filename = f"{batch_id}_clip_{idx}.ass"
+            ass_filename = f"{artifact_id}_clip_{idx}.ass"
             ass_path = str(TEMP_DIR / ass_filename)
             await asyncio.to_thread(
                 generate_ass_file,
                 words=words,
-                style_preset=settings.caption_style,
+                style_preset=("none" if settings.subtitles_enabled is False else settings.caption_style),
                 font_name=settings.caption_font or "Outfit",
                 output_ass_path=ass_path,
                 target_aspect_ratio=settings.aspect_ratio,
@@ -186,7 +188,7 @@ async def render_single_batch_clip(
         clip_status["status"] = "rendering"
         clip_status["progress_percent"] = 70
 
-        out_filename = f"clip_{idx+1}_{batch_id}.mp4"
+        out_filename = f"clip_{idx+1}_{artifact_id}.mp4"
         out_path = str(EXPORTS_DIR / out_filename)
 
         await asyncio.to_thread(
@@ -231,6 +233,8 @@ async def render_single_batch_clip(
         clip_status["progress_percent"] = 100
         clip_status["download_url"] = f"/api/download-rendered/{out_filename}"
         clip_status["output_path"] = out_path
+        from backend.services.job_store import save_state
+        save_state(batch)
 
     except Exception as e:
         logger.error(f"Error rendering clip {idx} in batch {batch_id}: {e}")
@@ -318,6 +322,7 @@ async def render_merged_batch_clips(
     if not batch:
         return
 
+    artifact_id = f"{batch_id}_{uuid.uuid4().hex[:8]}"
     clip_status = batch["clips"][0]
     clip_status["status"] = "downloading"
     clip_status["progress_percent"] = 10
@@ -336,7 +341,7 @@ async def render_merged_batch_clips(
             clip_status["progress_percent"] = 10 + int((i / max(1, total_segments)) * 25)
             s_t = float(seg.get("start_time", 0.0))
             e_t = float(seg.get("end_time", s_t + 30.0))
-            part_filename = f"{batch_id}_part_{i}_raw.mp4"
+            part_filename = f"{artifact_id}_part_{i}_raw.mp4"
             p_path = await asyncio.to_thread(
                 download_clip_segment,
                 target_url,
@@ -355,7 +360,7 @@ async def render_merged_batch_clips(
         clip_status["status"] = "transcribing"
         clip_status["progress_percent"] = 40
 
-        raw_merged_filename = f"{batch_id}_merged_raw.mp4"
+        raw_merged_filename = f"{artifact_id}_merged_raw.mp4"
         raw_merged_path = str(TEMP_DIR / raw_merged_filename)
 
         if len(part_paths) == 1:
@@ -399,7 +404,7 @@ async def render_merged_batch_clips(
             s_t = float(seg.get("start_time", 0.0))
             e_t = float(seg.get("end_time", s_t + 30.0))
             seg_dur = max(0.1, e_t - s_t)
-            if settings.caption_style != "none":
+            if ("none" if settings.subtitles_enabled is False else settings.caption_style) != "none":
                 seg_words = await asyncio.to_thread(
                     transcribe_clip_words,
                     part_paths[i],
@@ -423,7 +428,7 @@ async def render_merged_batch_clips(
         skip_ass_title = False
 
         if display_title and settings.title_position != "none" and has_emoji(display_title):
-            title_png_filename = f"{batch_id}_merged_title.png"
+            title_png_filename = f"{artifact_id}_merged_title.png"
             title_png_path = str(TEMP_DIR / title_png_filename)
             try:
                 canvas_w = 1920 if (settings.aspect_ratio == "16:9_landscape") else 1080
@@ -453,13 +458,13 @@ async def render_merged_batch_clips(
                 logger.warning(f"Could not render color emoji title overlay for merged clip: {ex}")
                 skip_ass_title = False
 
-        if settings.caption_style != "none" or (display_title and settings.title_position != "none" and not skip_ass_title):
-            ass_filename = f"{batch_id}_merged.ass"
+        if ("none" if settings.subtitles_enabled is False else settings.caption_style) != "none" or (display_title and settings.title_position != "none" and not skip_ass_title):
+            ass_filename = f"{artifact_id}_merged.ass"
             ass_path = str(TEMP_DIR / ass_filename)
             await asyncio.to_thread(
                 generate_ass_file,
                 words=merged_words,
-                style_preset=settings.caption_style,
+                style_preset=("none" if settings.subtitles_enabled is False else settings.caption_style),
                 font_name=settings.caption_font or "Outfit",
                 output_ass_path=ass_path,
                 target_aspect_ratio=settings.aspect_ratio,
@@ -488,7 +493,7 @@ async def render_merged_batch_clips(
 
         clean_safe_title = re.sub(r'[\\/*?:"<>|]', "", clip_status.get("base_title") or "highlight_compilation")
         clean_safe_title = clean_safe_title.replace(" ", "_")[:40] or "compilation"
-        out_filename = f"compilation_{clean_safe_title}_{batch_id}.mp4"
+        out_filename = f"compilation_{clean_safe_title}_{artifact_id}.mp4"
         out_path = str(EXPORTS_DIR / out_filename)
 
         await asyncio.to_thread(
@@ -533,6 +538,8 @@ async def render_merged_batch_clips(
         clip_status["progress_percent"] = 100
         clip_status["download_url"] = f"/api/download-rendered/{out_filename}"
         clip_status["output_path"] = out_path
+        from backend.services.job_store import save_state
+        save_state(batch)
 
     except Exception as e:
         logger.error(f"Error rendering merged batch {batch_id}: {e}")
@@ -594,6 +601,8 @@ async def process_batch_rendering(batch_id: str, request: RenderBatchRequest):
             batch["current_clip_index"] = 1
         else:
             for idx, clip in enumerate(clips):
+                if batch["clips"][idx]["status"] in {"completed", "error"}:
+                    continue
                 batch["current_clip_index"] = idx
                 await render_single_batch_clip(
                     batch_id=batch_id,

@@ -1,3 +1,4 @@
+import type { AnalysisCacheContext } from './utils/analysisCache';
 export interface HeatmapPoint {
   start_time: number;
   end_time: number;
@@ -12,6 +13,10 @@ export interface TranscriptLine {
 }
 
 export interface ViralClip {
+  quality_scores?: {hook:number;context:number;payoff:number;signal?:number|null};
+  selection_reason?: string;
+  score_source?: string;
+  score_note?: string;
   title: string;
   start_time: number;
   end_time: number;
@@ -25,10 +30,13 @@ export interface ViralClip {
 }
 
 export interface AnalyzeResponse {
+  cache_context?: AnalysisCacheContext;
   video_id: string;
   title: string;
   duration: number;
   heatmap: HeatmapPoint[];
+  heatmap_source?: "youtube_replay" | "acoustic_energy" | "demo" | "none";
+  analysis_method?: string;
   summary: string;
   clips: ViralClip[];
   transcript?: TranscriptLine[];
@@ -174,4 +182,13 @@ export interface BatchRenderProgress {
   error_message?: string;
   warning_message?: string;
   clips: RenderClipStatus[];
+}
+
+export interface UploadVideoResponse {
+  video_id:string; saved_name:string; duration:number; file_path:string; width:number; height:number;
+}
+
+export interface AnalysisProgressEvent {
+  error?:string; done?:boolean; result?:AnalyzeResponse; step?:number; step_progress?:number;
+  overall_progress?:number; stage?:string; detail?:string; model?:string; message?:string;
 }

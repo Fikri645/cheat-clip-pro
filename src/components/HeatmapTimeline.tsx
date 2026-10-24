@@ -4,6 +4,7 @@ import { useLanguage } from '../locales';
 import styles from './HeatmapTimeline.module.css';
 
 interface HeatmapTimelineProps {
+  signalSource?: 'youtube_replay' | 'acoustic_energy' | 'demo' | 'none';
   duration: number;
   heatmap: HeatmapPoint[];
   currentTime: number;
@@ -17,6 +18,7 @@ export const HeatmapTimeline: React.FC<HeatmapTimelineProps> = ({
   currentTime,
   onSeek,
   activeClip,
+  signalSource,
 }) => {
   const { t } = useLanguage();
   const svgRef = useRef<SVGSVGElement>(null);
@@ -44,9 +46,9 @@ export const HeatmapTimeline: React.FC<HeatmapTimelineProps> = ({
   const getCoordinates = (svgWidth: number) => {
     if (!heatmap || heatmap.length === 0 || duration === 0) return [];
     
-    return heatmap.map((point, index) => {
+    return heatmap.map((point) => {
       // Position x based on time or index (index is safer for uniform distribution)
-      const x = (index / (heatmap.length - 1)) * svgWidth;
+      const x = Math.max(0,Math.min(1,point.start_time/duration)) * svgWidth;
       // Invert Y coordinate so 1.0 value is at top
       const y = paddingTop + chartHeight - (point.value * chartHeight);
       return { x, y, value: point.value, time: point.start_time };
@@ -140,7 +142,7 @@ export const HeatmapTimeline: React.FC<HeatmapTimelineProps> = ({
     <div className={styles.container}>
       <div className={styles.topRow}>
         <span className={styles.titleGroup}>
-          {t.heatmap.title}
+          {signalSource === 'acoustic_energy' ? t.heatmap.audioEnergy : signalSource === 'demo' ? t.heatmap.demoSignal : signalSource === 'youtube_replay' ? t.heatmap.replayPeaks : t.heatmap.title}
           {(!heatmap || heatmap.length === 0) && (
             <span className={styles.naBadge}>{t.heatmap.notAvailable}</span>
           )}

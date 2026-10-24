@@ -20,7 +20,7 @@ export interface DetectedFaceBox {
 export async function detectFaceClientSide(
   videoElement: HTMLVideoElement | null,
   facecamPosition: string = 'auto',
-  _streamerPreset: string = 'none'
+  ..._options: [streamerPreset?: string]
 ): Promise<DetectedFaceBox> {
   // Preset defaults if manual position selected
   if (facecamPosition === 'left') {
@@ -37,14 +37,15 @@ export async function detectFaceClientSide(
     return { found: false, cx: 0.50, cy: 0.35, w: 0.25, h: 0.35, type: 'face' };
   }
 
+  void _options;
   const vWidth = videoElement.videoWidth;
   const vHeight = videoElement.videoHeight;
 
   // 1. Try Native Browser FaceDetector API (Shape Detection API)
-  if (typeof (window as any).FaceDetector === 'function') {
+  if (typeof window.FaceDetector === 'function') {
     try {
-      const detector = new (window as any).FaceDetector({ fastMode: true, maxDetectedFaces: 3 });
-      const faces: any[] = await detector.detect(videoElement);
+      const detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 3 });
+      const faces: NativeDetectedFace[] = await detector.detect(videoElement);
       if (faces && faces.length > 0) {
         // Pick the largest detected face
         let largestFace = faces[0];
@@ -65,7 +66,7 @@ export async function detectFaceClientSide(
 
         return { found: true, cx, cy, w, h, type: 'face' };
       }
-    } catch (e) {
+    } catch {
       // Shape detection api failed or permission denied, fall back to canvas
     }
   }
@@ -133,7 +134,7 @@ export async function detectFaceClientSide(
         type: 'face',
       };
     }
-  } catch (canvasErr) {
+  } catch {
     // Cross-origin or read error
   }
 

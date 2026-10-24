@@ -8,7 +8,7 @@ import uuid
 import zipfile
 from typing import Dict, List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 
 from backend.config import (
@@ -22,18 +22,13 @@ from backend.schemas.render import (
     RenderSettingsModel,
     RetryBatchRequest,
 )
-from backend.services.render_service import (
-    BATCH_REQUESTS,
-    RENDER_BATCHES,
-    process_batch_rendering,
-    process_batch_retry,
-)
+from backend.services import job_store
 
 router = APIRouter(tags=["Render"])
 
 
 @router.post("/api/render-batch")
-async def start_batch_render(request: RenderBatchRequest, background_tasks: BackgroundTasks):
+async def start_batch_render(request: RenderBatchRequest, http_request: Request):
     if not request.clips:
         raise HTTPException(status_code=400, detail="No clips provided for rendering")
 
@@ -60,7 +55,7 @@ async def start_batch_render(request: RenderBatchRequest, background_tasks: Back
             "is_merged": True,
             "segments_count": len(request.clips)
         })
-        RENDER_BATCHES[batch_id] = {
+        batch = {
             "batch_id": batch_id,
             "total_clips": 1,
             "current_clip_index": 0,
@@ -81,7 +76,7 @@ async def start_batch_render(request: RenderBatchRequest, background_tasks: Back
                 "status": "pending",
                 "progress_percent": 0
             })
-        RENDER_BATCHES[batch_id] = {
+        batch = {
             "batch_id": batch_id,
             "total_clips": len(request.clips),
             "current_clip_index": 0,
@@ -91,70 +86,54 @@ async def start_batch_render(request: RenderBatchRequest, background_tasks: Back
             "is_merged": False
         }
 
-    BATCH_REQUESTS[batch_id] = request
-
-    background_tasks.add_task(process_batch_rendering, batch_id, request)
+    if request.cookies:
+        http_request.app.state.render_credentials.put((batch_id, request.cookies))
+    job_store.enqueue(batch, request.model_dump())
     return {"batch_id": batch_id, "total_clips": 1 if is_merged else len(request.clips), "is_merged": is_merged}
 
 
 @router.post("/api/render-batch/{batch_id}/retry")
-async def retry_batch_rendering(
-    batch_id: str,
-    background_tasks: BackgroundTasks,
-    body: Optional[RetryBatchRequest] = None
-):
-    if batch_id not in RENDER_BATCHES:
+async def retry_batch_rendering(batch_id: str, http_request: Request, body: Optional[RetryBatchRequest] = None):
+    job = job_store.get_job(batch_id)
+    if not job:
         raise HTTPException(status_code=404, detail="Batch not found")
-    batch = RENDER_BATCHES[batch_id]
-    if batch_id not in BATCH_REQUESTS:
-        raise HTTPException(status_code=400, detail="Batch configuration expired. Please start a new render.")
-
-    if batch.get("overall_status") == "running":
-        # Check if any clip is actively running
-        running = any(c.get("status") in ["downloading", "transcribing", "rendering"] for c in batch.get("clips", []))
-        if running:
-            raise HTTPException(status_code=400, detail="Batch is currently rendering. Please wait for the current clip to finish.")
-
-    req = BATCH_REQUESTS[batch_id]
+    if job["status"] in {"queued", "running"}:
+        raise HTTPException(status_code=409, detail="Batch is already queued or running")
+    batch = job["state"]
+    indices = body.clip_indices if body and body.clip_indices is not None else [i for i,c in enumerate(batch["clips"]) if c["status"] == "error"]
+    if not indices or any(i < 0 or i >= len(batch["clips"]) for i in indices):
+        raise HTTPException(status_code=400, detail="No valid failed clips to retry")
+    for index in indices:
+        batch["clips"][index].update(status="pending", progress_percent=0, error=None, error_message=None)
+    batch.update(overall_status="running", error_message=None, warning_message=None)
     if body and body.cookies:
-        req.cookies = body.cookies
-    indices_to_retry: List[int] = []
-    if body and body.clip_indices:
-        indices_to_retry = [i for i in body.clip_indices if 0 <= i < len(batch["clips"])]
-    else:
-        indices_to_retry = [i for i, c in enumerate(batch["clips"]) if c.get("status") == "error"]
+        http_request.app.state.render_credentials.put((batch_id, body.cookies))
+    try:
+        job_store.enqueue(batch, job["request"], retry=True)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    return {"status": "started", "batch_id": batch_id, "retrying_clips": indices}
 
-    if not indices_to_retry:
-        raise HTTPException(status_code=400, detail="No failed clips to retry in this batch.")
 
-    for idx in indices_to_retry:
-        batch["clips"][idx]["status"] = "pending"
-        batch["clips"][idx]["progress_percent"] = 0
-        batch["clips"][idx]["error_message"] = None
-        batch["clips"][idx]["error"] = None
-
-    batch["overall_status"] = "running"
-    batch["error_message"] = None
-    batch["warning_message"] = None
-
-    background_tasks.add_task(process_batch_retry, batch_id, indices_to_retry)
-    return {
-        "status": "started",
-        "batch_id": batch_id,
-        "retrying_clips": indices_to_retry
-    }
+@router.get("/api/render-batch/{batch_id}")
+def get_batch_snapshot(batch_id: str):
+    job = job_store.get_job(batch_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    return job["state"]
 
 
 @router.get("/api/render-progress/{batch_id}")
 async def get_render_progress(batch_id: str):
-    if batch_id not in RENDER_BATCHES:
+    if not job_store.get_job(batch_id):
         raise HTTPException(status_code=404, detail="Batch not found")
 
     async def stream():
         last_sent_json = None
         idle_count = 0
         while True:
-            batch = RENDER_BATCHES.get(batch_id)
+            job = await asyncio.to_thread(job_store.get_job, batch_id)
+            batch = job["state"] if job else None
             if not batch:
                 break
             batch_json = json.dumps(batch)
@@ -208,7 +187,8 @@ def download_batch_zip(batch_id: str):
     file_path = EXPORTS_DIR / safe_name
     if not file_path.exists():
         # Attempt to package any completed clips for this batch on the fly
-        job = RENDER_BATCHES.get(batch_id)
+        persisted = job_store.get_job(batch_id)
+        job = persisted["state"] if persisted else None
         if job and job.get("clips"):
             try:
                 title_counts: Dict[str, int] = {}

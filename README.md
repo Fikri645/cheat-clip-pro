@@ -16,7 +16,7 @@ Make sure you have the following installed:
    * **Windows:** `winget install Git.Git` or download from [git-scm.com](https://git-scm.com/)
    * **macOS:** `brew install git`
    * **Linux:** `sudo apt install git`
-2. **[Node.js](https://nodejs.org/)** (v18 or newer)
+2. **[Node.js](https://nodejs.org/)** (v22.13 or newer)
    * Download from [nodejs.org](https://nodejs.org/) or install via your package manager.
 3. **[Python](https://www.python.org/)** (v3.10 or newer)
    * **Windows:** Install from [python.org](https://www.python.org/downloads/) (make sure to check *"Add Python to PATH"* during setup) or from Microsoft Store.
@@ -122,7 +122,7 @@ Cheat Clip PRO uses Google's AI to find the best viral moments for free:
 
 1. **Paste a YouTube URL** — Enter any podcast, stream, or video link.
 2. **Choose Duration** — Pick `~15s` (fast hooks), `~30s` (standard shorts), or `~60s` (story clips).
-3. **Click "Analyze Video"** — The AI finds the most exciting moments using YouTube audience retention data.
+3. **Click "Analyze Video"** — AI selects clips from the transcript and uses public YouTube replay peaks when available. Uploaded video uses audio energy instead; neither signal is a measured retention rate or a prediction of going viral.
 4. **Customize in Clip Studio** — Adjust your video style:
    * **Frame & Crop**: Fullscreen 9:16 vertical, square, or split-screen facecam.
    * **Face Tracking**: Automatically keeps the speaker in the center of the frame.
@@ -175,3 +175,51 @@ Cheat Clip PRO uses Google's AI to find the best viral moments for free:
 ## 📄 License
 
 Distributed under the **MIT License**. Free for personal and commercial use!
+
+
+## Reliable rendering and storage
+
+- Server renders run in an isolated worker with a SQLite queue (`backend/data/jobs.sqlite3`). The worker checkpoints completed clips and resumes interrupted clips after restart. One worker owns a database at a time. Run one API process per installation, and put the database on a local persistent disk.
+- The browser remembers the last server batch and reconnects to progress after reload or a network interruption. Completed outputs remain downloadable from the recovery panel.
+- Cookies are passed to the live worker in memory and are never saved in the job database. After a crash, a private YouTube source may require Retry with fresh browser cookies. Local sources and public downloads can resume automatically.
+- GPU and WASM browser renders share framing, animated captions, title, watermark, music, SFX and voice-volume settings. GPU encodes composited frames; WASM mixes AAC audio and muxes it without re-encoding the GPU video. Browsers without native decoding use bounded software-decoded frame groups. Software exports are slower than hardware encoding.
+- Tracking samples faces through the clip, smooths framing within a shot, and resets at scene cuts. Speaker selection uses face continuity and mouth-region motion; overlapping speakers and occlusions can still need a manual framing choice.
+- Clip scores explain hook, context and ending separately. AI assessments and transcript-based fallbacks are identified; scores are content-selection estimates, not probabilities of social-media success. Overlapping clips are removed after boundary adjustment.
+- Internal audio assets use extensionless binary URLs so download-manager integrations do not mistake editor fetches for downloads.
+
+### Retention configuration
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `JOB_DATABASE_PATH` | `backend/data/jobs.sqlite3` | Persistent render queue |
+| `TEMP_MAX_AGE_SECONDS` | `3600` | Scratch-file lifetime |
+| `UPLOAD_MAX_AGE_SECONDS` | `86400` | Source-upload lifetime |
+| `EXPORT_MAX_AGE_SECONDS` | `604800` | Completed-export lifetime |
+| `TEMP_STORAGE_QUOTA_GB` | `5` | Shared media quota |
+| `CLEANUP_INTERVAL_SECONDS` | `1800` | Cleanup interval |
+| `WHISPER_MODEL` | `small` | Word transcription model |
+
+Cleanup counts each path once and protects queued/running render inputs and outputs. Under quota pressure it evicts the oldest unused files (excluding files less than 90 seconds old); if active files alone exceed the quota, it reports that condition instead of deleting them. Automatic TTLs and pressure eviction are distinct policies. History entries may outlive their media files.
+
+Docker mounts the actual backend media, font and job directories. Existing installations that mounted `/app/uploads` or `/app/exports` should back up any files in the old container before recreating it; this change does not move existing container data automatically.
+
+### Validation
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install pytest httpx
+.\.venv\Scripts\python.exe -m pytest tests -q
+npm test
+npm run build
+npm run lint
+```
+
+The integration suite uses real FFmpeg output, terminates a worker, starts a replacement, and checks that completed clips are preserved. No paid AI call is needed. Browser export checks additionally require a real browser and video/audio fixtures. Frontend validation includes ESLint with no errors or warnings, TypeScript, and a production build.
+
+
+### Entering your AI API key
+
+1. Start the app with `npm run dev` and open `http://localhost:5173`.
+2. In **AI Engine Settings**, select **Google Gemini** and fill **Gemini API Key**, or select **OpenRouter (Multi-LLM)** and fill **OpenRouter API Key**.
+3. Select a model and analyze your video. The interface remembers your provider and key in the current browser.
+
+Optional server defaults can be configured as `GEMINI_API_KEY` or `OPENROUTER_API_KEY` in `backend/.env` (see `backend/.env.template`).

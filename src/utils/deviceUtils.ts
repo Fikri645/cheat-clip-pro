@@ -9,7 +9,7 @@
 export function isMobileDevice(): boolean {
   if (typeof window === 'undefined') return false;
 
-  const ua = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+  const ua = navigator.userAgent || navigator.vendor || window.opera || '';
   const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
   const isSmallScreen = window.innerWidth <= 768;
   const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
@@ -21,12 +21,12 @@ export function isMobileDevice(): boolean {
  * Screen WakeLock manager to keep screen alive during intensive
  * client decoding, audio analysis, or video rendering.
  */
-let wakeLockSentinel: any = null;
+let wakeLockSentinel: WakeLockSentinel | null = null;
 
 export async function requestWakeLock(): Promise<void> {
   if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
     try {
-      wakeLockSentinel = await (navigator as any).wakeLock.request('screen');
+      wakeLockSentinel = await navigator.wakeLock.request('screen');
       wakeLockSentinel.addEventListener('release', () => {
         wakeLockSentinel = null;
       });

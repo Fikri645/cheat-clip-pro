@@ -1,7 +1,18 @@
 from typing import List, Optional, Union
 from pydantic import BaseModel, Field
 
+class QualityScores(BaseModel):
+    hook: int = Field(ge=0, le=100, description="Strength of the opening hook")
+    context: int = Field(ge=0, le=100, description="Standalone context and clarity")
+    payoff: int = Field(ge=0, le=100, description="Completeness and payoff of the ending")
+    signal: Optional[int] = Field(None, ge=0, le=100)
+
 class ViralClip(BaseModel):
+    quality_scores: Optional[QualityScores] = None
+    score_source: str = "legacy"
+    selection_reason: str = ""
+    score_note: str = "Selection score, not a probability of going viral."
+
     title: str = Field(description="Catchy clip title, max 8 words. MUST NEVER use first-person pronouns ('I', 'me', 'my', 'saya', 'aku'). Attribute to the speaker/host by name, role, or use objective framing.")
     start_time: float = Field(description="Clip start in seconds, aligned to a sentence boundary")
     end_time: float = Field(description="Clip end in seconds, aligned to a sentence boundary")
@@ -14,6 +25,9 @@ class ViralClip(BaseModel):
     hashtag_suggestion: str = Field(default="", description="Relevant hashtags suggestion (e.g. #hashtag1 #hashtag2)")
 
 class ViralClipGemini(BaseModel):
+    quality_scores: Optional[QualityScores] = Field(None, description="Evaluate hook, standalone context, and ending payoff separately, 0-100")
+    selection_reason: str = Field("", description="Brief factual explanation of why this clip was selected, in the video's language")
+
     title: str = Field(description="Catchy clip title, max 8 words, in the EXACT SAME LANGUAGE as the video transcript (STRICT ZERO-TRANSLATION RULE: English is English, Indonesian is Indonesian, Spanish is Spanish). NEVER use first-person pronouns ('I', 'me', 'my', 'myself', 'aku', 'saya'). Attribute to the person speaking by name, host/guest title, or use third-person objective framing so it does not look like the user's opinion.")
     start_time: float = Field(description="Clip start in seconds, aligned to a sentence boundary")
     end_time: float = Field(description="Clip end in seconds, aligned to a sentence boundary")
@@ -63,6 +77,8 @@ class AnalyzeResponse(BaseModel):
     channel: Optional[str] = None
     duration: float
     heatmap: List[HeatmapPoint]
+    heatmap_source: str = "none"
+    analysis_method: str = "ai"
     summary: str
     clips: List[ViralClip]
     transcript: Optional[List[TranscriptLine]] = None

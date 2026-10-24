@@ -61,7 +61,7 @@ async def background_storage_cleanup_worker():
             ttl_seconds = int(os.environ.get("TEMP_MAX_AGE_SECONDS", "3600"))
             max_quota_gb = float(os.environ.get("TEMP_STORAGE_QUOTA_GB", "5.0"))
             max_quota_bytes = int(max_quota_gb * 1024 * 1024 * 1024)
-            auto_cleanup_expired_files(max_age_seconds=ttl_seconds, max_storage_bytes=max_quota_bytes)
+            await asyncio.to_thread(auto_cleanup_expired_files, max_age_seconds=ttl_seconds, max_storage_bytes=max_quota_bytes)
         except Exception as e:
             logger.warning(f"[Auto-Cleanup] Background worker encountered an error: {e}")
 
@@ -77,10 +77,19 @@ from fastapi.responses import JSONResponse
 async def lifespan(app: FastAPI):
     # Ensure all logger handlers (including Uvicorn) have the security masking filter attached
     install_security_logging()
+    from backend.render_worker import start_worker
+    worker, worker_stop, credentials = start_worker()
+    app.state.render_credentials = credentials
     # Startup: spawn auto-cleanup background task
     cleanup_task = asyncio.create_task(background_storage_cleanup_worker())
     logger.info("[Auto-Cleanup] Storage daemon active (Interval: 30m, TTL: 1h, Quota: 5GB).")
     yield
+    worker_stop.set()
+    await asyncio.to_thread(worker.join, 5)
+    if worker.is_alive():
+        worker.terminate()
+        await asyncio.to_thread(worker.join, 2)
+    credentials.close()
     # Shutdown: cancel task cleanly
     cleanup_task.cancel()
     try:
@@ -143,6 +152,8 @@ async def sanitized_exception_handler(request: Request, exc: Exception):
 
 
 # Include Modular Routers
+from backend.routers.client_render import router as client_render_router
+app.include_router(client_render_router)
 app.include_router(analyze_router)
 app.include_router(render_router)
 app.include_router(media_router)

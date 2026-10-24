@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
+from backend.media_lifecycle import serialize_media
 
 from backend.config import COOKIES_PATH, ROOT_COOKIES_PATH, TEMP_DIR, UPLOADS_DIR, _base_dir, logger
 
@@ -41,80 +42,31 @@ def get_temp_storage_summary() -> dict:
     }
 
 
+@serialize_media
 def clear_temp_files() -> dict:
-    """
-    Clears all temporary downloaded video clips, audio slices, ASS files, and frames
-    from TEMP_DIR and backend/temp. Re-creates empty directories.
-    PROTECTED: cookies.txt and any cookie files are strictly PRESERVED and NEVER deleted.
-    """
-    base_dir = Path(_base_dir)
-    cleared_files = 0
-    cleared_bytes = 0
-
-    PROTECTED_COOKIE_NAMES = {"cookies.txt", ".cookies", "youtube_cookies.txt", "cookie.txt"}
-
-    def is_protected_cookie(p: Path) -> bool:
-        if p.name.lower() in PROTECTED_COOKIE_NAMES:
-            return True
-        try:
-            if COOKIES_PATH.exists() and p.resolve() == COOKIES_PATH.resolve():
-                return True
-        except Exception:
-            pass
-        return False
-
-    target_dirs = [TEMP_DIR, base_dir / "temp"]
-    for d in target_dirs:
-        if d.exists() and d.is_dir():
-            for item in list(d.iterdir()):
-                try:
-                    if is_protected_cookie(item):
-                        logger.info(f"Preserving protected cookie file: {item}")
-                        continue
-                    if item.name == "uploads":
-                        continue
-
-                    if item.is_file() or item.is_symlink():
-                        sz = item.stat().st_size
-                        item.unlink()
-                        cleared_files += 1
-                        cleared_bytes += sz
-                    elif item.is_dir():
-                        has_cookie = False
-                        for sub in list(item.rglob("*")):
-                            if is_protected_cookie(sub):
-                                has_cookie = True
-                                logger.info(f"Preserving protected cookie file inside folder: {sub}")
-                                continue
-                            if sub.is_file() or sub.is_symlink():
-                                try:
-                                    cleared_files += 1
-                                    cleared_bytes += sub.stat().st_size
-                                    sub.unlink()
-                                except Exception:
-                                    pass
-                        if not has_cookie:
-                            shutil.rmtree(item, ignore_errors=True)
-                except Exception as e:
-                    logger.warning(f"Could not delete temp item {item}: {e}")
-        d.mkdir(parents=True, exist_ok=True)
-
-    # Ensure frames and uploads directories inside TEMP_DIR exist
-    (TEMP_DIR / "frames").mkdir(parents=True, exist_ok=True)
-    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-
-    cleared_mb = round(cleared_bytes / (1024 * 1024), 2)
-    formatted = f"{cleared_mb} MB" if cleared_mb < 1024 else f"{round(cleared_mb / 1024, 2)} GB"
-    logger.info(f"Cleared temp folder: {cleared_files} files, {formatted}")
-    return {
-        "success": True,
-        "cleared_files": cleared_files,
-        "cleared_bytes": cleared_bytes,
-        "cleared_mb": cleared_mb,
-        "cookies_preserved": True,
-        "has_cookies": False,
-        "message": f"Successfully cleared {cleared_files} temporary files ({formatted}). Cookies remain safely stored in your browser LocalStorage."
-    }
+    from backend.media_lifecycle import protected_media
+    pinned, prefixes = protected_media()
+    count = size = 0
+    for root in {TEMP_DIR.resolve(), (Path(_base_dir) / "temp").resolve()}:
+        if not root.exists():
+            continue
+        for item in root.rglob("*"):
+            if item.is_symlink() or not item.is_file():
+                continue
+            path = item.resolve()
+            if (path.is_relative_to(UPLOADS_DIR.resolve()) or is_protected_system_file(path)
+                    or path in pinned or any(prefix in path.name for prefix in prefixes)):
+                continue
+            try:
+                file_size = item.stat().st_size
+                item.unlink()
+                count += 1
+                size += file_size
+            except OSError:
+                pass
+    return {"success": True, "cleared_files": count, "cleared_bytes": size,
+            "cleared_mb": round(size / 1024**2, 2), "cookies_preserved": True,
+            "has_cookies": False, "message": f"Cleared {count} unused temporary files. Active jobs and source uploads were preserved."}
 
 
 def is_protected_system_file(p: Path) -> bool:
@@ -149,119 +101,100 @@ def cleanup_expired_temp_files(max_age_hours: int = 48) -> dict:
     return auto_cleanup_expired_files(max_age_seconds=max_age_hours * 3600)
 
 
+@serialize_media
 def auto_cleanup_expired_files(
     max_age_seconds: int = 3600,
     max_storage_bytes: int = 5 * 1024 * 1024 * 1024,
-    target_reduction_ratio: float = 0.8
+    target_reduction_ratio: float = 0.8,
+    upload_max_age_seconds: Optional[int] = None,
+    export_max_age_seconds: Optional[int] = None,
 ) -> dict:
-    """
-    Automated dual-mode cleanup engine:
-    1. Option 1 (Time-based TTL): Deletes temp/export/upload files older than max_age_seconds (default 1 hour).
-    2. Option 2 (Storage Quota Ceiling): If total storage exceeds max_storage_bytes (default 5 GB),
-       purges oldest files first (FIFO by mtime) down to target_reduction_ratio (default 80% = 4 GB).
-    Strictly preserves cookies and custom fonts.
-    """
+    """Deduplicated, job-aware cleanup with separate source and export retention."""
     import time
-    base_dir = Path(_base_dir)
-    from backend.config import EXPORTS_DIR, TEMP_DIR, UPLOADS_DIR
-
-    target_dirs = [TEMP_DIR, base_dir / "temp", UPLOADS_DIR, EXPORTS_DIR]
+    from backend.config import EXPORTS_DIR
+    from backend.media_lifecycle import protected_media
+    if max_age_seconds < 0 or max_storage_bytes < 0 or not 0 < target_reduction_ratio <= 1:
+        raise ValueError("Cleanup ages and quota must be nonnegative; target ratio must be in (0, 1]")
+    uploads_age = upload_max_age_seconds if upload_max_age_seconds is not None else int(os.environ.get("UPLOAD_MAX_AGE_SECONDS", "86400"))
+    exports_age = export_max_age_seconds if export_max_age_seconds is not None else int(os.environ.get("EXPORT_MAX_AGE_SECONDS", "604800"))
+    if min(uploads_age, exports_age) < 0:
+        raise ValueError("Media retention must be nonnegative")
+    roots = {Path(p).resolve() for p in (TEMP_DIR, Path(_base_dir) / "temp", UPLOADS_DIR, EXPORTS_DIR)}
+    pinned, prefixes = protected_media()
     now = time.time()
-    cutoff_time = now - max_age_seconds
-
-    ttl_deleted_files = 0
-    ttl_deleted_bytes = 0
-    quota_deleted_files = 0
-    quota_deleted_bytes = 0
-
-    # Pass 1: Time-based TTL cleanup (Option 1)
-    for target in target_dirs:
-        if not target.exists() or not target.is_dir():
+    files = {}
+    for root in roots:
+        if not root.is_dir():
             continue
-        for item in list(target.rglob("*")):
-            if item.is_file() and not is_protected_system_file(item):
-                try:
-                    mtime = item.stat().st_mtime
-                    if mtime < cutoff_time:
-                        sz = item.stat().st_size
-                        item.unlink()
-                        ttl_deleted_files += 1
-                        ttl_deleted_bytes += sz
-                except Exception:
-                    pass
+        for item in root.rglob("*"):
+            if item.is_symlink() or not item.is_file():
+                continue
+            resolved = item.resolve()
+            if not any(resolved.is_relative_to(r) for r in roots):
+                continue
+            files[resolved] = item
 
-    # Pass 2: Storage Quota Ceiling check (Option 2)
-    current_files = []
-    total_current_bytes = 0
+    def protected(path):
+        return (is_protected_system_file(path) or any(path == root or path.is_relative_to(root) for root in pinned)
+                or any(prefix in path.name for prefix in prefixes))
 
-    for target in target_dirs:
-        if not target.exists() or not target.is_dir():
+    def retention(path):
+        if path.is_relative_to(UPLOADS_DIR.resolve()):
+            return uploads_age
+        if path.is_relative_to(EXPORTS_DIR.resolve()):
+            return exports_age
+        return max_age_seconds
+
+    ttl_files = ttl_bytes = quota_files = quota_bytes = 0
+    remaining = []
+    for path in files:
+        try:
+            stat = path.stat()
+            if not protected(path) and now - stat.st_mtime > retention(path):
+                path.unlink()
+                ttl_files += 1
+                ttl_bytes += stat.st_size
+            else:
+                remaining.append((stat.st_mtime, stat.st_size, path))
+        except FileNotFoundError:
             continue
-        for item in list(target.rglob("*")):
-            if item.is_file() and not is_protected_system_file(item):
-                try:
-                    stat = item.stat()
-                    total_current_bytes += stat.st_size
-                    current_files.append((stat.st_mtime, stat.st_size, item))
-                except Exception:
-                    pass
-
-    if total_current_bytes > max_storage_bytes:
-        logger.warning(
-            f"[Auto-Cleanup] Total temp storage ({round(total_current_bytes / (1024**3), 2)} GB) "
-            f"exceeds quota ceiling ({round(max_storage_bytes / (1024**3), 2)} GB). Triggering FIFO quota purge."
-        )
-        target_ceiling = int(max_storage_bytes * target_reduction_ratio)
-        # Sort oldest files first
-        current_files.sort(key=lambda x: x[0])
-        for mtime, sz, item_path in current_files:
-            if total_current_bytes <= target_ceiling:
+        except OSError as exc:
+            logger.warning("Cannot clean media %s: %s", path.name, exc)
+    total = sum(size for _, size, _ in remaining)
+    if total > max_storage_bytes:
+        target = int(max_storage_bytes * target_reduction_ratio)
+        for mtime, size, path in sorted(remaining):
+            if total <= target:
                 break
+            # Avoid racing newly created files and files used by queued/running jobs.
+            if protected(path) or now - mtime < 90:
+                continue
             try:
-                if item_path.exists() and item_path.is_file():
-                    item_path.unlink()
-                    quota_deleted_files += 1
-                    quota_deleted_bytes += sz
-                    total_current_bytes -= sz
-            except Exception as e:
-                logger.warning(f"Failed to unlink file during quota purge {item_path}: {e}")
-
-    # Remove empty subdirectories (skip root targets and frames)
-    for target in target_dirs:
-        if target.exists() and target.is_dir():
-            for item in sorted(list(target.rglob("*")), key=lambda p: len(p.parts), reverse=True):
-                if item.is_dir() and item != target and item.name != "frames" and not is_protected_system_file(item):
-                    try:
-                        if not any(item.iterdir()):
-                            item.rmdir()
-                    except Exception:
-                        pass
-
-    tot_cleaned_files = ttl_deleted_files + quota_deleted_files
-    tot_cleaned_bytes = ttl_deleted_bytes + quota_deleted_bytes
-    tot_cleaned_mb = round(tot_cleaned_bytes / (1024 * 1024), 2)
-    tot_current_mb = round(total_current_bytes / (1024 * 1024), 2)
-
-    if tot_cleaned_files > 0:
-        logger.info(
-            f"[Auto-Cleanup] Cleaned {tot_cleaned_files} files ({tot_cleaned_mb} MB) "
-            f"[TTL: {ttl_deleted_files}, Quota: {quota_deleted_files}]. "
-            f"Current storage: {tot_current_mb} MB."
-        )
-
+                path.unlink()
+                quota_files += 1
+                quota_bytes += size
+                total -= size
+            except FileNotFoundError:
+                total -= size
+            except OSError as exc:
+                logger.warning("Cannot evict media %s: %s", path.name, exc)
+    # Recount physical files so races or failed deletes never produce phantom usage.
+    total = 0
+    for path in files:
+        try:
+            total += path.stat().st_size
+        except FileNotFoundError:
+            pass
     return {
-        "success": True,
-        "ttl_deleted_files": ttl_deleted_files,
-        "ttl_deleted_bytes": ttl_deleted_bytes,
-        "quota_deleted_files": quota_deleted_files,
-        "quota_deleted_bytes": quota_deleted_bytes,
-        "total_cleaned_files": tot_cleaned_files,
-        "total_cleaned_bytes": tot_cleaned_bytes,
-        "total_cleaned_mb": tot_cleaned_mb,
-        "remaining_storage_bytes": total_current_bytes,
-        "remaining_storage_mb": tot_current_mb,
-        "max_age_seconds": max_age_seconds,
-        "max_storage_bytes": max_storage_bytes
+        "success": True, "ttl_deleted_files": ttl_files, "ttl_deleted_bytes": ttl_bytes,
+        "quota_deleted_files": quota_files, "quota_deleted_bytes": quota_bytes,
+        "total_cleaned_files": ttl_files + quota_files,
+        "total_cleaned_bytes": ttl_bytes + quota_bytes,
+        "total_cleaned_mb": round((ttl_bytes + quota_bytes) / 1024**2, 2),
+        "remaining_storage_bytes": total, "remaining_storage_mb": round(total / 1024**2, 2),
+        "max_age_seconds": max_age_seconds, "max_storage_bytes": max_storage_bytes,
+        "upload_max_age_seconds": uploads_age, "export_max_age_seconds": exports_age,
+        "quota_exceeded": total > max_storage_bytes,
     }
 
 

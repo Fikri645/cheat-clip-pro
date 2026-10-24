@@ -20,5 +20,8 @@ numpy>=1.24.0
 tqdm>=4.65.0
 
 # Computer Vision & Image / Emoji Overlay Rendering
-opencv-python>=4.8.0
+opencv-python>=4.8.0,<5
 Pillow>=10.0.0
+
+# Durable worker ownership across API reloads
+filelock>=3.13.0

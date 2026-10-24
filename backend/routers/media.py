@@ -3,11 +3,14 @@ import logging
 import os
 import re
 import uuid
+import base64
 from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, Response, UploadFile, status
 from fastapi.responses import FileResponse, StreamingResponse
+
+from backend.utils.media_assets import render_asset_url
 
 from backend.config import (
     EXPORTS_DIR,
@@ -22,6 +25,27 @@ from backend.config import (
 )
 
 router = APIRouter(tags=["Media"])
+
+
+@router.get("/api/render-asset/{token}")
+def get_render_asset(token: str):
+    """Fetch editor input bytes without triggering browser download integrations."""
+    try:
+        name = base64.b64decode(token + "=" * (-len(token) % 4), altchars=b"-_", validate=True).decode("utf-8")
+    except (ValueError, UnicodeError):
+        raise HTTPException(status_code=404, detail="Media asset not found")
+    if not name or Path(name).name != name or "/" in name or "\\" in name:
+        raise HTTPException(status_code=404, detail="Media asset not found")
+    allowed = {".mp4", ".webm", ".mov", ".mkv", ".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac", ".png", ".jpg", ".jpeg", ".webp"}
+    if Path(name).suffix.lower() not in allowed:
+        raise HTTPException(status_code=404, detail="Media asset not found")
+    for root in (UPLOADS_DIR, TEMP_DIR, EXPORTS_DIR):
+        path = root / name
+        if path.is_file() and _is_safe_path(path):
+            # No Content-Disposition filename, audio MIME, or media extension in
+            # the URL: these are editor fetches, not user-initiated downloads.
+            return FileResponse(path, media_type="application/octet-stream")
+    raise HTTPException(status_code=404, detail="Media asset not found")
 
 
 MAX_VIDEO_UPLOAD_BYTES = 4 * 1024 * 1024 * 1024   # 4 GB
@@ -304,7 +328,7 @@ async def upload_bgm(file: UploadFile = File(...)):
             "filename": file.filename,
             "saved_name": unique_name,
             "file_path": str(save_path),
-            "url": f"/api/audio/{unique_name}",
+            "url": render_asset_url(unique_name),
             "size_bytes": bytes_written
         }
     except HTTPException:
@@ -344,7 +368,7 @@ async def upload_hook_sfx(file: UploadFile = File(...)):
             "filename": file.filename,
             "saved_name": unique_name,
             "file_path": str(save_path),
-            "url": f"/api/audio/{unique_name}",
+            "url": render_asset_url(unique_name),
             "size_bytes": bytes_written
         }
     except HTTPException:

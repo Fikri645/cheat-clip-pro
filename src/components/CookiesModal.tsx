@@ -1,3 +1,4 @@
+import { getErrorMessage } from '../utils/errors';
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, AlertTriangle, Shield, Trash2, X } from 'lucide-react';
 import { useLanguage } from '../locales';
@@ -20,17 +21,20 @@ interface CookiesModalProps {
   onCookieStatusChange?: (hasCookies: boolean) => void;
 }
 
-export const CookiesModal: React.FC<CookiesModalProps> = ({
-  isOpen,
+export const CookiesModal: React.FC<CookiesModalProps> = (props) => {
+  return props.isOpen ? <CookiesEditor {...props} /> : null;
+};
+
+const CookiesEditor: React.FC<CookiesModalProps> = ({
   onClose,
   onCookieStatusChange,
 }) => {
   const { t } = useLanguage();
-  const [cookieText, setCookieText] = useState<string>('');
-  const [isCookieActive, setIsCookieActive] = useState<boolean>(false);
-  const [cookieSize, setCookieSize] = useState<number>(0);
-  const [cookieCount, setCookieCount] = useState<number>(0);
-  const [sampleLines, setSampleLines] = useState<string[]>([]);
+  const [cookieText, setCookieText] = useState<string>(getStoredCookies);
+  const [isCookieActive, setIsCookieActive] = useState<boolean>(hasStoredCookies);
+  const [cookieSize, setCookieSize] = useState<number>(getStoredCookiesSize);
+  const [cookieCount, setCookieCount] = useState<number>(() => countValidCookies(getStoredCookies()));
+  const [sampleLines, setSampleLines] = useState<string[]>(() => getCookieDomainSamples(getStoredCookies()));
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
@@ -54,13 +58,8 @@ export const CookiesModal: React.FC<CookiesModalProps> = ({
   };
 
   useEffect(() => {
-    if (isOpen) {
-      loadStatus();
-      setMessage(null);
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
+    onCookieStatusChange?.(hasStoredCookies());
+  }, [onCookieStatusChange]);
 
   const readFileContent = (file: File) => {
     const reader = new FileReader();
@@ -99,8 +98,8 @@ export const CookiesModal: React.FC<CookiesModalProps> = ({
             type: 'info'
           });
         }
-      } catch (err: any) {
-        setMessage({ text: `Failed to read file: ${err.message}`, type: 'error' });
+      } catch (err) {
+        setMessage({ text: `Failed to read file: ${getErrorMessage(err)}`, type: 'error' });
       }
     };
     reader.readAsArrayBuffer(file);
@@ -130,8 +129,8 @@ export const CookiesModal: React.FC<CookiesModalProps> = ({
       setStoredCookies(normalized);
       loadStatus();
       setMessage({ text: t.cookies.saveSuccess, type: 'success' });
-    } catch (err: any) {
-      setMessage({ text: err.message || t.cookies.saveFailed, type: 'error' });
+    } catch (err) {
+      setMessage({ text: getErrorMessage(err) || t.cookies.saveFailed, type: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -145,8 +144,8 @@ export const CookiesModal: React.FC<CookiesModalProps> = ({
       fetch('/api/cookies', { method: 'DELETE' }).catch(() => {});
       loadStatus();
       setMessage({ text: t.cookies.deletedSuccess, type: 'info' });
-    } catch (err: any) {
-      setMessage({ text: err.message || t.cookies.removeFailed, type: 'error' });
+    } catch (err) {
+      setMessage({ text: getErrorMessage(err) || t.cookies.removeFailed, type: 'error' });
     } finally {
       setIsLoading(false);
       setShowDeleteConfirm(false);

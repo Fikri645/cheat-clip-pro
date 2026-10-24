@@ -1,14 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { en, type Translations } from './en';
+import { LanguageContext, type Language } from './context';
+import React, { useState, useEffect, useMemo } from 'react';
+import { en } from './en';
 import { id } from './id';
-
-export type Language = 'en' | 'id';
-
-interface LanguageContextType {
-  language: Language;
-  setLanguage: (lang: Language) => void;
-  t: Translations;
-}
 
 const STORAGE_KEY = 'cheat_clip_language';
 
@@ -21,14 +14,12 @@ const getInitialLanguage = (): Language => {
   }
 
   // Detect device / browser language
-  const browserLang = (navigator.language || (navigator as any).userLanguage || '').toLowerCase();
+  const browserLang = (navigator.language || navigator.userLanguage || '').toLowerCase();
   if (browserLang.startsWith('id')) {
     return 'id';
   }
   return 'en';
 };
-
-const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [language, setLanguageState] = useState<Language>(getInitialLanguage);
@@ -56,12 +47,4 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       {children}
     </LanguageContext.Provider>
   );
-};
-
-export const useLanguage = (): LanguageContextType => {
-  const context = useContext(LanguageContext);
-  if (!context) {
-    throw new Error('useLanguage must be used within a LanguageProvider');
-  }
-  return context;
 };

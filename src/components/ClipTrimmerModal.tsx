@@ -111,7 +111,7 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
   };
 
   const timelineBarRef = useRef<HTMLDivElement | null>(null);
-  const ytPlayerRef = useRef<any>(null);
+  const ytPlayerRef = useRef<YT.Player | null>(null);
   const timePollRef = useRef<number | null>(null);
   const playerReadyRef = useRef<boolean>(false);
   const isDraggingRef = useRef<boolean>(false);
@@ -125,9 +125,10 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
     clipDur: number;
   } | null>(null);
 
-  // Initialize or reset when clip changes
-  useEffect(() => {
-    if (clip) {
+  const [previousClip,setPreviousClip] = useState(clip);
+  if(previousClip!==clip) {
+    setPreviousClip(clip);
+    if(clip) {
       setAdjustedStart(clip.start_time);
       setAdjustedEnd(clip.end_time);
       setClipTitle(clip.title_suggestion || clip.title || 'Clip');
@@ -136,34 +137,34 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
       setCurrentTime(clip.start_time);
       setIsDownloading(false);
       setDownloadSuccess(false);
-      if (isDirectVideo && directVideoRef.current) {
-        directVideoRef.current.currentTime = clip.start_time;
-      }
     }
-  }, [clip, isDirectVideo]);
-
-  // Keep manual text inputs synced with numeric state
+  }
+  const [previousRange,setPreviousRange] = useState({start:adjustedStart,end:adjustedEnd});
+  if(previousRange.start!==adjustedStart || previousRange.end!==adjustedEnd) {
+    setPreviousRange({start:adjustedStart,end:adjustedEnd});
+    if(previousRange.start!==adjustedStart)setStartInputVal(formatSeconds(adjustedStart));
+    if(previousRange.end!==adjustedEnd)setEndInputVal(formatSeconds(adjustedEnd));
+    setDownloadSuccess(false);
+  }
+  const hasClip=clip!==null;
+  const playerSourceKey=JSON.stringify([videoId,clip?.start_time,isOpen,isDirectVideo]);
+  const [previousPlayerSource,setPreviousPlayerSource] = useState(playerSourceKey);
+  if(previousPlayerSource!==playerSourceKey) {
+    setPreviousPlayerSource(playerSourceKey);
+    setPlayerReady(false);
+  }
   useEffect(() => {
-    setStartInputVal(formatSeconds(adjustedStart));
-  }, [adjustedStart]);
-
-  useEffect(() => {
-    setEndInputVal(formatSeconds(adjustedEnd));
-  }, [adjustedEnd]);
+    if(isDirectVideo && directVideoRef.current)directVideoRef.current.currentTime=origStart;
+  }, [origStart,isDirectVideo]);
 
   // Keep bounds ref synced for interval checks without re-creating interval
   useEffect(() => {
     boundsRef.current = { start: adjustedStart, end: adjustedEnd };
   }, [adjustedStart, adjustedEnd]);
 
-  // Reset download success banner when timestamps change
-  useEffect(() => {
-    setDownloadSuccess(false);
-  }, [adjustedStart, adjustedEnd]);
-
   // Setup YouTube Iframe API player for the modal preview (only for YouTube videos)
   useEffect(() => {
-    if (!isOpen || !clip || isDirectVideo) {
+    if (!isOpen || !hasClip || isDirectVideo) {
       return;
     }
     let isMounted = true;
@@ -172,8 +173,6 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
     let attempts = 0;
 
     playerReadyRef.current = false;
-    setPlayerReady(false);
-
     // Ensure YouTube IFrame API is present
     if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
       const tag = document.createElement('script');
@@ -184,7 +183,7 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
 
     const loadDirectIframe = (container: HTMLElement) => {
       if (!isMounted || playerReadyRef.current) return;
-      const embedUrl = `https://www.youtube.com/embed/${videoId}?start=${Math.floor(adjustedStart)}&controls=1&rel=0&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
+      const embedUrl = `https://www.youtube.com/embed/${videoId}?start=${Math.floor(boundsRef.current.start)}&controls=1&rel=0&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
       container.innerHTML = `<iframe id="trimmer-direct-yt-iframe" src="${embedUrl}" style="width:100%!important;height:100%!important;border:none;display:block;position:absolute;top:0;left:0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
       playerReadyRef.current = true;
       setPlayerReady(true);
@@ -216,7 +215,7 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
         if (ytPlayerRef.current && typeof ytPlayerRef.current.destroy === 'function') {
           try {
             ytPlayerRef.current.destroy();
-          } catch {}
+          } catch { /* The media element may already be detached. */ }
           ytPlayerRef.current = null;
         }
 
@@ -226,7 +225,7 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
           videoId: videoId,
           playerVars: {
             autoplay: 0,
-            start: Math.floor(adjustedStart),
+            start: Math.floor(boundsRef.current.start),
             controls: 1,
             modestbranding: 1,
             rel: 0,
@@ -235,7 +234,7 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
             origin: window.location.origin,
           },
           events: {
-            onReady: (e: any) => {
+            onReady: (e: YT.PlayerEvent) => {
               if (!isMounted) return;
               if (fallbackTimer) {
                 clearTimeout(fallbackTimer);
@@ -244,14 +243,14 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
               playerReadyRef.current = true;
               setPlayerReady(true);
               try {
-                e.target.seekTo(adjustedStart, true);
-              } catch {}
+                e.target.seekTo(boundsRef.current.start, true);
+              } catch { /* The media element may already be detached. */ }
             },
-            onStateChange: (e: any) => {
+            onStateChange: (e: YT.OnStateChangeEvent) => {
               if (!isMounted) return;
               setIsPlaying(e.data === 1);
             },
-            onError: (err: any) => {
+            onError: (err: YT.OnErrorEvent) => {
               console.warn('YouTube Player transient error in trimmer:', err);
             }
           }
@@ -285,11 +284,11 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
       if (ytPlayerRef.current && typeof ytPlayerRef.current.destroy === 'function') {
         try {
           ytPlayerRef.current.destroy();
-        } catch {}
+        } catch { /* The media element may already be detached. */ }
         ytPlayerRef.current = null;
       }
     };
-  }, [videoId, clip?.start_time, isOpen, isDirectVideo]);
+  }, [videoId, clip?.start_time, isOpen, isDirectVideo, hasClip]);
 
   // Monitor playhead and enforce looping/pause at adjustedEnd
   useEffect(() => {
@@ -307,7 +306,7 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
             ytPlayerRef.current.pauseVideo();
             setIsPlaying(false);
           }
-        } catch {}
+        } catch { /* The media element may already be detached. */ }
       }
     }, 250);
 
@@ -331,7 +330,7 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
       } else if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === 'function') {
         try {
           ytPlayerRef.current.seekTo(targetSec, false);
-        } catch {}
+        } catch { /* The media element may already be detached. */ }
       }
     }, 100);
   }, [isDirectVideo]);
@@ -363,7 +362,7 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
           ytPlayerRef.current.playVideo();
           setIsPlaying(true);
         }
-      } catch {}
+      } catch { /* The media element may already be detached. */ }
     }
   }, [minTimelineStart, maxTimelineEnd, isDirectVideo, isMuted, volume]);
 
@@ -409,7 +408,7 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
             setIsPlaying(true);
           }
         }
-      } catch {}
+      } catch { /* The media element may already be detached. */ }
     }
   }, [isDirectVideo, isPlaying, adjustedStart, adjustedEnd, currentTime, isMuted, volume, seekToTime]);
 
@@ -519,7 +518,7 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
         if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === 'function') {
           try {
             ytPlayerRef.current.seekTo(finalSeek, true);
-          } catch {}
+          } catch { /* The media element may already be detached. */ }
         }
       }
 

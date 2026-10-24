@@ -153,3 +153,7 @@ $RECYCLE.BIN/
 *.key
 *.p12
 *.pfx
+
+backend/data/
+output/
+.playwright-cli/

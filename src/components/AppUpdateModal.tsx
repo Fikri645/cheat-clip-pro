@@ -1,3 +1,4 @@
+import { getErrorMessage } from '../utils/errors';
 import React, { useState, useEffect, useRef } from 'react';
 import { RefreshCw, CheckCircle2, AlertTriangle, RotateCcw, X } from 'lucide-react';
 import { useLanguage } from '../locales';
@@ -24,10 +25,14 @@ interface AppUpdateModalProps {
   onClose: () => void;
 }
 
-export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose }) => {
+export const AppUpdateModal: React.FC<AppUpdateModalProps> = (props) => {
+  return props.isOpen ? <AppUpdateSession {...props} /> : null;
+};
+
+const AppUpdateSession: React.FC<AppUpdateModalProps> = ({ onClose }) => {
   const { t } = useLanguage();
   const [info, setInfo] = useState<VersionInfo | null>(null);
-  const [isChecking, setIsChecking] = useState<boolean>(false);
+  const [isChecking, setIsChecking] = useState<boolean>(true);
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const [isRestarting, setIsRestarting] = useState<boolean>(false);
   const [reconnectAttempt, setReconnectAttempt] = useState<number>(0);
@@ -45,18 +50,6 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose 
     };
   }, []);
 
-  const fetchVersion = async () => {
-    try {
-      const res = await fetch('/api/system/version');
-      if (res.ok) {
-        const data = await res.json();
-        setInfo((prev) => ({ ...prev, ...data }));
-      }
-    } catch {
-      // Ignored
-    }
-  };
-
   const handleCheckUpdate = async () => {
     setIsChecking(true);
     setErrorMessage(null);
@@ -71,28 +64,34 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose 
       } else {
         setErrorMessage(t.updateModal.errorTitle);
       }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Network error while checking updates');
+    } catch (err) {
+      setErrorMessage(getErrorMessage(err) || 'Network error while checking updates');
     } finally {
       setIsChecking(false);
     }
   };
 
   useEffect(() => {
-    if (isOpen) {
-      fetchVersion();
-      handleCheckUpdate();
-    } else {
-      setErrorMessage(null);
-      setIsUpdating(false);
-      setIsRestarting(false);
-      setReconnectAttempt(0);
-      if (pollTimerRef.current) {
-        clearInterval(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
-    }
-  }, [isOpen]);
+    const controller = new AbortController();
+    const readVersion = async (url: string): Promise<VersionInfo> => {
+      const response = await fetch(url, {signal: controller.signal});
+      if (!response.ok) throw new Error(t.updateModal.errorTitle);
+      return response.json();
+    };
+    void readVersion('/api/system/version').then(data => {
+      if (!controller.signal.aborted) setInfo(previous => ({...previous,...data}));
+    }).catch(() => { /* The update request below also reports connection errors. */ });
+    void readVersion('/api/system/check-update').then(data => {
+      if (controller.signal.aborted) return;
+      setInfo(data);
+      setErrorMessage(data.error || null);
+    }).catch(error => {
+      if (!controller.signal.aborted) setErrorMessage(getErrorMessage(error));
+    }).finally(() => {
+      if (!controller.signal.aborted) setIsChecking(false);
+    });
+    return () => controller.abort();
+  }, [t.updateModal.errorTitle]);
 
   const startPollingReconnect = () => {
     setIsRestarting(true);
@@ -148,9 +147,9 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose 
       }
       setIsUpdating(false);
       startPollingReconnect();
-    } catch (err: any) {
+    } catch (err) {
       setIsUpdating(false);
-      setErrorMessage(err.message || 'Error executing update');
+      setErrorMessage(getErrorMessage(err) || 'Error executing update');
     }
   };
 
@@ -166,8 +165,6 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({ isOpen, onClose 
       startPollingReconnect();
     }
   };
-
-  if (!isOpen) return null;
 
   return (
     <div

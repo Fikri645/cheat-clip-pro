@@ -74,6 +74,8 @@ def _format_parsed_dict(data: dict, channel: str, lang_code: str) -> dict:
         title = sanitize_first_person_title(str(c.get('title', '')), channel, lang=lang_code)
         title_sug = sanitize_first_person_title(str(c.get('title_suggestion', '')), channel, lang=lang_code)
         formatted_clips.append({
+            "quality_scores": c.get("quality_scores"),
+            "selection_reason": c.get("selection_reason", ""),
             "title": title,
             "start_time": float(c.get('start_time', 0.0) or 0.0),
             "end_time": float(c.get('end_time', 0.0) or 0.0),
@@ -254,6 +256,8 @@ async def analyze_video(request: AnalyzeRequest):
     """Stream real-time progress via Server-Sent Events, then deliver the final result."""
 
     async def stream():
+        heatmap_source = "none"
+        used_fallback = False
         api_provider = (request.api_provider or "gemini").lower().strip()
         gemini_key = (request.api_key or os.environ.get("GEMINI_API_KEY") or '').strip()
         openrouter_key = (request.openrouter_key or request.api_key or os.environ.get("OPENROUTER_API_KEY") or '').strip()
@@ -387,12 +391,13 @@ async def analyze_video(request: AnalyzeRequest):
             })
             try:
                 heatmap = await asyncio.to_thread(compute_audio_energy_heatmap, uploaded_file_path, duration)
+                heatmap_source = "acoustic_energy" if heatmap else "none"
                 yield _sse({
                     "step": 2,
                     "step_progress": 100,
                     "overall_progress": 50,
                     "stage": "Acoustic Peaks Decoded",
-                    "detail": f"Acoustic engagement heatmap parsed — {len(heatmap)} audience interest data points generated.",
+                    "detail": f"Acoustic engagement heatmap parsed — {len(heatmap)} audio energy data points generated.",
                     "message": f"Acoustic energy heatmap loaded ({len(heatmap)} points)."
                 })
             except Exception as e:
@@ -573,6 +578,7 @@ async def analyze_video(request: AnalyzeRequest):
                 channel  = metadata.get("channel", "")
                 duration = metadata["duration"]
                 heatmap  = metadata.get("heatmap") or []
+                heatmap_source = "youtube_replay" if heatmap else "none"
                 is_live  = metadata.get("is_live", False)
                 live_status = metadata.get("live_status", "not_live")
                 
@@ -629,8 +635,8 @@ async def analyze_video(request: AnalyzeRequest):
                     "step_progress": 100,
                     "overall_progress": 50,
                     "stage": "Retention Decoded",
-                    "detail": f"Viewer retention heatmap loaded — {len(heatmap)} audience interest data points parsed.",
-                    "message": f"Viewer retention heatmap loaded — {len(heatmap)} data points scraped."
+                    "detail": f"YouTube replay heatmap loaded — {len(heatmap)} audience interest data points parsed.",
+                    "message": f"YouTube replay heatmap loaded — {len(heatmap)} data points scraped."
                 })
             else:
                 yield _sse({
@@ -882,6 +888,7 @@ async def analyze_video(request: AnalyzeRequest):
                                 if (not heatmap or len(heatmap) == 0) and duration > 0.0:
                                     try:
                                         heatmap = await asyncio.to_thread(compute_audio_energy_heatmap, audio_path, duration)
+                                        heatmap_source = "acoustic_energy" if heatmap else "none"
                                     except Exception as hm_err:
                                         logger.warning(f"Heatmap calculation from audio failed: {hm_err}")
 
@@ -1004,6 +1011,8 @@ async def analyze_video(request: AnalyzeRequest):
             result = AnalyzeResponse(
                 video_id=video_id, title=title, channel=channel, duration=duration or 200.0,
                 heatmap=mock_heatmap,
+                heatmap_source="demo",
+                analysis_method="demo",
                 summary="Mock analysis: this video explains how CHEAT CLIP PRO works. #aitools #videoediting #productivity",
                 clips=mock_clips,
                 model="Mock Gemini"
@@ -1135,7 +1144,7 @@ async def analyze_video(request: AnalyzeRequest):
             )
 
         heatmap_note = (
-            "Columns: start|end|audience_interest(0-1). Prioritise high-interest peaks."
+            f"Columns: start|end|{heatmap_source}(0-1). These are relative signals, not retention rates. Acoustic energy measures loudness, not viewer engagement."
             if heatmap else
             "No audience interest data. Use content hooks, energy, and story arcs."
         )
@@ -1191,6 +1200,7 @@ async def analyze_video(request: AnalyzeRequest):
             f"4. Keep titles snappy, viral, engaging, and under 8 words.\n\n"
             f"Transcript (start|end[|interest] text):\n---\n{transcript_text}\n---\n\n"
             f"Rules: use exact seconds from transcript; clips must start/end at sentence boundaries; do not overlap.\n"
+            f"For every clip include quality_scores with hook, context, and payoff (each 0-100) and selection_reason in the transcript language. Scores are subjective content assessments, never probabilities of going viral.\n"
             f"Return clips sorted by virality_score desc."
         )
 
@@ -1455,6 +1465,8 @@ async def analyze_video(request: AnalyzeRequest):
                                             "end_time": getattr(c, 'end_time', 0.0),
                                             "hook_time": getattr(c, 'hook_time', None),
                                             "virality_score": getattr(c, 'virality_score', 0),
+                                            "quality_scores": c.quality_scores.model_dump() if getattr(c, "quality_scores", None) else None,
+                                            "selection_reason": getattr(c, "selection_reason", ""),
                                             "key_quotes": getattr(c, 'key_quotes', []),
                                             "title_suggestion": sanitize_first_person_title(getattr(c, 'title_suggestion', ''), channel, lang=lang_code),
                                             "caption_suggestion": getattr(c, 'caption_suggestion', ''),
@@ -1566,6 +1578,7 @@ async def analyze_video(request: AnalyzeRequest):
 
         # Fallback clip synthesis if 0 clips were returned after all models
         if len(analysis_data.get('clips', [])) == 0 and enriched_transcript:
+            used_fallback = True
             logger.info("Generating fallback clips from heatmap and transcript segments...")
             sorted_lines = sorted(enriched_transcript, key=lambda l: l.get('engagement', 0.0), reverse=True)
             candidate_starts = []
@@ -1597,7 +1610,7 @@ async def analyze_video(request: AnalyzeRequest):
                         "start_time": st,
                         "end_time": et,
                         "hook_time": st,
-                        "virality_score": max(70, int(95 - i * 5)),
+                        "virality_score": 0,
                         "key_quotes": [seg_text[:80]] if seg_text else [],
                         "title_suggestion": f"Cuplikan Pilihan #{i+1}",
                         "caption_suggestion": f"Momen terbaik dari video: {preview} #viral #trending",
@@ -1609,7 +1622,7 @@ async def analyze_video(request: AnalyzeRequest):
                         "start_time": st,
                         "end_time": et,
                         "hook_time": st,
-                        "virality_score": max(70, int(95 - i * 5)),
+                        "virality_score": 0,
                         "key_quotes": [seg_text[:80]] if seg_text else [],
                         "title_suggestion": f"Must Watch Moment #{i+1}",
                         "caption_suggestion": f"Key highlight from video: {preview} #viral #trending",
@@ -1633,6 +1646,8 @@ async def analyze_video(request: AnalyzeRequest):
             "message": f"Found {clip_count} viral clip candidates ({lang_name}) with {successful_model or requested_model} — reconstructing transcripts..."
         })
         logger.info(f"Gemini analysis complete with {successful_model or requested_model}. Found {clip_count} clips in {lang_name}.")
+
+        from backend.services.clip_quality import normalize_scores
 
         # Reconstruct clip transcripts from enriched_transcript
         final_clips = []
@@ -1699,6 +1714,8 @@ async def analyze_video(request: AnalyzeRequest):
             hashtag_sug = lowercase_hashtags_in_string(raw_clip.get('hashtag_suggestion', ''))
             
             final_clips.append(ViralClip(
+                quality_scores=normalize_scores(raw_clip.get("quality_scores")),
+                selection_reason=raw_clip.get("selection_reason", ""),
                 title=sanitize_first_person_title(raw_clip.get('title', ''), channel, lang=lang_code),
                 start_time=start,
                 end_time=end,
@@ -1710,6 +1727,11 @@ async def analyze_video(request: AnalyzeRequest):
                 caption_suggestion=caption_sug,
                 hashtag_suggestion=hashtag_sug
             ))
+
+        from backend.services.clip_quality import validate_and_rank
+        final_clips = [ViralClip.model_validate(c) for c in validate_and_rank(
+            [c.model_dump() for c in final_clips], enriched_transcript, heatmap or [],
+            heatmap_source, start_bound, end_bound, lang_code, used_fallback)]
 
         # Enforce max constraint of ~200 clips for auto clip count
         if is_auto_clip_count and len(final_clips) > 200:
@@ -1743,6 +1765,8 @@ async def analyze_video(request: AnalyzeRequest):
             channel=channel,
             duration=duration,
             heatmap=response_heatmap,
+            heatmap_source=heatmap_source,
+            analysis_method="transcript_heuristic" if used_fallback else "ai",
             summary=clean_summary,
             clips=final_clips,
             transcript=response_transcript,
@@ -1753,8 +1777,16 @@ async def analyze_video(request: AnalyzeRequest):
 
         yield _sse({"done": True, "result": final_result.model_dump()})
 
+    async def protected_stream():
+        from backend.media_lifecycle import media_lease
+        name = Path(request.url.split("?")[0]).name
+        sources = [p for root in (TEMP_DIR, UPLOADS_DIR) for p in root.glob(f"{Path(name).stem}*") if name and p.is_file()]
+        with media_lease(*sources):
+            async for event in stream():
+                yield event
+
     return StreamingResponse(
-        stream(),
+        protected_stream(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

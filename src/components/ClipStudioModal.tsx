@@ -264,7 +264,7 @@ export const ClipStudioModal: React.FC<ClipStudioModalProps> = ({
                             onClick={() => setFacecamPosition(opt.id as FacecamPosition)}
                           >
                             {opt.icon}
-                            <span>{opt.label.replace(/^[⬅️←<\->\s]+/, '')}</span>
+                            <span>{opt.label.replace(/^(?:⬅️|[←<>\s-])+/u, '')}</span>
                           </button>
                         ))}
                       </div>

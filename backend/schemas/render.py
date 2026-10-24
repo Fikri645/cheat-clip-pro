@@ -1,5 +1,6 @@
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
+import math
 
 class RenderSettingsModel(BaseModel):
     aspect_ratio: str = "9:16"
@@ -56,10 +57,21 @@ class RenderSettingsModel(BaseModel):
 class RenderBatchRequest(BaseModel):
     video_url: str
     video_id: str
-    clips: List[Dict[str, Any]]
+    clips: List[Dict[str, Any]] = Field(min_length=1, max_length=200)
     settings: RenderSettingsModel
     transcript: Optional[List[Dict[str, Any]]] = None
     cookies: Optional[str] = None
+
+    @model_validator(mode="after")
+    def valid_intervals(self):
+        for clip in self.clips:
+            try:
+                start, end = float(clip["start_time"]), float(clip["end_time"])
+            except (KeyError, TypeError, ValueError):
+                raise ValueError("Each clip needs numeric start_time and end_time")
+            if not math.isfinite(start) or not math.isfinite(end) or not 0 <= start < end:
+                raise ValueError("Clip timestamps must be finite and satisfy 0 <= start < end")
+        return self
 
 class RetryBatchRequest(BaseModel):
     clip_indices: Optional[List[int]] = None

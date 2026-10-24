@@ -1,4 +1,9 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { readAnalysisHistory, type HistoryEntry } from './utils/analysisHistory';
+import { getErrorMessage, errorName } from './utils/errors';
+import { RenderRecovery } from './components/RenderRecovery';
+import { renderClipClientSide, triggerBrowserDownload } from './services/clientRenderer';
+import { analysisCacheKey, analysisTimestampKey, type AnalysisCacheContext } from './utils/analysisCache';
+import { useState, useEffect, useRef, useMemo, useCallback, useEffectEvent } from 'react';
 import { HeatmapTimeline } from './components/HeatmapTimeline';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { ClipStudioSection } from './components/ClipStudioSection';
@@ -9,8 +14,8 @@ import { AppUpdateModal } from './components/AppUpdateModal';
 import { resilientFetch } from './utils/api';
 import { getStoredCookies, hasStoredCookies } from './utils/cookieUtils';
 import { extractAudioFromVideoClient } from './utils/audioExtractor';
-import { renderClipClientSide, triggerBrowserDownload } from './services/clientRenderer';
-import { renderClipWebCodecs, isWebCodecsGpuSupported } from './services/webcodecsRenderer';
+
+import { renderClientBatch } from './services/clientBatch';
 import { isMobileDevice, requestWakeLock, releaseWakeLock } from './utils/deviceUtils';
 import { useLanguage } from './locales';
 import { HackerApiKeyInput } from './components/HackerApiKeyInput';
@@ -42,15 +47,7 @@ import {
   Film,
   Scissors
 } from 'lucide-react';
-import type { AnalyzeResponse, ViralClip, RenderSettings, BatchRenderProgress } from './types';
-
-// Declare YT global variables for TypeScript
-declare global {
-  interface Window {
-    YT: any;
-    onYouTubeIframeAPIReady: (() => void) | undefined;
-  }
-}
+import type { AnalyzeResponse, ViralClip, RenderSettings, BatchRenderProgress, UploadVideoResponse, AnalysisProgressEvent } from './types';
 
 export default function App() {
   const { t } = useLanguage();
@@ -309,12 +306,15 @@ export default function App() {
   const [batchProgress, setBatchProgress] = useState<BatchRenderProgress | null>(null);
   const [isLaunchingRender, setIsLaunchingRender] = useState(false);
   const batchEventSourceRef = useRef<EventSource | null>(null);
+  const clientRenderRef = useRef<{settings:RenderSettings;result:AnalyzeResponse;file:File|null}|null>(null);
 
   const listenToBatchProgress = useCallback((batchId: string) => {
     if (batchEventSourceRef.current) {
       batchEventSourceRef.current.close();
       batchEventSourceRef.current = null;
     }
+    localStorage.setItem('cheat_clip_active_batch', batchId);
+    localStorage.setItem('cheat_clip_last_batch', batchId);
     const eventSource = new EventSource(`/api/render-progress/${batchId}`);
     batchEventSourceRef.current = eventSource;
 
@@ -323,6 +323,7 @@ export default function App() {
         const progressData: BatchRenderProgress = JSON.parse(event.data);
         setBatchProgress(progressData);
         if (progressData.overall_status === 'completed' || progressData.overall_status === 'error') {
+          localStorage.removeItem('cheat_clip_active_batch');
           eventSource.close();
           if (batchEventSourceRef.current === eventSource) {
             batchEventSourceRef.current = null;
@@ -333,14 +334,30 @@ export default function App() {
       }
     };
 
-    eventSource.onerror = (err) => {
-      console.error('SSE connection error:', err);
-      eventSource.close();
-      if (batchEventSourceRef.current === eventSource) {
-        batchEventSourceRef.current = null;
-      }
+    eventSource.onerror = () => {
+      // Keep EventSource open so its native retry recovers transient network loss.
+      void fetch(`/api/render-batch/${batchId}`).then(async response => {
+        if (batchEventSourceRef.current !== eventSource) return;
+        if (response.status === 404) {
+          eventSource.close(); batchEventSourceRef.current = null;
+          localStorage.removeItem('cheat_clip_active_batch');
+          localStorage.removeItem('cheat_clip_last_batch');
+        } else if (response.ok) {
+          const snapshot: BatchRenderProgress = await response.json();
+          setBatchProgress(snapshot);
+          if (snapshot.overall_status !== 'running') {
+            eventSource.close(); batchEventSourceRef.current = null;
+            localStorage.removeItem('cheat_clip_active_batch');
+          }
+        }
+      }).catch(() => { /* The existing stream retries when the server returns. */ });
     };
   }, []);
+
+  useEffect(() => {
+    const batchId = localStorage.getItem('cheat_clip_active_batch') || localStorage.getItem('cheat_clip_last_batch');
+    if (batchId) listenToBatchProgress(batchId);
+  }, [listenToBatchProgress]);
 
   // Close SSE connection on unmount and handle mobile tab visibility reconnection
   const activeBatchIdRef = useRef<string | null>(null);
@@ -422,221 +439,15 @@ export default function App() {
 
     setIsLaunchingRender(true);
 
-    const isClientMode = !isMobileDevice() && (settings.hardwareAccel === 'browser_wasm' || settings.renderEngine === 'client' || (sourceMode === 'upload' && Boolean(uploadedVideoFile)));
+    const isClientMode = !isMobileDevice() && (settings.hardwareAccel === 'browser_wasm' || settings.hardwareAccel === 'client_gpu' || settings.renderEngine === 'client' || (sourceMode === 'upload' && Boolean(uploadedVideoFile)));
 
     if (isClientMode) {
       try {
-        const batchId = `client_${Date.now()}`;
-        const selectedClips = settings.selectedClips;
-
-        setBatchProgress({
-          batch_id: batchId,
-          total_clips: selectedClips.length,
-          current_clip_index: 0,
-          overall_status: 'running',
-          clips: selectedClips.map((c, i) => {
-            const base = (c.title_suggestion || c.title || `Clip #${i + 1}`).trim();
-            const pfx = settings.titlePrefix || '';
-            const sfx = settings.titleSuffix || '';
-            const fullTitle = (pfx || sfx) ? `${pfx}${base}${sfx}`.trim() : base;
-            return {
-              clip_index: i,
-              title: fullTitle,
-              base_title: base,
-              status: i === 0 ? 'rendering' : 'pending',
-              progress_percent: 0,
-            };
-          })
-        });
-
         setIsLaunchingRender(false);
-
-        for (let i = 0; i < selectedClips.length; i++) {
-          const clip = selectedClips[i];
-          const base = (clip.title_suggestion || clip.title || `Clip #${i + 1}`).trim();
-          const pfx = (settings.fileNamePrefix || '').replace(/[\\/*?:"<>|]/g, '');
-          const sfx = (settings.fileNameSuffix || '').replace(/[\\/*?:"<>|]/g, '');
-          const cleanBase = base.replace(/[\\/*?:"<>|]/g, '').trim();
-          const filename = `${pfx}${cleanBase}${sfx}`.trim() || `clip_${i + 1}`;
-
-          setBatchProgress(prev => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              current_clip_index: i,
-              clips: prev.clips.map((c, idx) => idx === i ? { ...c, status: 'downloading', progress_percent: 5 } : c)
-            };
-          });
-
-          // Step 1: Acquire raw video stream (0% server load, stream proxy / local blob)
-          let rawSourceUrl = '';
-          if (sourceMode === 'upload' && uploadedVideoFile) {
-            rawSourceUrl = URL.createObjectURL(uploadedVideoFile);
-          } else if (result.source_type === 'upload' || result.video_id?.startsWith('upload_') || result.video_id?.startsWith('gdrive_')) {
-            rawSourceUrl = `/api/video/${result.video_id}`;
-          } else {
-            const userCookies = getStoredCookies();
-            const targetUrl = result.video_url || (url.trim() ? url.trim() : `https://www.youtube.com/watch?v=${result.video_id}`);
-            const rawReq = await fetch('/api/download-raw-clip', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                video_url: targetUrl,
-                video_id: result.video_id,
-                start_time: clip.start_time,
-                end_time: clip.end_time,
-                title: clip.title,
-                cookies: userCookies || undefined,
-              })
-            });
-            if (!rawReq.ok) {
-              const err = await rawReq.json().catch(() => ({}));
-              throw new Error(err.detail || 'Failed to request raw clip stream');
-            }
-            const rawData = await rawReq.json();
-            const jobId = rawData.job_id;
-
-            rawSourceUrl = await new Promise<string>((resolve, reject) => {
-              const pollInterval = setInterval(async () => {
-                try {
-                  const statusRes = await fetch(`/api/download-raw-clip-status/${jobId}`);
-                  if (!statusRes.ok) {
-                    clearInterval(pollInterval);
-                    reject(new Error('Failed to retrieve raw stream status'));
-                    return;
-                  }
-                  const statusData = await statusRes.json();
-                  if (statusData.status === 'ready' && statusData.download_url) {
-                    clearInterval(pollInterval);
-                    resolve(statusData.download_url);
-                  } else if (statusData.status === 'failed') {
-                    clearInterval(pollInterval);
-                    reject(new Error(statusData.error || 'Failed to acquire raw clip segment'));
-                  }
-                } catch (e) {
-                  clearInterval(pollInterval);
-                  reject(e);
-                }
-              }, 600);
-            });
-          }
-
-          // Step 2: Render in client browser via GPU Hardware Encoder (WebCodecs) or WASM
-          let blob: Blob;
-          const useWebCodecsGpu = (settings.hardwareAccel === 'client_gpu' || (!settings.hardwareAccel && isWebCodecsGpuSupported())) && isWebCodecsGpuSupported();
-
-          if (useWebCodecsGpu) {
-            try {
-              blob = await renderClipWebCodecs({
-                videoSourceUrl: rawSourceUrl,
-                startTime: (sourceMode === 'upload' && uploadedVideoFile) ? clip.start_time : undefined,
-                endTime: (sourceMode === 'upload' && uploadedVideoFile) ? clip.end_time : undefined,
-                aspectRatio: settings.aspectRatio as any,
-                backgroundStyle: settings.backgroundStyle as any,
-                titleText: settings.titleText,
-                fileName: `${filename}.mp4`,
-                onProgress: (pct, stage) => {
-                  setBatchProgress(prev => {
-                    if (!prev) return prev;
-                    return {
-                      ...prev,
-                      clips: prev.clips.map((c, idx) => idx === i ? {
-                        ...c,
-                        status: 'rendering',
-                        progress_percent: pct,
-                        error_message: stage
-                      } : c)
-                    };
-                  });
-                }
-              });
-            } catch (gpuErr) {
-              console.warn('[Client GPU] WebCodecs hardware render failed, fallback to WASM engine:', gpuErr);
-              // Graceful fallback to WASM engine
-              blob = await renderClipClientSide({
-                videoSourceUrl: rawSourceUrl,
-                startTime: (sourceMode === 'upload' && uploadedVideoFile) ? clip.start_time : undefined,
-                endTime: (sourceMode === 'upload' && uploadedVideoFile) ? clip.end_time : undefined,
-                aspectRatio: settings.aspectRatio as any,
-                backgroundStyle: settings.backgroundStyle as any,
-                titleText: settings.titleText,
-                fileName: `${filename}.mp4`,
-                onProgress: (pct, stage) => {
-                  setBatchProgress(prev => {
-                    if (!prev) return prev;
-                    return {
-                      ...prev,
-                      clips: prev.clips.map((c, idx) => idx === i ? {
-                        ...c,
-                        status: 'rendering',
-                        progress_percent: pct,
-                        error_message: stage
-                      } : c)
-                    };
-                  });
-                }
-              });
-            }
-          } else {
-            blob = await renderClipClientSide({
-              videoSourceUrl: rawSourceUrl,
-              startTime: (sourceMode === 'upload' && uploadedVideoFile) ? clip.start_time : undefined,
-              endTime: (sourceMode === 'upload' && uploadedVideoFile) ? clip.end_time : undefined,
-              aspectRatio: settings.aspectRatio as any,
-              backgroundStyle: settings.backgroundStyle as any,
-              titleText: settings.titleText,
-              fileName: `${filename}.mp4`,
-              onProgress: (pct, stage) => {
-                setBatchProgress(prev => {
-                  if (!prev) return prev;
-                  return {
-                    ...prev,
-                    clips: prev.clips.map((c, idx) => idx === i ? {
-                      ...c,
-                      status: 'rendering',
-                      progress_percent: pct,
-                      error_message: stage
-                    } : c)
-                  };
-                });
-              }
-            });
-          }
-
-          // Step 3: Trigger automatic download and update status
-          const downloadBlobUrl = URL.createObjectURL(blob);
-          triggerBrowserDownload(blob, `${filename}.mp4`);
-
-          setBatchProgress(prev => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              clips: prev.clips.map((c, idx) => idx === i ? {
-                ...c,
-                status: 'completed',
-                progress_percent: 100,
-                download_url: downloadBlobUrl
-              } : c)
-            };
-          });
-        }
-
-        setBatchProgress(prev => prev ? { ...prev, overall_status: 'completed' } : null);
-        return;
-      } catch (clientErr: any) {
-        console.error('Client rendering failed:', clientErr);
-        setBatchProgress(prev => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            overall_status: 'error',
-            error_message: clientErr.message || 'Client-side rendering error'
-          };
-        });
-        return;
-      } finally {
-        setIsLaunchingRender(false);
-      }
+        clientRenderRef.current={settings,result,file:sourceMode==='upload'?uploadedVideoFile:null};
+        await renderClientBatch(settings, result, sourceMode === 'upload' ? uploadedVideoFile : null, setBatchProgress);
+      } finally { setIsLaunchingRender(false); }
+      return;
     }
 
     try {
@@ -746,8 +557,8 @@ export default function App() {
 
       // Listen to SSE progress
       listenToBatchProgress(batchId);
-    } catch (err: any) {
-      alert(err.message || 'Error launching batch render');
+    } catch (err) {
+      alert(getErrorMessage(err) || 'Error launching batch render');
     } finally {
       setIsLaunchingRender(false);
     }
@@ -756,6 +567,14 @@ export default function App() {
   const handleRetryBatchClip = async (clipIndex?: number) => {
     if (!batchProgress?.batch_id) return;
     const batchId = batchProgress.batch_id;
+    if(batchId.startsWith('client_')) {
+      const source=clientRenderRef.current;
+      if(!source) {alert('Reopen the source video to retry this browser render.');return;}
+      await renderClientBatch(source.settings,source.result,source.file,setBatchProgress,batchProgress,clipIndex!==undefined?[clipIndex]:undefined);
+      return;
+    }
+    const previousProgress=batchProgress;
+
     try {
       // Optimistically update the UI to show 'pending' / retrying state for selected clip(s)
       setBatchProgress(prev => {
@@ -791,35 +610,21 @@ export default function App() {
 
       // Reconnect SSE to track retry progress
       listenToBatchProgress(batchId);
-    } catch (err: any) {
-      alert(err.message || 'Error retrying clip rendering');
+    } catch (err) {
+      setBatchProgress(previousProgress);
+      alert(getErrorMessage(err) || 'Error retrying clip rendering');
     }
   };
 
   // History feature: previously analyzed videos from localStorage
-  interface HistoryEntry {
-    video_id: string;
-    title: string;
-    duration_pref: string;
-    clip_count: number;
-    analyzed_at: string;
-    thumbnail: string;
-    url: string;
-    source_type?: 'youtube' | 'upload' | 'gdrive';
-    video_url?: string;
-    range_suffix?: string;
-    summary?: string;
-    clip_titles?: string[];
-    key_quotes?: string[];
-  }
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [history, setHistory] = useState<HistoryEntry[]>(readAnalysisHistory);
   const [showHistory, setShowHistory] = useState(true);
   const [historySearchQuery, setHistorySearchQuery] = useState('');
   const [confirmClearAll, setConfirmClearAll] = useState(false);
 
   // Audio/video playback state tracking
   const [currentTime, setCurrentTime] = useState(0);
-  const playerRef = useRef<any>(null);
+  const playerRef = useRef<YT.Player | null>(null);
   const directVideoPlayerRef = useRef<HTMLVideoElement | null>(null);
   const trackingInterval = useRef<number | null>(null);
   const clipEndIntervalRef = useRef<number | null>(null);
@@ -898,6 +703,10 @@ export default function App() {
     }
   }, [loading]);
 
+  const onYouTubeReady = useEffectEvent(() => {
+    if(result)initPlayer(result.video_id);
+  });
+
   // Initialize YouTube IFrame API
   useEffect(() => {
     // Check if script is already injected
@@ -911,12 +720,7 @@ export default function App() {
     }
 
     // Set global callback
-    window.onYouTubeIframeAPIReady = () => {
-      // Re-trigger player init if a result is already loaded
-      if (result) {
-        initPlayer(result.video_id);
-      }
-    };
+    window.onYouTubeIframeAPIReady = () => onYouTubeReady();
 
     return () => {
       stopTracking();
@@ -924,7 +728,7 @@ export default function App() {
         clearInterval(clipEndIntervalRef.current);
       }
     };
-  }, [result]);
+  }, []);
 
   // Fetch available AI models when API key is detected/entered
   useEffect(() => {
@@ -967,7 +771,7 @@ export default function App() {
     }, 600);
 
     return () => clearTimeout(delayDebounce);
-  }, [apiKey]);
+  }, [apiKey, selectedModel]);
 
   // OpenRouter models retrieval
   useEffect(() => {
@@ -1011,7 +815,7 @@ export default function App() {
       if (saved) {
         try {
           setMarkedClips(JSON.parse(saved));
-        } catch (_) {
+        } catch {
           setMarkedClips({});
         }
       } else {
@@ -1057,77 +861,13 @@ export default function App() {
   };
 
   // Scan localStorage and build the history list from cache keys
-  const refreshHistory = () => {
-    const entries: HistoryEntry[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('cheat_clip_cache_')) {
-        try {
-          const raw = localStorage.getItem(key);
-          if (!raw) continue;
-          const data: AnalyzeResponse = JSON.parse(raw);
+  const refreshHistory = useCallback(() => setHistory(readAnalysisHistory()), []);
 
-          if (!data || !data.video_id) continue;
-
-          const video_id = data.video_id;
-          const rest = key.substring('cheat_clip_cache_'.length);
-          const suffix = rest.substring(video_id.length + 1); // skip video_id and trailing '_'
-          const duration_pref = suffix.split('_')[0];
-          const range_suffix = suffix.substring(duration_pref.length);
-
-          // Try reading cached timestamp stored separately
-          const tsKey = `cheat_clip_ts_${video_id}_${duration_pref}${range_suffix}`;
-          const analyzed_at = localStorage.getItem(tsKey) || new Date().toISOString();
-          const clip_titles = (data.clips || []).map((c: any) => c.title || '').filter(Boolean);
-          const key_quotes = (data.clips || []).flatMap((c: any) => c.key_quotes || []).filter(Boolean);
-
-          const isGDrive = data.source_type === 'gdrive' || video_id.startsWith('gdrive_');
-          const isUpload = data.source_type === 'upload' || video_id.startsWith('upload_');
-          const sourceType: 'youtube' | 'upload' | 'gdrive' = isGDrive ? 'gdrive' : (isUpload ? 'upload' : 'youtube');
-
-          // Determine appropriate link and thumbnail
-          let itemUrl = `https://www.youtube.com/watch?v=${video_id}`;
-          if (isGDrive) {
-            const gdriveIdMatch = video_id.match(/gdrive_([a-zA-Z0-9_-]+)/);
-            const gdriveId = gdriveIdMatch ? gdriveIdMatch[1] : '';
-            itemUrl = gdriveId ? `https://drive.google.com/file/d/${gdriveId}/view` : (data.video_url || '');
-          } else if (isUpload) {
-            itemUrl = data.video_url || `/api/video/${video_id}`;
-          }
-
-          const thumb = (isGDrive || isUpload)
-            ? `/api/frame/${encodeURIComponent(video_id)}?t=2`
-            : `https://img.youtube.com/vi/${video_id}/mqdefault.jpg`;
-
-          entries.push({
-            video_id,
-            title: data.title,
-            duration_pref,
-            clip_count: data.clips?.length || 0,
-            analyzed_at,
-            thumbnail: thumb,
-            url: itemUrl,
-            source_type: sourceType,
-            video_url: data.video_url,
-            range_suffix,
-            summary: data.summary || '',
-            clip_titles,
-            key_quotes
-          });
-        } catch (_) {
-          // Skip malformed entries
-        }
-      }
-    }
-    // Sort by most recent first
-    entries.sort((a, b) => new Date(b.analyzed_at).getTime() - new Date(a.analyzed_at).getTime());
-    setHistory(entries);
-  };
-
-  // Load history on mount
   useEffect(() => {
-    refreshHistory();
-  }, []);
+    const refresh = () => refreshHistory();
+    window.addEventListener('storage',refresh);
+    return () => window.removeEventListener('storage',refresh);
+  }, [refreshHistory]);
 
   const loadFromHistory = (entry: HistoryEntry) => {
     const rangeSuffix = entry.range_suffix || '';
@@ -1175,7 +915,24 @@ export default function App() {
       }
 
       setDurationPref((entry.duration_pref as '15s' | '30s' | '60s' | 'auto') || '30s');
+      if (data.cache_context) {
+        const context = data.cache_context;
+        setApiProvider(context.provider);
+        if (context.provider === 'openrouter') setOpenRouterModel(context.model);
+        else setSelectedModel(context.model);
+        setCustomPrompt(context.prompt);
+        setClipCountMode(context.clipCount === 'auto' ? 'auto' : 'custom');
+        if (context.clipCount !== 'auto') setTargetClipCount(context.clipCount);
+        setRangeType(context.rangeStart !== undefined || context.rangeEnd !== undefined ? 'custom' : 'entire');
+        setCustomRangeStart(context.rangeStart?.toString() || '');
+        setCustomRangeEnd(context.rangeEnd?.toString() || '');
+        setSubtitlesSource(context.subtitleSource);
+        setManualSubtitlesContent(context.subtitleContent);
+        setTranscriptLanguage(context.transcriptLanguage === 'id' ? 'id' : 'en');
+      }
 
+
+      if (!data.cache_context) {
       // Restore clip count mode
       if (entry.range_suffix?.includes('_clips_auto')) {
         setClipCountMode('auto');
@@ -1223,6 +980,8 @@ export default function App() {
         setCustomRangeEnd('');
       }
 
+      }
+
       // Destroy any existing player immediately before state resets
       destroyPlayer();
       setLoading(true);
@@ -1252,7 +1011,7 @@ export default function App() {
           setTimeout(() => initPlayer(data.video_id, true), 150);
         }, 500);
       }, 600);
-    } catch (_) {
+    } catch {
       setToastMessage(t.form.historyLoadFailed);
       setTimeout(() => setToastMessage(null), 3000);
     }
@@ -1378,7 +1137,7 @@ export default function App() {
             onReady: () => {
               console.log('YouTube Player Ready');
             },
-            onStateChange: (event: any) => {
+            onStateChange: (event: YT.OnStateChangeEvent) => {
               // YT.PlayerState.PLAYING = 1
               if (event.data === 1) {
                 startTracking();
@@ -1458,9 +1217,8 @@ export default function App() {
     // Automatically stop video at end time (optional user experience feature)
     // We can monitor playback and pause if it goes past end_time
     const intervalId = window.setInterval(() => {
-      let curr = 0;
       if (directVideoPlayerRef.current) {
-        curr = directVideoPlayerRef.current.currentTime;
+        const curr = directVideoPlayerRef.current.currentTime;
         if (curr >= clip.end_time) {
           directVideoPlayerRef.current.pause();
           clearInterval(intervalId);
@@ -1469,7 +1227,7 @@ export default function App() {
           }
         }
       } else if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
-        curr = playerRef.current.getCurrentTime();
+        const curr = playerRef.current.getCurrentTime();
         if (curr >= clip.end_time) {
           playerRef.current.pauseVideo();
           clearInterval(intervalId);
@@ -1606,10 +1364,13 @@ export default function App() {
       return;
     }
 
-    const rangeSuffix = (rangeStartSecs !== undefined || rangeEndSecs !== undefined)
-      ? `_range_${rangeStartSecs ?? 0}_${rangeEndSecs ?? 'end'}`
-      : '';
-    const manualSuffix = subtitlesSource === 'manual' ? '_manual' : '';
+    const cacheContext: AnalysisCacheContext = {
+      provider: apiProvider, model: apiProvider === 'openrouter' ? openRouterModel : selectedModel,
+      duration: durationPref, clipCount: clipCountMode === 'auto' ? 'auto' : targetClipCount,
+      prompt: customPrompt, rangeStart: rangeStartSecs, rangeEnd: rangeEndSecs,
+      subtitleSource: subtitlesSource, subtitleContent: manualSubtitlesContent,
+      transcriptLanguage, mode: apiProvider === 'gemini' && apiKey.trim().toLowerCase() === 'mock' ? 'mock' : 'live',
+    };
 
     // Determine target video identifier
     let targetAnalyzeUrl = sourceMode === 'gdrive' ? gdriveUrl.trim() : url.trim();
@@ -1642,7 +1403,7 @@ export default function App() {
           setAiDetail(`Uploading compressed audio track (${(audioFile.size / (1024 * 1024)).toFixed(1)} MB)...`);
 
           // Upload lightweight audio file (.wav) to /api/upload-video
-          const upData = await new Promise<any>((resolve, reject) => {
+          const upData = await new Promise<UploadVideoResponse>((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/api/upload-video');
             xhr.upload.onprogress = (event) => {
@@ -1694,10 +1455,10 @@ export default function App() {
           };
           setUploadedVideoInfo(currentVideoInfo);
           setIsUploadingVideo(false);
-        } catch (uploadErr: any) {
+        } catch (uploadErr) {
           setIsUploadingVideo(false);
           setLoading(false);
-          setError(uploadErr.message || 'Failed to extract or upload audio');
+          setError(getErrorMessage(uploadErr) || 'Failed to extract or upload audio');
           return;
         }
       }
@@ -1710,11 +1471,7 @@ export default function App() {
 
     // Check localStorage cache first to avoid redundant API/Gemini processing (for YouTube URLs)
     if (sourceMode === 'youtube' && videoId) {
-      const promptSuffix = customPrompt.trim() ? `_prompt_${customPrompt.trim().replace(/[^a-zA-Z0-9]/g, '_')}` : '';
-      const modelSuffix = `_model_${selectedModel}`;
-      const clipsSuffix = clipCountMode === 'auto' ? '_clips_auto' : `_clips_${targetClipCount}`;
-      const langSuffix = subtitlesSource === 'youtube' ? `_lang_${transcriptLanguage}` : '';
-      const cacheKey = `cheat_clip_cache_${videoId}_${durationPref}${modelSuffix}${clipsSuffix}${promptSuffix}${rangeSuffix}${manualSuffix}${langSuffix}`;
+      const cacheKey = await analysisCacheKey(videoId, cacheContext);
 
       const cachedData = localStorage.getItem(cacheKey);
       if (cachedData) {
@@ -1833,7 +1590,7 @@ export default function App() {
         for (const part of parts) {
           for (const line of part.split('\n')) {
             if (!line.startsWith('data: ')) continue;
-            let event: any;
+            let event: AnalysisProgressEvent;
             try { event = JSON.parse(line.slice(6)); } catch { continue; }
 
             if (event.error) {
@@ -1896,8 +1653,8 @@ export default function App() {
                 setOverallProgress(100);
                 break;
               }
-            } catch (err: any) {
-              if (err.message && !err.message.includes('JSON')) throw err;
+            } catch (err) {
+              if (getErrorMessage(err) && !getErrorMessage(err).includes('JSON')) throw err;
             }
           }
           if (resultData) break;
@@ -1911,16 +1668,13 @@ export default function App() {
       // Cache the successful response safely (handling mobile Safari quota limits)
       if (resultData.video_id) {
         try {
-          const promptSuffix = customPrompt.trim() ? `_prompt_${customPrompt.trim().replace(/[^a-zA-Z0-9]/g, '_')}` : '';
-          const modelSuffix = `_model_${selectedModel}`;
-          const clipsSuffix = clipCountMode === 'auto' ? '_clips_auto' : `_clips_${targetClipCount}`;
-          const langSuffix = subtitlesSource === 'youtube' ? `_lang_${transcriptLanguage}` : '';
-          const targetCacheKey = `cheat_clip_cache_${resultData.video_id}_${durationPref}${modelSuffix}${clipsSuffix}${promptSuffix}${rangeSuffix}${manualSuffix}${langSuffix}`;
-          const tsKey = `cheat_clip_ts_${resultData.video_id}_${durationPref}${modelSuffix}${clipsSuffix}${promptSuffix}${rangeSuffix}${manualSuffix}${langSuffix}`;
+          const targetCacheKey = await analysisCacheKey(resultData.video_id, cacheContext);
+          const tsKey = analysisTimestampKey(targetCacheKey);
 
           // Ensure persisted cache stores durable server URL, not temporary blob URL
           const persistData = {
             ...resultData,
+            cache_context: cacheContext,
             video_url: resultData.video_url?.startsWith('blob:')
               ? (currentVideoInfo?.savedName ? `/api/video/${currentVideoInfo.savedName}` : `/api/video/${resultData.video_id}`)
               : resultData.video_url
@@ -1957,16 +1711,16 @@ export default function App() {
         }
       }, 250);
 
-    } catch (err: any) {
+    } catch (err) {
       // If user manually cancelled, reset silently
-      if (err?.name === 'AbortError') {
+      if (errorName(err) === 'AbortError') {
         setLoading(false);
         setCurrentStep(1);
         setStepProgress({ 1: 0, 2: 0, 3: 0, 4: 0 });
         setOverallProgress(0);
         return;
       }
-      const msg = String(err?.message || '');
+      const msg = String(getErrorMessage(err) || '');
       if (
         msg.includes('Failed to fetch') ||
         msg.includes('NetworkError') ||
@@ -2168,8 +1922,8 @@ export default function App() {
           }
         }, 750);
       });
-    } catch (err: any) {
-      setError(err.message || t.rawDownload.failedToast);
+    } catch (err) {
+      setError(getErrorMessage(err) || t.rawDownload.failedToast);
       setIsDownloadingRaw(false);
       setRawDownloadProgress(null);
     }
@@ -2230,12 +1984,12 @@ export default function App() {
             [clipKey]: { status: 'idle' }
           }));
         }, 4000);
-      } catch (err: any) {
+      } catch (err) {
         setClipDownloadStates(prev => ({
           ...prev,
           [clipKey]: { status: 'idle' }
         }));
-        setToastMessage(`Failed to export raw clip: ${err?.message || err}`);
+        setToastMessage(`Failed to export raw clip: ${getErrorMessage(err) || err}`);
       }
       return;
     }
@@ -2336,12 +2090,12 @@ export default function App() {
           }
         }, 750);
       });
-    } catch (err: any) {
+    } catch (err) {
       setClipDownloadStates(prev => ({
         ...prev,
-        [clipKey]: { status: 'error', error: err.message }
+        [clipKey]: { status: 'error', error: getErrorMessage(err) }
       }));
-      setError(err.message || "Failed to download clip");
+      setError(getErrorMessage(err) || "Failed to download clip");
     }
   };
 
@@ -2349,7 +2103,7 @@ export default function App() {
     e.stopPropagation(); // Prevent card trigger
     let copyText = `CLIP: ${clip.title}
 Timestamp: ${formatSeconds(clip.start_time)} - ${formatSeconds(clip.end_time)}
-Virality Score: ${clip.virality_score}%
+Selection Score: ${clip.virality_score}/100
 
 Transcript:
 "${clip.transcript}"`;
@@ -2600,7 +2354,7 @@ Transcript:
     let md = `# Viral Clips from "${result.title}"\n\n`;
     md += `**Overall Summary**: ${result.summary}\n\n`;
     result.clips.forEach((clip, index) => {
-      md += `## ${index + 1}. ${clip.title} (${clip.virality_score}% Virality)\n`;
+      md += `## ${index + 1}. ${clip.title} (${clip.virality_score}/100 Selection Score)\n`;
       md += `- **Timestamp**: ${formatSeconds(clip.start_time)} - ${formatSeconds(clip.end_time)} (Duration: ${formatSeconds(clip.end_time - clip.start_time)})\n`;
       if (clip.key_quotes && clip.key_quotes.length > 0) {
         md += `- **Key Quotes**:\n`;
@@ -2699,7 +2453,7 @@ Transcript:
         }
       }
     }
-  }, [activeClip]);
+  }, [activeClip, sortedClips]);
 
   // Find current subtitle line with slight gap tolerance to prevent jitter
   const currentSubtitle = result?.transcript?.find(
@@ -2812,6 +2566,7 @@ Transcript:
       </div>
 
       <div className="app-container">
+        {batchProgress && !result && <RenderRecovery batch={batchProgress} onRetry={() => void handleRetryBatchClip()} />}
         {/* Workflow Navigation Tabs Pipeline (01 SOURCE -> 02 RECOMMENDED CLIPS -> 03 AUTO CLIPPER) */}
         <nav className="workflow-tab-bar" aria-label="Workflow Navigation">
           <button
@@ -5222,6 +4977,7 @@ Transcript:
                       <HeatmapTimeline
                         duration={result.duration}
                         heatmap={result.heatmap}
+                        signalSource={result.heatmap_source}
                         currentTime={currentTime}
                         onSeek={handleSeek}
                         activeClip={activeClip}
@@ -5362,8 +5118,9 @@ Transcript:
                                 </div>
                                 <div className="sidebar-clip-item-right">
                                   <span className={`virality-mini-badge ${clip.virality_score >= 85 ? 'score-high' : clip.virality_score >= 70 ? 'score-mid' : 'score-low'}`}>
-                                    {clip.virality_score}%
+                                    {clip.virality_score}/100
                                   </span>
+                                  {clip.selection_reason && <details style={{fontSize:'0.8rem',color:'var(--text-muted)'}}><summary>{t.results.scoreDetails}</summary><p>{clip.selection_reason}</p><small>{clip.score_note}</small></details>}
                                   <span
                                     onClick={(e) => handleCopyTimestamp(clip, e)}
                                     title={t.results.copyTimestampTooltip}
@@ -5452,7 +5209,7 @@ Transcript:
                         <select
                           className="form-input virality-filter-select"
                           value={viralityFilter}
-                          onChange={(e) => setViralityFilter(e.target.value as any)}
+                          onChange={(e) => setViralityFilter(e.target.value as typeof viralityFilter)}
                           style={{ width: 'auto', padding: '0.6rem 2rem 0.6rem 1rem', fontSize: '0.875rem', cursor: 'pointer' }}
                         >
                           <option value="all">{t.results.filterAllScores}</option>
@@ -5464,7 +5221,7 @@ Transcript:
                         <select
                           className="form-input virality-filter-select"
                           value={sortBy}
-                          onChange={(e) => setSortBy(e.target.value as any)}
+                          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
                           style={{ width: 'auto', padding: '0.6rem 2rem 0.6rem 1rem', fontSize: '0.875rem', cursor: 'pointer' }}
                         >
                           <option value="virality">{t.results.sortVirality}</option>
@@ -5586,7 +5343,7 @@ Transcript:
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: 1 }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                    <span className="clip-title" style={{ color: !!markedClips[`${clip.start_time}_${clip.end_time}`] ? 'var(--secondary)' : 'var(--text-primary)', opacity: 1 }}>
+                                    <span className="clip-title" style={{ color: markedClips[`${clip.start_time}_${clip.end_time}`] ? 'var(--secondary)' : 'var(--text-primary)', opacity: 1 }}>
                                       {clip.title}
                                     </span>
                                     <button
@@ -5639,8 +5396,9 @@ Transcript:
                                   </div>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.35rem' }}>
+                                  {clip.selection_reason && <details style={{fontSize:'0.8rem'}}><summary>{t.results.scoreDetails}</summary><p>{clip.selection_reason}</p><small>{clip.score_note}</small></details>}
                                   <div className={`score-badge ${clip.virality_score >= 85 ? 'score-high' : clip.virality_score >= 70 ? 'score-medium' : 'score-low'}`}>
-                                    <span>{t.results.viralityBadge(clip.virality_score)}</span>
+                                    <span title={clip.score_note}>{t.results.viralityBadge(clip.virality_score)}</span>
                                   </div>
                                   {!!markedClips[`${clip.start_time}_${clip.end_time}`] && (
                                     <div style={{

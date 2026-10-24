@@ -1,3 +1,4 @@
+import { getErrorMessage } from './errors';
 /**
  * Utility functions for managing YouTube cookies in client-side localStorage.
  * Ensures zero persistent storage of sensitive user cookies on the server.
@@ -70,7 +71,7 @@ export function normalizeCookies(rawContent: string): string {
   const text = rawContent
     .replace(/\ufeff/g, '')
     .replace(/\ufffe/g, '')
-    .replace(/\x00/g, '')
+    .replaceAll('\0', '')
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
     .trim();
@@ -314,9 +315,9 @@ export function setStoredCookies(content: string): boolean {
       window.dispatchEvent(new StorageEvent('storage', { key: COOKIES_STORAGE_KEY, newValue: normalized }));
     }
     return true;
-  } catch (err: any) {
+  } catch (err) {
     // If browser quota exceeded, aggressively prune strictly to essential YouTube auth cookies
-    console.warn('[cookieUtils] Primary localStorage write failed, attempting aggressive pruning:', err?.message);
+    console.warn('[cookieUtils] Primary localStorage write failed, attempting aggressive pruning:', getErrorMessage(err));
     try {
       const lines = normalized.split('\n');
       const criticalKeys = ['login_info', 'sid', 'hsid', 'ssid', 'apisid', 'sapisid', '__secure', 'pref', 'visitor_info1_live', 'ysc'];
@@ -335,9 +336,9 @@ export function setStoredCookies(content: string): boolean {
         window.dispatchEvent(new StorageEvent('storage', { key: COOKIES_STORAGE_KEY, newValue: prunedStr }));
       }
       return true;
-    } catch (finalErr: any) {
+    } catch (finalErr) {
       console.error('[cookieUtils] Failed to write cookies to localStorage:', finalErr);
-      throw new Error(`LocalStorage is full or restricted: ${finalErr?.message || 'QuotaExceededError'}. Please clear browser cache.`);
+      throw new Error(`LocalStorage is full or restricted: ${getErrorMessage(finalErr, 'QuotaExceededError')}. Please clear browser cache.`, {cause: finalErr});
     }
   }
 }

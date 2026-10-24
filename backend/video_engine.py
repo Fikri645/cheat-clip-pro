@@ -13,6 +13,7 @@ import urllib.request
 import contextlib
 import tempfile
 import threading
+from backend.media_lifecycle import protect_media
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple, Union, Callable
 from PIL import Image, ImageDraw, ImageFont
@@ -298,7 +299,7 @@ def get_whisper_model():
                 # Falls back to 'base' if 'small' cannot be loaded
                 try:
                     logger.info("Loading Whisper 'small' model for high-accuracy word-level timestamps...")
-                    _WHISPER_MODEL = whisper.load_model("small")
+                    _WHISPER_MODEL = whisper.load_model(os.environ.get("WHISPER_MODEL", "small"))
                 except Exception as e_small:
                     logger.warning(f"Could not load Whisper 'small' model ({e_small}). Falling back to 'base'...")
                     _WHISPER_MODEL = whisper.load_model("base")
@@ -720,6 +721,7 @@ def compute_audio_energy_heatmap(file_path: Union[str, Path], duration: float, n
     return heatmap
 
 
+@protect_media
 def transcribe_local_video_file(
     file_path: Union[str, Path],
     progress_callback=None,
@@ -804,6 +806,7 @@ def transcribe_local_video_file(
     return transcript_lines
 
 
+@protect_media
 def download_clip_segment(
     video_url: str,
     start_time: float,
@@ -1157,6 +1160,7 @@ def download_clip_segment(
     raise RuntimeError(f"Failed to download video clip segment from YouTube ({last_err_snippet}). Check your internet connection or cookies.")
 
 
+@protect_media
 def download_full_raw_video(
     video_url: str,
     output_path: Union[str, Path],
@@ -1291,6 +1295,7 @@ def clean_caption_text(text: str) -> str:
     return t
 
 
+@protect_media
 def transcribe_clip_words(
     video_path: str,
     fallback_transcript: Optional[List[Dict[str, Any]]] = None,
@@ -1316,7 +1321,7 @@ def transcribe_clip_words(
             pass
 
     # 1. Primary: Run Whisper directly on sliced clip audio for exact acoustic timestamps
-    whisper_model = get_whisper_model()
+    whisper_model = get_whisper_model() if os.path.exists(video_path) else None
     if whisper_model is not None and os.path.exists(video_path):
         try:
             logger.info(f"Running Whisper acoustic word transcription on: {os.path.basename(video_path)} (target_language={target_language})...")
@@ -2111,56 +2116,13 @@ def generate_ass_file(
             min_safe_sub_y = content_bot + est_sub_h + 8
             sub_y = max(sub_y, min_safe_sub_y)
 
-    # Preset color schemes (ASS uses &HAABBGGRR in hex)
-    if style_preset == "viral_pop":
-        primary_color = "&H00FFFFFF"
-        outline_color = "&H00000000"
-        back_color = "&H80000000"
-        highlight_color = "&H0000E6FF"  # #FFE600 Lemon Yellow
-        outline_w = 4.8
-        shadow_w = 2.0
-    elif style_preset == "beast_punch":
-        primary_color = "&H00FFFFFF"
-        outline_color = "&H00111111"
-        back_color = "&HA0000000"
-        highlight_color = "&H0066FF00"  # #00FF66 High-voltage Neon Green
-        outline_w = 5.0
-        shadow_w = 2.2
-    elif style_preset == "cyber_violet":
-        primary_color = "&H00FFFFFF"
-        outline_color = "&H00330033"
-        back_color = "&H80500050"
-        highlight_color = "&H00EF46D9"  # #D946EF Vivid Magenta
-        outline_w = 4.8
-        shadow_w = 2.0
-    elif style_preset == "fire_red":
-        primary_color = "&H00FFFFFF"
-        outline_color = "&H00000020"
-        back_color = "&H90000060"
-        highlight_color = "&H002E2EFF"  # #FF2E2E Blazing Fire Red
-        outline_w = 4.8
-        shadow_w = 2.0
-    elif style_preset == "electric_cyan":
-        primary_color = "&H00FFFFFF"
-        outline_color = "&H00102020"
-        back_color = "&H90002030"
-        highlight_color = "&H00FFF000"  # #00F0FF Electric Cyan
-        outline_w = 4.8
-        shadow_w = 2.0
-    elif style_preset == "golden_aura":
-        primary_color = "&H00FFFFFF"
-        outline_color = "&H000a1220"
-        back_color = "&HA0001830"
-        highlight_color = "&H0000B8FF"  # #FFB800 Warm Gold
-        outline_w = 4.8
-        shadow_w = 2.0
-    else:  # clean_minimal or none
-        primary_color = "&H00FFFFFF"
-        outline_color = "&H00111111"
-        back_color = "&HB0000000"
-        highlight_color = "&H00E0E0E0"
-        outline_w = 3.6
-        shadow_w = 1.8
+    from backend.utils.captions import CAPTION_STYLES, ass_color, caption_events
+    style = CAPTION_STYLES.get(style_preset, CAPTION_STYLES["clean_minimal"])
+    primary_color = "&H00FFFFFF"
+    outline_color = ass_color(style["outline"])
+    back_color = ass_color(style["back"], style["alpha"])
+    highlight_color = ass_color(style["highlight"])
+    outline_w, shadow_w = style["outlineWidth"], style["shadowWidth"]
 
     # Title styling: clean transparent background across ALL formats (no black box border)
     title_box_back = "&H00000000"
@@ -2219,90 +2181,17 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
         valid_words.sort(key=lambda x: x["start"])
 
-        # Step B: Pack into compact chunks (1 to 3 words, max 22 chars) to strictly guarantee 1 single line
-        # Split on natural speech pauses (>= 0.38s) or sentence-ending punctuation so words don't hang over silences
-        chunks = []
-        current_chunk = []
-        current_chars = 0
-        for item in valid_words:
-            w_len = len(item["word_text"])
-            has_pause = bool(current_chunk and (item["start"] - current_chunk[-1]["end"] >= 0.38))
-            ends_sentence = bool(current_chunk and any(current_chunk[-1]["word_text"].endswith(p) for p in [".", "?", "!"]))
-            if len(current_chunk) >= 3 or has_pause or ends_sentence or (current_chunk and (current_chars + w_len > 22)):
-                chunks.append(current_chunk)
-                current_chunk = [item]
-                current_chars = w_len
-            else:
-                current_chunk.append(item)
-                current_chars += w_len + 1
-        if current_chunk:
-            chunks.append(current_chunk)
-
-        # Step C: Enforce strictly non-overlapping, monotonically increasing chunk boundaries
-        chunk_bounds = []
-        for chunk in chunks:
-            c_start = chunk[0]["start"]
-            c_end = max(c_start + 0.35, chunk[-1]["end"] + 0.12)
-            if chunk_bounds:
-                prev_end = chunk_bounds[-1][1]
-                if c_start < prev_end:
-                    c_start = prev_end
-                if c_end <= c_start:
-                    c_end = c_start + 0.28
-            chunk_bounds.append((c_start, c_end))
-
-        # Clamp against subsequent chunk start times to eliminate any inter-chunk overlaps
-        for i in range(len(chunk_bounds) - 1):
-            cur_s, cur_e = chunk_bounds[i]
-            nxt_s, nxt_e = chunk_bounds[i + 1]
-            if cur_e > nxt_s:
-                split_pt = max(cur_s + 0.28, nxt_s)
-                chunk_bounds[i] = (cur_s, split_pt)
-                if nxt_s < split_pt:
-                    chunk_bounds[i + 1] = (split_pt, max(split_pt + 0.28, nxt_e))
-
-        # Step D: Partition each chunk into strictly contiguous active-word time slices
-        for chunk_idx, chunk in enumerate(chunks):
-            c_start, c_end = chunk_bounds[chunk_idx]
-            if c_end <= c_start:
-                c_end = c_start + 0.25
-            num_words = len(chunk)
-
-            if num_words == 1:
-                time_slices = [(c_start, c_end)]
-            else:
-                points = [c_start]
-                for w_i in range(1, num_words):
-                    raw_st = chunk[w_i]["start"]
-                    # Enforce minimum 0.16s per word to eliminate micro-flickering while preserving acoustic sync
-                    min_allowed = points[-1] + 0.16
-                    max_allowed = c_end - 0.16 * (num_words - w_i)
-                    if min_allowed > max_allowed:
-                        pt = points[-1] + (c_end - points[-1]) / (num_words - w_i + 1)
-                    else:
-                        pt = max(min_allowed, min(max_allowed, raw_st))
-                    points.append(pt)
-                points.append(c_end)
-                time_slices = [(points[k], points[k + 1]) for k in range(num_words)]
-
-            for active_idx, (w_start, w_end) in enumerate(time_slices):
-                if w_end <= w_start:
-                    continue
-
-                line_parts = []
-                for idx, item in enumerate(chunk):
-                    w_txt = item["word_text"]
-                    if idx == active_idx:
-                        # Highlight active word with color only (no font scale or bold toggle so metrics stay 100% identical)
-                        line_parts.append(r"{\c" + highlight_color + r"\3c" + outline_color + r"}" + w_txt + r"{\c" + primary_color + r"\3c" + outline_color + r"}")
-                    else:
-                        line_parts.append(w_txt)
-
-                styled_line = " ".join(line_parts)
-                # Lock position to sub_y with \q2\an{sub_align}\pos(center_x, sub_y)
-                events.append(
-                    f"Dialogue: 0,{format_ass_timestamp(w_start)},{format_ass_timestamp(w_end)},SubStyle,,0,0,0,,{{\\q2\\an{sub_align}\\pos({center_x},{sub_y})}}{styled_line}"
-                )
+        for event in caption_events(valid_words):
+            line_parts = []
+            for index, word in enumerate(event["words"]):
+                text = word["word_text"]
+                if index == event["active_index"]:
+                    text = r"{\c" + highlight_color + r"\3c" + outline_color + "}" + text + r"{\c" + primary_color + r"\3c" + outline_color + "}"
+                line_parts.append(text)
+            styled_line = " ".join(line_parts)
+            events.append(
+                f"Dialogue: 0,{format_ass_timestamp(event['start'])},{format_ass_timestamp(event['end'])},SubStyle,,0,0,0,,{{\\q2\\an{sub_align}\\pos({center_x},{sub_y})}}{styled_line}"
+            )
 
     ass_content = ass_header + "\n".join(events) + "\n"
     os.makedirs(os.path.dirname(os.path.abspath(output_ass_path)), exist_ok=True)
@@ -2781,7 +2670,8 @@ def build_ffmpeg_filtergraph(
     title_position: str = "auto",
     ass_subtitles_path: Optional[str] = None,
     face_box: Optional[Dict[str, Any]] = None,
-    title_y_percent: Optional[float] = None
+    title_y_percent: Optional[float] = None,
+    crop_trajectory: Optional[List[Dict[str, Any]]] = None,
 ) -> Tuple[str, str]:
     """
     Constructs the FFmpeg -filter_complex chain with proper aspect ratio center-cropping.
@@ -2792,14 +2682,18 @@ def build_ffmpeg_filtergraph(
     face_cx = float(face_box.get("cx", face_center_ratio)) if face_box else face_center_ratio
     face_cy = float(face_box.get("cy", 0.78 if streamer_preset in ["split_top_cam", "pip_corner"] else 0.35)) if face_box else 0.35
 
+    from backend.services.face_tracking import tracking_expression
+    tracking_cx = tracking_expression(crop_trajectory, "cx") if crop_trajectory else f"{face_cx:.3f}"
+    tracking_cy = tracking_expression(crop_trajectory, "cy") if crop_trajectory else f"{face_cy:.3f}"
+
     # 1. Base Layout & Scaling
     if streamer_preset == "split_top_cam":
         if aspect_ratio == "16:9":
             # 16:9 split: top cam 1080x608 (16:9) tightly cropped around face, bottom feed 1080x608 (16:9)
             cam_h = "min(ih, max(240, ih*0.38))"
             cam_w = f"min(iw, ({cam_h})*16/9)"
-            cam_x = f"max(0, min(iw-ow, iw*{face_cx:.3f}-ow/2))"
-            cam_y = f"max(0, min(ih-oh, ih*{face_cy:.3f}-oh/2))"
+            cam_x = f"max(0, min(iw-ow, iw*{tracking_cx}-ow/2))"
+            cam_y = f"max(0, min(ih-oh, ih*{tracking_cy}-oh/2))"
             filters.append(
                 f"[0:v]split=2[cam_raw][game_raw];"
                 f"[cam_raw]crop='{cam_w}':'{cam_h}':'{cam_x}':'{cam_y}',scale=1080:608[cam_box];"
@@ -2818,8 +2712,8 @@ def build_ffmpeg_filtergraph(
             # 1:1 split: top cam 960x960 (1:1) tightly cropped around face, bottom feed 960x960 (1:1)
             cam_h = "min(ih, max(280, ih*0.38))"
             cam_w = f"min(iw, {cam_h})"
-            cam_x = f"max(0, min(iw-ow, iw*{face_cx:.3f}-ow/2))"
-            cam_y = f"max(0, min(ih-oh, ih*{face_cy:.3f}-oh/2))"
+            cam_x = f"max(0, min(iw-ow, iw*{tracking_cx}-ow/2))"
+            cam_y = f"max(0, min(ih-oh, ih*{tracking_cy}-oh/2))"
             filters.append(
                 f"[0:v]split=2[cam_raw][game_raw];"
                 f"[cam_raw]crop='{cam_w}':'{cam_h}':'{cam_x}':'{cam_y}',scale=960:960[cam_box];"
@@ -2838,8 +2732,8 @@ def build_ffmpeg_filtergraph(
             # 4:3 split: top cam 1080x810 (4:3) tightly cropped around face, bottom feed 1080x810 (4:3)
             cam_h = "min(ih, max(280, ih*0.38))"
             cam_w = f"min(iw, ({cam_h})*4/3)"
-            cam_x = f"max(0, min(iw-ow, iw*{face_cx:.3f}-ow/2))"
-            cam_y = f"max(0, min(ih-oh, ih*{face_cy:.3f}-oh/2))"
+            cam_x = f"max(0, min(iw-ow, iw*{tracking_cx}-ow/2))"
+            cam_y = f"max(0, min(ih-oh, ih*{tracking_cy}-oh/2))"
             filters.append(
                 f"[0:v]split=2[cam_raw][game_raw];"
                 f"[cam_raw]crop='{cam_w}':'{cam_h}':'{cam_x}':'{cam_y}',scale=1080:810[cam_box];"
@@ -2858,8 +2752,8 @@ def build_ffmpeg_filtergraph(
             # 9:16 Split: full bleed 1080x1920 with crisp facecam on top and centered gameplay on bottom
             cam_h = "min(ih, max(280, ih*0.38))"
             cam_w = f"min(iw, ({cam_h})*4/3)"
-            cam_x = f"max(0, min(iw-ow, iw*{face_cx:.3f}-ow/2))"
-            cam_y = f"max(0, min(ih-oh, ih*{face_cy:.3f}-oh/2))"
+            cam_x = f"max(0, min(iw-ow, iw*{tracking_cx}-ow/2))"
+            cam_y = f"max(0, min(ih-oh, ih*{tracking_cy}-oh/2))"
 
             game_w = "min(iw, ih*1080/1110)"
             game_h = "ih"
@@ -2879,8 +2773,8 @@ def build_ffmpeg_filtergraph(
         # PIP Box tightly cropped on face (320x240)
         pip_cam_h = "min(ih, max(220, ih*0.35))"
         pip_cam_w = f"min(iw, ({pip_cam_h})*4/3)"
-        pip_cam_x = f"max(0, min(iw-ow, iw*{face_cx:.3f}-ow/2))"
-        pip_cam_y = f"max(0, min(ih-oh, ih*{face_cy:.3f}-oh/2))"
+        pip_cam_x = f"max(0, min(iw-ow, iw*{tracking_cx}-ow/2))"
+        pip_cam_y = f"max(0, min(ih-oh, ih*{tracking_cy}-oh/2))"
         pip_crop = f"[pip_raw]crop='{pip_cam_w}':'{pip_cam_h}':'{pip_cam_x}':'{pip_cam_y}',scale=320:240[pip_box];"
 
         if aspect_ratio == "1:1":
@@ -2962,7 +2856,7 @@ def build_ffmpeg_filtergraph(
             pip_x, pip_y = 736, 120
             filters.append(
                 f"[0:v]split=2[main_raw][pip_raw];"
-                f"[main_raw]crop=ih*9/16:ih:(iw-ih*9/16)*{crop_ratio_safe:.3f}:0,scale=1080:1920[main_base];"
+                f"[main_raw]crop=ih*9/16:ih:'max(0,min(iw-ih*9/16,iw*({tracking_cx})-ih*9/32))':0,scale=1080:1920[main_base];"
                 f"{pip_crop}"
                 f"[main_base][pip_box]overlay=x={pip_x}:y={pip_y}[layout_base]"
             )
@@ -2977,7 +2871,7 @@ def build_ffmpeg_filtergraph(
         safe_cx = max(0.22, min(0.78, safe_cx))
         crop_ratio_safe = max(0.0, min(1.0, (safe_cx - 0.158) / 0.684))
         filters.append(
-            f"[0:v]crop=ih*9/16:ih:(iw-ih*9/16)*{crop_ratio_safe:.3f}:0,scale=1080:1920[layout_base]"
+            f"[0:v]crop=ih*9/16:ih:'max(0,min(iw-ih*9/16,iw*({tracking_cx})-ih*9/32))':0,scale=1080:1920[layout_base]"
         )
         current_v = "[layout_base]"
 
@@ -2987,7 +2881,7 @@ def build_ffmpeg_filtergraph(
         if 0.46 <= safe_cx <= 0.54:
             safe_cx = 0.50
         safe_cx = max(0.15, min(0.85, safe_cx))
-        crop_11 = f"crop='min(iw,ih)':'min(iw,ih)':'max(0,min(iw-ih,iw*{safe_cx:.3f}-ih/2))':'(ih-min(iw,ih))/2',scale=1080:1080"
+        crop_11 = f"crop='min(iw,ih)':'min(iw,ih)':'max(0,min(iw-ih,iw*{tracking_cx}-ih/2))':'(ih-min(iw,ih))/2',scale=1080:1080"
         if background_style == "blurred":
             filters.append(
                 f"[0:v]split=2[bg_raw][fg_raw];"
@@ -3007,7 +2901,7 @@ def build_ffmpeg_filtergraph(
         if 0.46 <= safe_cx <= 0.54:
             safe_cx = 0.50
         safe_cx = max(0.15, min(0.85, safe_cx))
-        crop_43 = f"crop='min(iw,ih*4/3)':'min(ih,iw*3/4)':'max(0,min(iw-ih*4/3,iw*{safe_cx:.3f}-(ih*4/3)/2))':'(ih-min(ih,iw*3/4))/2',scale=1080:810"
+        crop_43 = f"crop='min(iw,ih*4/3)':'min(ih,iw*3/4)':'max(0,min(iw-ih*4/3,iw*{tracking_cx}-(ih*4/3)/2))':'(ih-min(ih,iw*3/4))/2',scale=1080:810"
         if background_style == "blurred":
             filters.append(
                 f"[0:v]split=2[bg_raw][fg_raw];"
@@ -3027,7 +2921,7 @@ def build_ffmpeg_filtergraph(
         if 0.46 <= safe_cx <= 0.54:
             safe_cx = 0.50
         safe_cx = max(0.15, min(0.85, safe_cx))
-        crop_169_land = f"crop='min(iw,ih*16/9)':'min(ih,iw*9/16)':'max(0,min(iw-ih*16/9,iw*{safe_cx:.3f}-(ih*16/9)/2))':'(ih-min(ih,iw*9/16))/2',scale=1920:1080"
+        crop_169_land = f"crop='min(iw,ih*16/9)':'min(ih,iw*9/16)':'max(0,min(iw-ih*16/9,iw*{tracking_cx}-(ih*16/9)/2))':'(ih-min(ih,iw*9/16))/2',scale=1920:1080"
         filters.append(
             f"[0:v]{crop_169_land}[layout_base]"
         )
@@ -3039,7 +2933,7 @@ def build_ffmpeg_filtergraph(
         if 0.46 <= safe_cx <= 0.54:
             safe_cx = 0.50
         safe_cx = max(0.15, min(0.85, safe_cx))
-        crop_169 = f"crop='min(iw,ih*16/9)':'min(ih,iw*9/16)':'max(0,min(iw-ih*16/9,iw*{safe_cx:.3f}-(ih*16/9)/2))':'(ih-min(ih,iw*9/16))/2',scale=1080:608"
+        crop_169 = f"crop='min(iw,ih*16/9)':'min(ih,iw*9/16)':'max(0,min(iw-ih*16/9,iw*{tracking_cx}-(ih*16/9)/2))':'(ih-min(ih,iw*9/16))/2',scale=1080:608"
         if background_style == "blurred":
             filters.append(
                 f"[0:v]split=2[bg_raw][fg_raw];"
@@ -3106,6 +3000,7 @@ def check_has_audio(video_path: str) -> bool:
         return True
 
 
+@protect_media
 def render_clip_to_mp4(
     video_path: str,
     output_mp4_path: str,
@@ -3177,6 +3072,9 @@ def render_clip_to_mp4(
             streamer_preset=streamer_preset
         )
 
+    from backend.services.face_tracking import detect_crop_trajectory
+    trajectory = detect_crop_trajectory(video_path, facecam_position, streamer_preset) if enable_face_tracking or is_streamer else []
+
     filter_complex, out_video_map = build_ffmpeg_filtergraph(
         aspect_ratio=aspect_ratio,
         background_style=background_style,
@@ -3186,6 +3084,7 @@ def render_clip_to_mp4(
         title_position=title_position,
         ass_subtitles_path=ass_subtitles_path,
         face_box=face_box,
+        crop_trajectory=trajectory,
         title_y_percent=title_y_percent
     )
 
@@ -3444,6 +3343,7 @@ def render_clip_to_mp4(
     return str(output_mp4_path)
 
 
+@protect_media
 def extract_clip_frame(video_url: str, video_id: str, timestamp: float = 0.0, cookies_content: Optional[str] = None) -> Optional[str]:
     """
     Extracts a single JPEG image frame at timestamp for the real video preview.

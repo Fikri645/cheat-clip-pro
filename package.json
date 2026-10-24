@@ -9,13 +9,17 @@
     "dev-backend": "node scripts/start-backend.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
+    "@ffmpeg/core": "^0.12.10",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
+    "@noble/hashes": "^2.4.0",
+    "fflate": "^0.8.3",
     "lucide-react": "^1.61.0",
-    "mp4-muxer": "^5.2.2",
+    "mediabunny": "^1.62.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
@@ -24,12 +28,14 @@
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@types/youtube": "^0.3.0",
     "@vitejs/plugin-react": "^6.0.1",
     "concurrently": "^10.0.3",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12"

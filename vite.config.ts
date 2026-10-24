@@ -13,8 +13,8 @@ export default defineConfig({
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
         configure: (proxy) => {
-          proxy.on('error', (_err, _req, res: any) => {
-            if (res && !res.headersSent && typeof res.writeHead === 'function') {
+          proxy.on('error', (_err, _req, res) => {
+            if (res && 'writeHead' in res && !res.headersSent) {
               res.writeHead(503, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({
                 error: 'Backend API server on port 8000 is not running. Start the backend with `npm run dev` or `python -m uvicorn backend.main:app --port 8000`.',
