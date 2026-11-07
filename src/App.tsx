@@ -1308,7 +1308,7 @@ export default function App() {
                     updated[prevStep] = 100;
                   }
                   if (event.step_progress !== undefined) {
-                    updated[s] = Math.max(updated[s] || 0, Number(event.step_progress));
+                    updated[s] = event.progress_is_actual ? Math.max(0,Math.min(100,Number(event.step_progress))) : Math.max(updated[s] || 0, Number(event.step_progress));
                   }
                   return updated;
                 });

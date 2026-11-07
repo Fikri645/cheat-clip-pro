@@ -459,6 +459,7 @@ async def analyze_video(request: AnalyzeRequest):
                     loop.call_soon_threadsafe(progress_queue.put_nowait, {
                         "step": 3,
                         "step_progress": step_pct,
+                        "progress_is_actual": True,
                         "overall_progress": min(68, 50 + int(step_pct * 0.2)),
                         "stage": stage,
                         "detail": detail,
@@ -830,6 +831,7 @@ async def analyze_video(request: AnalyzeRequest):
                                 loop.call_soon_threadsafe(whisper_trans_queue.put_nowait, {
                                     "step": 3,
                                     "step_progress": step_pct,
+                                    "progress_is_actual": True,
                                     "overall_progress": min(68, 58 + int(step_pct * 0.12)),
                                     "stage": stage,
                                     "detail": detail,

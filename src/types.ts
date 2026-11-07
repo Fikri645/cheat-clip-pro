@@ -193,6 +193,7 @@ export interface UploadVideoResponse {
 }
 
 export interface AnalysisProgressEvent {
+  progress_is_actual?:boolean;
   error?:string; done?:boolean; result?:AnalyzeResponse; step?:number; step_progress?:number;
   overall_progress?:number; stage?:string; detail?:string; model?:string; message?:string;
 }

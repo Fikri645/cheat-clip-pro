@@ -1,0 +1,5 @@
+# Optional NVIDIA CUDA build for the existing Python backend environment.
+# Install backend/requirements.txt first, then this file. CUDA runtime is bundled;
+# the installed NVIDIA display driver must support CUDA 12.8.
+--index-url https://download.pytorch.org/whl/cu128
+torch==2.11.0+cu128

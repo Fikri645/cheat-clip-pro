@@ -236,3 +236,14 @@ Optional server defaults can be configured as `GEMINI_API_KEY` or `OPENROUTER_AP
 - The Windows development launcher isolates API reloads so a Python change does not send a console interrupt to the frontend. Durable jobs recover after the API restarts.
 
 Frontend responsibilities are separated into `components/app` (AI settings, upload, history, source player), `components/studio` (preferences, queue, errors), and hooks for render ownership and project persistence.
+
+### NVIDIA GPU transcription
+
+For a compatible NVIDIA GPU, stop the backend and install the optional CUDA build in its Python environment:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install --no-cache-dir -r backend/requirements-gpu.txt
+.\.venv\Scripts\python.exe -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0))"
+```
+
+Restart the backend afterwards. Whisper automatically selects CUDA when available and uses FP16 on the GPU; CPU uses FP32. `WHISPER_DEVICE=cpu` explicitly selects CPU, and `WHISPER_DEVICE=cuda` requires CUDA instead of silently switching to a smaller CPU model. The configured Whisper model remains unchanged. Logs and live transcription progress identify the active device. Full transcripts are cached by source content, language and model so another analysis can reuse completed transcription.

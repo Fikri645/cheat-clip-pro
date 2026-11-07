@@ -1,3 +1,4 @@
+from backend.whisper_runtime import use_fp16, transcription_progress
 import os
 import sys
 import re
@@ -295,14 +296,20 @@ def get_whisper_model():
         if _WHISPER_MODEL is None:
             try:
                 import whisper
+                import torch
+                from backend.whisper_runtime import select_device
+                device = select_device(torch)
                 # Prefer 'small' model (better vocabulary & multi-lingual accuracy, esp. Indonesian speech)
                 # Falls back to 'base' if 'small' cannot be loaded
                 try:
                     logger.info("Loading Whisper 'small' model for high-accuracy word-level timestamps...")
-                    _WHISPER_MODEL = whisper.load_model(os.environ.get("WHISPER_MODEL", "small"))
+                    _WHISPER_MODEL = whisper.load_model(os.environ.get("WHISPER_MODEL", "small"), device=device)
+                    logger.info("Whisper ready: model=%s device=%s precision=%s", os.environ.get("WHISPER_MODEL", "small"), _WHISPER_MODEL.device, "FP16" if device.startswith("cuda") else "FP32")
                 except Exception as e_small:
+                    if device.startswith("cuda"):
+                        raise
                     logger.warning(f"Could not load Whisper 'small' model ({e_small}). Falling back to 'base'...")
-                    _WHISPER_MODEL = whisper.load_model("base")
+                    _WHISPER_MODEL = whisper.load_model("base", device=device)
             except Exception as e:
                 logger.warning(f"Could not load Whisper model: {e}")
                 _WHISPER_MODEL = False
@@ -722,7 +729,20 @@ def compute_audio_energy_heatmap(file_path: Union[str, Path], duration: float, n
 
 
 @protect_media
-def transcribe_local_video_file(
+def transcribe_local_video_file(file_path, progress_callback=None, target_language=None):
+    from backend.services.render_cache import cached, source_identity
+    computed = False
+    def compute():
+        nonlocal computed
+        computed = True
+        return _transcribe_local_video_file(file_path, progress_callback, target_language)
+    result = cached("full-transcript-v1", [source_identity(file_path), os.environ.get("WHISPER_MODEL", "small"), target_language], compute)
+    if not computed and progress_callback:
+        progress_callback("Transcript loaded from cache", f"Reused {len(result)} saved dialogue segments.", 100)
+    return result
+
+
+def _transcribe_local_video_file(
     file_path: Union[str, Path],
     progress_callback=None,
     target_language: Optional[str] = None
@@ -745,7 +765,7 @@ def transcribe_local_video_file(
         )
 
     if progress_callback:
-        progress_callback("Running Whisper AI", f"Extracting dialogue from {p.name} with Whisper...", 30)
+        progress_callback("Whisper GPU transcription" if use_fp16(whisper_model) else "Whisper CPU transcription", f"Extracting dialogue from {p.name} with Whisper on {whisper_model.device}...", 0)
 
     logger.info(f"Transcribing local file with Whisper: {p} (target_language={target_language})")
     whisper_prompt = (
@@ -755,7 +775,7 @@ def transcribe_local_video_file(
     )
     transcribe_kwargs: Dict[str, Any] = {
         "word_timestamps": False,  # Dialogue segment detection does not need word timestamps; avoids find_alignment DTW tensor shape mismatch
-        "fp16": False,
+        "fp16": use_fp16(whisper_model),
         "verbose": False,
         "condition_on_previous_text": False,
         "initial_prompt": whisper_prompt,
@@ -764,7 +784,7 @@ def transcribe_local_video_file(
         transcribe_kwargs["language"] = target_language
 
     result = None
-    with _WHISPER_LOCK:
+    with _WHISPER_LOCK, transcription_progress(whisper_model, progress_callback):
         try:
             result = whisper_model.transcribe(str(p), **transcribe_kwargs)
         except RuntimeError as e:
@@ -773,7 +793,7 @@ def transcribe_local_video_file(
                 logger.warning(f"Whisper attention tensor mismatch ({e}), retrying without prompt/condition...")
                 minimal_kwargs: Dict[str, Any] = {
                     "word_timestamps": False,
-                    "fp16": False,
+                    "fp16": use_fp16(whisper_model),
                     "verbose": False,
                     "condition_on_previous_text": False,
                 }
@@ -803,6 +823,8 @@ def transcribe_local_video_file(
         })
 
     logger.info(f"Whisper transcribed {len(transcript_lines)} dialogue segments from {p.name}")
+    if progress_callback:
+        progress_callback("Whisper transcription complete", f"Transcribed {len(transcript_lines)} dialogue segments.", 100)
     return transcript_lines
 
 
@@ -1354,7 +1376,7 @@ def _transcribe_clip_words_uncached(
 
             transcribe_kwargs: Dict[str, Any] = {
                 "word_timestamps": True,
-                "fp16": False,
+                "fp16": use_fp16(whisper_model),
                 "verbose": False,
                 "condition_on_previous_text": False,  # Prevents repetition loops and hallucinations across silence
                 "hallucination_silence_threshold": 1.5,
