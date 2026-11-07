@@ -62,6 +62,26 @@ def test_audio_metadata_reused_but_cookie_changes_refresh_it(tmp_path,monkeypatc
     assert not cookies.exists()
 
 
+def test_existing_render_preparation_reused_without_retranscribing(tmp_path,monkeypatch):
+    import backend.config as config
+    import backend.services.subtitle_words as service
+    from backend.services.render_cache import source_identity,word_cache
+    from backend.utils.text import detect_transcript_language
+    monkeypatch.setenv("RENDER_CACHE_DIR",str(tmp_path/"cache"))
+    monkeypatch.setattr(config,"TEMP_DIR",tmp_path)
+    monkeypatch.setattr(config,"EXPORTS_DIR",tmp_path)
+    monkeypatch.setattr(service,"local_source",lambda req:None)
+    monkeypatch.setattr(service,"extract_audio",lambda *args:pytest.fail("Existing original words must bypass downloads and Whisper"))
+    source=tmp_path/"source_123_abcdefghijk_clip_12_15_123_raw.mp4";source.write_bytes(b"raw video")
+    payload=request();language=detect_transcript_language(payload.transcript).get("code")
+    if language not in {"id","en"}:language=None
+    original=[{"word":"Original","start":.1,"end":1}]
+    word_cache(source_identity(source),payload.start_time,payload.end_time,payload.transcript,language,lambda:original)
+    assert prepare_subtitle_words(payload.model_dump(),"e"*32)["words"]==original
+    source.unlink()
+    assert prepare_subtitle_words(payload.model_dump(),"f"*32)["words"]==original
+
+
 def test_audio_slice_uses_fractional_seek_and_never_video_encoding(tmp_path,monkeypatch):
     import backend.services.subtitle_words as service
     output=tmp_path/"clip.wav";commands=[]

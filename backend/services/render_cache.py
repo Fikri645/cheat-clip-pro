@@ -26,10 +26,26 @@ def source_identity(source):
     return str(source)
 
 
+def cache_key(kind, identity):
+    return hashlib.sha256(json.dumps([kind, identity], sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+
+
+def read_cached(kind, identity):
+    root = Path(os.environ.get("RENDER_CACHE_DIR", Path(__file__).resolve().parents[1] / "data" / "render_cache"))
+    database = root / "cache.sqlite3"
+    if not database.is_file():
+        return None
+    with sqlite3.connect(database, timeout=30) as db:
+        if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='artifacts'").fetchone():
+            return None
+        row = db.execute("SELECT value FROM artifacts WHERE key=?", (cache_key(kind, identity),)).fetchone()
+    return json.loads(row[0]) if row else None
+
+
 def cached(kind, identity, compute):
     root = Path(os.environ.get("RENDER_CACHE_DIR", Path(__file__).resolve().parents[1] / "data" / "render_cache"))
     root.mkdir(parents=True, exist_ok=True)
-    key = hashlib.sha256(json.dumps([kind, identity], sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    key = cache_key(kind, identity)
     # The per-key lock also deduplicates simultaneous API/worker requests.
     with FileLock(str(root / (key + ".lock"))):
         with sqlite3.connect(root / "cache.sqlite3", timeout=30) as db:
@@ -45,5 +61,9 @@ def cached(kind, identity, compute):
         return value
 
 
+def word_identity(identity, start, end, transcript, language):
+    return [identity, start, end, transcript or [], language, os.environ.get("WHISPER_MODEL", "small")]
+
+
 def word_cache(identity, start, end, transcript, language, compute):
-    return cached("words-v1", [identity, start, end, transcript or [], language, os.environ.get("WHISPER_MODEL", "small")], compute)
+    return cached("words-v1", word_identity(identity, start, end, transcript, language), compute)

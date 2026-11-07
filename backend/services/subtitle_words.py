@@ -10,7 +10,7 @@ from urllib.parse import unquote, urlsplit
 from fastapi import HTTPException
 from pydantic import BaseModel, Field, model_validator
 
-from backend.services.render_cache import source_identity, word_cache
+from backend.services.render_cache import read_cached, source_identity, word_cache, word_identity
 
 
 class SubtitleWordsRequest(BaseModel):
@@ -127,6 +127,24 @@ def extract_audio(request, source, output, cookie_path):
     raise HTTPException(502, "Could not read audio for this clip. Try loading it again.")
 
 
+def previous_words(request, source, language):
+    from backend.config import EXPORTS_DIR
+    candidates = [source] if source else []
+    if re.fullmatch(r"[A-Za-z0-9_-]{11}", request.video_id):
+        candidates += list(EXPORTS_DIR.glob(f"source_*_{request.video_id}_clip_{int(request.start_time)}_{int(request.end_time)}_*_raw.mp4"))
+    for candidate in candidates:
+        try:
+            # The filename only narrows candidates. An exact cache-key match
+            # proves the content, fractional range, transcript and model match.
+            identity = word_identity(source_identity(candidate), request.start_time, request.end_time, request.transcript, language)
+            words = read_cached("words-v1", identity)
+            if words is not None:
+                return words
+        except FileNotFoundError:
+            continue  # Cleanup may have removed an old raw clip.
+    return None
+
+
 def prepare_subtitle_words(payload, task_id):
     from backend.config import TEMP_DIR
     from backend.media_lifecycle import media_lease
@@ -143,8 +161,10 @@ def prepare_subtitle_words(payload, task_id):
     def compute():
         with media_lease(source, output, cookie_path):
             try:
-                extract_audio(request, source, output, cookie_path)
-                original = _transcribe_clip_words_uncached(str(output), request.transcript, request.start_time, request.end_time, language)
+                original = previous_words(request, source, language)
+                if original is None:
+                    extract_audio(request, source, output, cookie_path)
+                    original = _transcribe_clip_words_uncached(str(output), request.transcript, request.start_time, request.end_time, language)
                 words = []
                 end = 0.0
                 for item in original:
