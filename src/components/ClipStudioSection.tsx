@@ -4540,7 +4540,9 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
         </div>
       </div>
 
-      {currentPreviewClip && <SubtitleEditor key={`${currentPreviewClip.start_time}:${currentPreviewClip.end_time}`} result={analysis} clip={currentPreviewClip} onApply={words=>onApplyCaptions(currentPreviewClip,words)}/>}
+      {currentPreviewClip && <SubtitleEditor result={analysis} clip={currentPreviewClip} selectedClips={selectedClips}
+        onSelectClip={clip=>setPreviewClipIndex(allClips.findIndex(item=>item.start_time===clip.start_time && item.end_time===clip.end_time))}
+        onApply={onApplyCaptions}/>}
       {batchProgress && ['running','cancelling'].includes(batchProgress.overall_status) && <div className="project-actions"><button type="button" disabled={batchProgress.overall_status==='cancelling'} onClick={onCancelRender}>{batchProgress.overall_status==='cancelling'?'Cancelling…':'Cancel render'}</button></div>}
       {/* Bottom Sticky Action Footer */}
       <div className="studio-bottom-action-bar">
