@@ -4347,6 +4347,7 @@ Transcript:
         {/* YouTube Cookies Modal */}
         <CookiesModal
           isOpen={isCookiesModalOpen}
+          onSaved={() => setToastMessage(t.cookies.saveSuccess)}
           onClose={() => {
             setIsCookiesModalOpen(false);
             setHasCookies(hasStoredCookies());

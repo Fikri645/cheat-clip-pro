@@ -139,6 +139,7 @@
 
 .statusInfo {
   flex: 1;
+  min-width: 0;
 }
 
 .statusInfo strong {
@@ -503,3 +504,15 @@
 .autoZen p,.autoZen label {font-size:.8rem;line-height:1.5;margin:0;color:var(--text-secondary)}
 .autoZen select {width:100%;padding:.6rem;background:var(--bg-primary,#101018);color:var(--text-primary);border:1px solid var(--primary);font:inherit}
 .autoZen .autoZenError {color:var(--status-error)}
+
+@media (max-width: 600px) {
+  .statusBox {
+    flex-wrap: wrap;
+  }
+
+  .statusBox .btnDangerOutline {
+    flex-basis: 100%;
+    white-space: normal;
+    justify-content: center;
+  }
+}

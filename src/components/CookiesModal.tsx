@@ -20,6 +20,7 @@ import {disableZenCookies} from '../utils/cookieUtils';
 interface CookiesModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSaved?: () => void;
   onCookieStatusChange?: (hasCookies: boolean) => void;
 }
 
@@ -29,6 +30,7 @@ export const CookiesModal: React.FC<CookiesModalProps> = (props) => {
 
 const CookiesEditor: React.FC<CookiesModalProps> = ({
   onClose,
+  onSaved,
   onCookieStatusChange,
 }) => {
   const { t } = useLanguage();
@@ -132,7 +134,8 @@ const CookiesEditor: React.FC<CookiesModalProps> = ({
       if(normalized !== normalizeCookies(getStoredCookies()))disableZenCookies();
       setStoredCookies(normalized);
       loadStatus();
-      setMessage({ text: t.cookies.saveSuccess, type: 'success' });
+      onSaved?.();
+      onClose();
     } catch (err) {
       setMessage({ text: getErrorMessage(err) || t.cookies.saveFailed, type: 'error' });
     } finally {
@@ -246,12 +249,6 @@ const CookiesEditor: React.FC<CookiesModalProps> = ({
             <span>{t.cookies.clearCookiesNotice}</span>
           </div>
 
-          {message && (
-            <div className={`${styles.alertBox} ${message.type === 'success' ? styles.alertSuccess : message.type === 'error' ? styles.alertError : styles.alertInfo}`}>
-              {message.text}
-            </div>
-          )}
-
           <ZenCookiesImport onImported={loadStatus}/>
 
           {/* Input & Upload */}
@@ -311,6 +308,11 @@ const CookiesEditor: React.FC<CookiesModalProps> = ({
         </div>
 
         {/* Footer */}
+        {message && (
+          <div role={message.type === 'error' ? 'alert' : 'status'} className={`${styles.alertBox} ${message.type === 'success' ? styles.alertSuccess : message.type === 'error' ? styles.alertError : styles.alertInfo}`}>
+            {message.text}
+          </div>
+        )}
         <div className={styles.footer}>
           <button className={styles.btnCancel} onClick={onClose}>
             {t.cookies.closeBtn}
