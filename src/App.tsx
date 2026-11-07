@@ -20,7 +20,7 @@ import { analysisCacheKey,analysisTimestampKey,type AnalysisCacheContext } from 
 import { readAnalysisHistory,type HistoryEntry } from './utils/analysisHistory';
 import { resilientFetch } from './utils/api';
 import { extractAudioFromVideoClient } from './utils/audioExtractor';
-import { getStoredCookies,hasStoredCookies } from './utils/cookieUtils';
+import { getStoredCookies,getCookiesForRequest,hasStoredCookies } from './utils/cookieUtils';
 import { errorName,getErrorMessage } from './utils/errors';
 
 import {
@@ -1244,7 +1244,7 @@ export default function App() {
     let resultData: AnalyzeResponse | null = null;
 
     try {
-      const userCookies = getStoredCookies();
+      const userCookies = isCurrentVideoYouTube() ? await getCookiesForRequest() : getStoredCookies();
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1542,7 +1542,7 @@ export default function App() {
     setToastMessage(t.rawDownload.initiatingToast);
 
     try {
-      const userCookies = getStoredCookies();
+      const userCookies = isCurrentVideoYouTube() ? await getCookiesForRequest() : getStoredCookies();
       const res = await fetch("/api/download-raw-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1722,7 +1722,7 @@ export default function App() {
         : (url.trim() ? url.trim() : `https://www.youtube.com/watch?v=${result.video_id}`);
 
     try {
-      const userCookies = getStoredCookies();
+      const userCookies = isCurrentVideoYouTube() ? await getCookiesForRequest() : getStoredCookies();
       const res = await fetch("/api/download-raw-clip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

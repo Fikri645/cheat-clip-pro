@@ -2,7 +2,7 @@ import { useCallback,useEffect,useRef,useState } from 'react';
 import { renderClientBatch } from '../services/clientBatch';
 import { getRender,restoreRender } from '../services/workspaceStore';
 import type { AnalyzeResponse,BatchRenderProgress,RenderSettings } from '../types';
-import { getStoredCookies,hasStoredCookies } from '../utils/cookieUtils';
+import { getStoredCookies,getCookiesForRequest,hasStoredCookies } from '../utils/cookieUtils';
 import { isMobileDevice,releaseWakeLock,requestWakeLock } from '../utils/deviceUtils';
 import { getErrorMessage } from '../utils/errors';
 interface QueueOptions { result:AnalyzeResponse|null; url:string; sourceMode:'youtube'|'upload'|'gdrive'; uploadedVideoFile:File|null; loading:boolean; onCookieWarning:(proceed:()=>void)=>void }
@@ -149,7 +149,7 @@ export function useRenderQueue({result,url,sourceMode,uploadedVideoFile,loading,
     }
 
     try {
-      const userCookies = getStoredCookies();
+      const userCookies = isCurrentVideoYouTube() ? await getCookiesForRequest() : getStoredCookies();
       const resp = await fetch('/api/render-batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -294,7 +294,7 @@ export function useRenderQueue({result,url,sourceMode,uploadedVideoFile,loading,
         };
       });
 
-      const userCookies = getStoredCookies();
+      const userCookies = isCurrentVideoYouTube() ? await getCookiesForRequest() : getStoredCookies();
       const resp = await fetch(`/api/render-batch/${batchId}/retry`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -1,5 +1,5 @@
 import type { AnalyzeResponse,ViralClip } from '../types';
-import { getStoredCookies } from '../utils/cookieUtils';
+import { getCookiesForRequest } from '../utils/cookieUtils';
 
 export async function acquireClipSource(result:AnalyzeResponse, clip:ViralClip, fileUrl?:string, signal?:AbortSignal) {
   signal?.throwIfAborted();
@@ -9,7 +9,7 @@ export async function acquireClipSource(result:AnalyzeResponse, clip:ViralClip, 
   // also stop the corresponding server download, including a slow-starting one.
   const response=await fetch('/api/download-raw-clip',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
     video_url:`https://www.youtube.com/watch?v=${result.video_id}`, video_id:result.video_id,
-    start_time:clip.start_time,end_time:clip.end_time,title:clip.title,cookies:getStoredCookies() || undefined,
+    start_time:clip.start_time,end_time:clip.end_time,title:clip.title,cookies:(await getCookiesForRequest(signal)) || undefined,
   })});
   const job=await response.json();if(!response.ok)throw new Error(job.detail || 'Could not acquire source clip');
   const cancel=()=>{void fetch(`/api/download-raw-clip/${job.job_id}/cancel`,{method:'POST'});};

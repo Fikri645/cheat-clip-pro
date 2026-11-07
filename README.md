@@ -247,3 +247,10 @@ For a compatible NVIDIA GPU, stop the backend and install the optional CUDA buil
 ```
 
 Restart the backend afterwards. Whisper automatically selects CUDA when available and uses FP16 on the GPU; CPU uses FP32. `WHISPER_DEVICE=cpu` explicitly selects CPU, and `WHISPER_DEVICE=cuda` requires CUDA instead of silently switching to a smaller CPU model. The configured Whisper model remains unchanged. Logs and live transcription progress identify the active device. Full transcripts are cached by source content, language and model so another analysis can reuse completed transcription.
+
+
+### Automatic YouTube cookies from Zen
+
+On the computer running the backend, sign in to YouTube in Zen. In the app, open **Cookies**, choose a profile under **Automatic cookies from Zen**, then click **Connect Zen**. YouTube cookies are refreshed from that profile before analysis and downloads. No repeated file export is needed. **Turn off automatic refresh** keeps the current imported cookies for manual use; **Clear Stored Cookies** removes the imported cookies and disables automatic refresh. Manual file import/paste remains available.
+
+Only cookies for `youtube.com` and its subdomains are returned. The local import endpoints refuse remote clients and foreign browser origins, return `Cache-Control: no-store`, and do not persist cookie exports on the backend. The Zen profile must be on the backend's own computer; remote deployments cannot read your local browser profile.

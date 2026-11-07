@@ -497,3 +497,9 @@
 .confirmPurgeBtn:hover:not(:disabled) {
   filter: brightness(1.15);
 }
+
+.autoZen {padding:1rem;margin-bottom:1rem;border:1px solid var(--primary);background:rgba(0,229,255,.04);display:grid;gap:.7rem}
+.autoZen h3 {font-size:.95rem;margin:0;color:var(--text-primary)}
+.autoZen p,.autoZen label {font-size:.8rem;line-height:1.5;margin:0;color:var(--text-secondary)}
+.autoZen select {width:100%;padding:.6rem;background:var(--bg-primary,#101018);color:var(--text-primary);border:1px solid var(--primary);font:inherit}
+.autoZen .autoZenError {color:var(--status-error)}

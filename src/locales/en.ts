@@ -250,6 +250,18 @@ export const en = {
     connecting: "Connecting...",
   },
   cookies: {
+    autoZenTitle: "Automatic cookies from Zen",
+    autoZenDescription: "Choose the Zen profile where you are signed in to YouTube. Cookies refresh automatically before each download.",
+    autoZenProfile: "Zen profile",
+    autoZenConnect: "Connect Zen",
+    autoZenRefresh: "Refresh from Zen",
+    autoZenLoading: "Reading Zen…",
+    autoZenEnabled: "Automatic refresh is enabled.",
+    autoZenDisable: "Turn off automatic refresh",
+    autoZenReload: "Refresh profiles",
+    autoZenNoProfiles: "No Zen profiles found. Open Zen on this computer first.",
+    autoZenConnected: "Connected to Zen. YouTube cookies will refresh automatically.",
+
     modalTitle: "YouTube Cookies Manager",
     statusActive: "[*] Active",
     statusInactive: "[o] Not Set",

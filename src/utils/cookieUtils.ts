@@ -348,6 +348,7 @@ export function setStoredCookies(content: string): boolean {
  */
 export function removeStoredCookies(): void {
   try {
+    localStorage.removeItem(ZEN_PROFILE_KEY);
     localStorage.removeItem(COOKIES_STORAGE_KEY);
     localStorage.removeItem(LEGACY_STORAGE_KEY);
     if (typeof window !== 'undefined') {
@@ -382,4 +383,46 @@ export function getStoredCookiesCount(): number {
 export function getStoredCookiesSize(): number {
   const c = getStoredCookies();
   return c ? new Blob([c]).size : 0;
+}
+
+
+const ZEN_PROFILE_KEY = 'cheatclip_zen_cookies_profile';
+export function getZenCookieProfile():string { return localStorage.getItem(ZEN_PROFILE_KEY) || ''; }
+export function disableZenCookies():void {
+  localStorage.removeItem(ZEN_PROFILE_KEY);
+  window.dispatchEvent(new CustomEvent('cheatclip_cookies_updated'));
+}
+let zenRefresh: {profile:string;pending:Promise<string>} | undefined;
+export async function refreshZenCookies(profile:string,signal?:AbortSignal):Promise<string> {
+  const response=await fetch('/api/cookies/zen/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile_id:profile}),signal});
+  const data=await response.json();
+  if(!response.ok)throw new Error(data.detail || 'Could not read YouTube cookies from Zen.');
+  const normalized=normalizeCookies(data.cookies_content || '');
+  if(!hasValidCookieLines(normalized))throw new Error('No valid YouTube cookies found in Zen.');
+  return normalized;
+}
+export async function enableZenCookies(profile:string):Promise<void> {
+  const content=await refreshZenCookies(profile);
+  const previous=getZenCookieProfile();
+  localStorage.setItem(ZEN_PROFILE_KEY,profile);
+  try {setStoredCookies(content);}catch(error){
+    if(previous)localStorage.setItem(ZEN_PROFILE_KEY,previous);else localStorage.removeItem(ZEN_PROFILE_KEY);
+    throw error;
+  }
+}
+export async function getCookiesForRequest(signal?:AbortSignal):Promise<string> {
+  const profile=getZenCookieProfile();
+  if(!profile)return getStoredCookies();
+  if(!zenRefresh || zenRefresh.profile!==profile){
+    const pending=refreshZenCookies(profile).then(content=>{
+      if(getZenCookieProfile()===profile)setStoredCookies(content);
+      return content;
+    });
+    zenRefresh={profile,pending};
+    void pending.finally(()=>{if(zenRefresh?.pending===pending)zenRefresh=undefined;}).catch(()=>{});
+  }
+  signal?.throwIfAborted();
+  const content=await zenRefresh.pending;
+  signal?.throwIfAborted();
+  return content;
 }

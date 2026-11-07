@@ -14,6 +14,8 @@ import {
   hasValidCookieLines,
 } from '../utils/cookieUtils';
 import styles from './CookiesModal.module.css';
+import {ZenCookiesImport} from './ZenCookiesImport';
+import {disableZenCookies} from '../utils/cookieUtils';
 
 interface CookiesModalProps {
   isOpen: boolean;
@@ -85,6 +87,7 @@ const CookiesEditor: React.FC<CookiesModalProps> = ({
         // Auto-save and activate the cookies immediately upon uploading/dropping file!
         const normalized = normalizeCookies(content);
         if (hasValidCookieLines(normalized)) {
+          disableZenCookies();
           setStoredCookies(normalized);
           loadStatus();
           const validNum = countValidCookies(normalized);
@@ -126,6 +129,7 @@ const CookiesEditor: React.FC<CookiesModalProps> = ({
         return;
       }
 
+      if(normalized !== normalizeCookies(getStoredCookies()))disableZenCookies();
       setStoredCookies(normalized);
       loadStatus();
       setMessage({ text: t.cookies.saveSuccess, type: 'success' });
@@ -247,6 +251,8 @@ const CookiesEditor: React.FC<CookiesModalProps> = ({
               {message.text}
             </div>
           )}
+
+          <ZenCookiesImport onImported={loadStatus}/>
 
           {/* Input & Upload */}
           <div className={styles.bodySection}>

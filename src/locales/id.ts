@@ -253,6 +253,18 @@ export const id: Translations = {
     connecting: "Menghubungkan...",
   },
   cookies: {
+    autoZenTitle: "Cookie otomatis dari Zen",
+    autoZenDescription: "Pilih profil Zen yang sudah login YouTube. Cookie diperbarui otomatis sebelum setiap unduhan.",
+    autoZenProfile: "Profil Zen",
+    autoZenConnect: "Hubungkan Zen",
+    autoZenRefresh: "Ambil ulang dari Zen",
+    autoZenLoading: "Membaca Zen…",
+    autoZenEnabled: "Pembaruan otomatis aktif.",
+    autoZenDisable: "Matikan pembaruan otomatis",
+    autoZenReload: "Muat ulang profil",
+    autoZenNoProfiles: "Profil Zen belum ditemukan. Buka Zen di komputer ini terlebih dahulu.",
+    autoZenConnected: "Terhubung ke Zen. Cookie YouTube akan diperbarui otomatis.",
+
     modalTitle: "Manajer Cookie YouTube",
     statusActive: "[*] Aktif",
     statusInactive: "[o] Belum Diatur",
