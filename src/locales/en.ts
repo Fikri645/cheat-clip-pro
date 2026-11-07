@@ -338,6 +338,7 @@ export const en = {
     hardwareEncodingHint: "FastAPI & FFmpeg hardware encoding in progress. You can keep this open or minimize.",
   },
   studio: {
+    subtitlesAppliedToast: (count: number) => `Subtitles applied to ${count} clip${count !== 1 ? 's' : ''}. Ready for export.`,
     backToClips: 'BACK TO CLIPS',
     heading: "Cheat Clip Auto Clipper",
     subtext: "Real-time video layout framing, dynamic subtitle typography, and batch GPU-accelerated 1080x1920 export",

@@ -341,6 +341,7 @@ export const id: Translations = {
     hardwareEncodingHint: "Hardware encoding FastAPI & FFmpeg sedang berjalan. Anda dapat membiarkan jendela ini terbuka atau diminimalkan.",
   },
   studio: {
+    subtitlesAppliedToast: (count: number) => `Subtitle diterapkan ke ${count} klip. Siap diekspor.`,
     backToClips: 'KEMBALI KE CLIPS',
     heading: "Cheat Clip Auto Clipper",
     subtext: "Tata letak video real-time, tipografi subtitle dinamis, dan ekspor 1080x1920 batch berakselerasi GPU",

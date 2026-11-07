@@ -12,9 +12,10 @@ interface SubtitleEditorProps {
   selectedClips:ViralClip[];
   onSelectClip:(clip:ViralClip)=>void;
   onApply:(clip:ViralClip,words:CaptionWord[])=>void;
+  onApplied?:(count:number)=>void;
 }
 
-export function SubtitleEditor({result,clip,selectedClips,onSelectClip,onApply}:SubtitleEditorProps) {
+export function SubtitleEditor({result,clip,selectedClips,onSelectClip,onApply,onApplied}:SubtitleEditorProps) {
   const [drafts,setDrafts]=useState<Record<string,CaptionWord[]>>({});
   const currentClip=selectedClips.find(item=>clipKey(item)===clipKey(clip)) || selectedClips[0] || clip;
   const wordsFor=(item:ViralClip)=>drafts[clipKey(item)] ?? item.caption_words;
@@ -66,6 +67,7 @@ export function SubtitleEditor({result,clip,selectedClips,onSelectClip,onApply}:
   const apply=(targets:ViralClip[])=>{
     for(const target of targets)onApply(target,(wordsFor(target) ?? []).map(word=>({...word,word:word.word.trim()})));
     setMessage('Subtitles applied to '+targets.length+' clip'+(targets.length===1?'':'s')+' and included in the next export.');
+    onApplied?.(targets.length);
   };
 
   return <section className="project-panel" aria-label="Subtitle editor">
@@ -85,6 +87,7 @@ export function SubtitleEditor({result,clip,selectedClips,onSelectClip,onApply}:
       <button type="button" disabled={busy || !selectedClips.length || missing>0 || !!invalidClip} onClick={()=>apply(selectedClips)}>Apply subtitles — all selected ({selectedClips.length})</button>
       {busy && <button type="button" onClick={()=>abort.current?.abort()}>Cancel loading</button>}
     </div>
+    <p role="status">{message}</p>
     {missing>0 && <p>Load words for {missing} remaining selected clip{missing===1?'':'s'} before applying to all.</p>}
     {invalidClip && <p role="alert">Fix subtitle timings or words in “{invalidClip.title}” before applying to all.</p>}
     <p><strong>{currentClip.title}</strong> · {currentClip.start_time.toFixed(2)}–{currentClip.end_time.toFixed(2)}s</p>
@@ -107,7 +110,6 @@ export function SubtitleEditor({result,clip,selectedClips,onSelectClip,onApply}:
       </div>
     </fieldset>
     {invalid && <p role="alert">{invalid}</p>}
-    <p role="status">{message}</p>
     <button type="button" disabled={busy || !!invalid} onClick={()=>apply([currentClip])}>Apply subtitles</button>
   </section>;
 }

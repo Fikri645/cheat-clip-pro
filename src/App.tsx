@@ -4179,6 +4179,7 @@ Transcript:
               initialDraft={workspace.initialDraft}
               onDraftChange={workspace.onDraftChange}
               analysis={result}
+              onCaptionsApplied={count=>setToastMessage(t.studio.subtitlesAppliedToast(count))}
               onApplyCaptions={(clip,words)=>{
                 setResult(previous=>previous?{...previous,clips:previous.clips.map(item=>item.start_time===clip.start_time && item.end_time===clip.end_time?{...item,caption_words:words}:item)}:previous);
               }}

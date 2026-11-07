@@ -44,6 +44,7 @@ interface ClipStudioSectionProps {
   onBackToClips?: () => void;
   analysis:AnalyzeResponse;
   onApplyCaptions:(clip:ViralClip,words:CaptionWord[])=>void;
+  onCaptionsApplied?:(count:number)=>void;
   initialDraft?:StudioDraft;
   onDraftChange?:(draft:StudioDraft)=>void;
   onCancelRender?:()=>void;
@@ -64,7 +65,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
   onRetryClip,
   allowAppUpdates = false,
   onOpenCookiesModal,
-  analysis,onApplyCaptions,onBackToClips, initialDraft, onDraftChange, onCancelRender,
+  analysis,onApplyCaptions,onCaptionsApplied,onBackToClips, initialDraft, onDraftChange, onCancelRender,
 }) => {
   const { t } = useLanguage();
   const isYouTube = !videoId?.startsWith('upload_') && !videoId?.startsWith('gdrive_') && !videoUrl?.includes('/api/video');
@@ -4542,7 +4543,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
 
       {currentPreviewClip && <SubtitleEditor result={analysis} clip={currentPreviewClip} selectedClips={selectedClips}
         onSelectClip={clip=>setPreviewClipIndex(allClips.findIndex(item=>item.start_time===clip.start_time && item.end_time===clip.end_time))}
-        onApply={onApplyCaptions}/>}
+        onApply={onApplyCaptions} onApplied={onCaptionsApplied}/>}
       {batchProgress && ['running','cancelling'].includes(batchProgress.overall_status) && <div className="project-actions"><button type="button" disabled={batchProgress.overall_status==='cancelling'} onClick={onCancelRender}>{batchProgress.overall_status==='cancelling'?'Cancelling…':'Cancel render'}</button></div>}
       {/* Bottom Sticky Action Footer */}
       <div className="studio-bottom-action-bar">
