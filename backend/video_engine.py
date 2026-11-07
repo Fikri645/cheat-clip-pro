@@ -738,7 +738,7 @@ def transcribe_local_video_file(file_path, progress_callback=None, target_langua
         return _transcribe_local_video_file(file_path, progress_callback, target_language)
     result = cached("full-transcript-v1", [source_identity(file_path), os.environ.get("WHISPER_MODEL", "small"), target_language], compute)
     if not computed and progress_callback:
-        progress_callback("Transcript loaded from cache", f"Reused {len(result)} saved dialogue segments.", 100)
+        progress_callback("Running Whisper AI", f"Extracting dialogue from {Path(file_path).name} with Whisper...", 100)
     return result
 
 
@@ -765,7 +765,7 @@ def _transcribe_local_video_file(
         )
 
     if progress_callback:
-        progress_callback("Whisper GPU transcription" if use_fp16(whisper_model) else "Whisper CPU transcription", f"Extracting dialogue from {p.name} with Whisper on {whisper_model.device}...", 0)
+        progress_callback("Running Whisper AI", f"Extracting dialogue from {p.name} with Whisper...", 0)
 
     logger.info(f"Transcribing local file with Whisper: {p} (target_language={target_language})")
     whisper_prompt = (
@@ -784,7 +784,7 @@ def _transcribe_local_video_file(
         transcribe_kwargs["language"] = target_language
 
     result = None
-    with _WHISPER_LOCK, transcription_progress(whisper_model, progress_callback):
+    with _WHISPER_LOCK, transcription_progress(whisper_model, progress_callback, p.name):
         try:
             result = whisper_model.transcribe(str(p), **transcribe_kwargs)
         except RuntimeError as e:
@@ -824,7 +824,7 @@ def _transcribe_local_video_file(
 
     logger.info(f"Whisper transcribed {len(transcript_lines)} dialogue segments from {p.name}")
     if progress_callback:
-        progress_callback("Whisper transcription complete", f"Transcribed {len(transcript_lines)} dialogue segments.", 100)
+        progress_callback("Running Whisper AI", f"Extracting dialogue from {p.name} with Whisper...", 100)
     return transcript_lines
 
 

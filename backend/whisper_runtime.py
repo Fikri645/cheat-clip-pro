@@ -30,14 +30,13 @@ def clock_time(seconds):
 
 
 @contextmanager
-def transcription_progress(model, callback):
+def transcription_progress(model, callback, source_name="audio"):
     """Scope the adapter to Whisper's module while the caller owns its model lock."""
     if not callback:
         yield
         return
     module = importlib.import_module("whisper.transcribe")
     original = module.tqdm
-    device = "GPU" if use_fp16(model) else "CPU"
 
     class Progress(original.tqdm):
         def update(self, count=1):
@@ -45,10 +44,8 @@ def transcription_progress(model, callback):
             total = self.total or 0
             if total:
                 percent = min(99, int(self.n / total * 100))
-                rate = self.format_dict.get("rate")
-                remaining = f" · ~{clock_time((total-self.n)/rate)} remaining" if rate else ""
-                callback(f"Whisper {device} transcription",
-                         f"{device} · {clock_time(self.n/100)} / {clock_time(total/100)} audio · {percent}%{remaining}", percent)
+                callback("Running Whisper AI",
+                         f"Extracting dialogue from {source_name} with Whisper...", percent)
             return result
 
     module.tqdm = SimpleNamespace(tqdm=Progress)

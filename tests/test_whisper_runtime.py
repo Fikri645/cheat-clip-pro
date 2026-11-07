@@ -21,7 +21,7 @@ def test_half_precision_only_on_cuda():
     assert not use_fp16(SimpleNamespace(device=SimpleNamespace(type="cpu")))
 
 
-def test_frame_progress_reports_actual_audio_and_restores_adapter(monkeypatch):
+def test_frame_progress_preserves_original_status_text_and_restores_adapter(monkeypatch):
     import backend.whisper_runtime as runtime
     class Bar:
         def __init__(self, total):
@@ -34,14 +34,14 @@ def test_frame_progress_reports_actual_audio_and_restores_adapter(monkeypatch):
     monkeypatch.setattr(runtime.importlib, "import_module", lambda name: module)
     events = []
     with pytest.raises(ValueError):
-        with transcription_progress(SimpleNamespace(device=SimpleNamespace(type="cuda")), lambda *event: events.append(event)):
+        with transcription_progress(SimpleNamespace(device=SimpleNamespace(type="cuda")), lambda *event: events.append(event), "sample.wav"):
             bar = module.tqdm.tqdm(total=10000)
             bar.update(2500)
             raise ValueError("cancelled")
     assert module.tqdm is original
-    assert events[0][0] == "Whisper GPU transcription"
+    assert events[0][0] == "Running Whisper AI"
     assert events[0][2] == 25
-    assert "0:25 / 1:40" in events[0][1]
+    assert events[0][1] == "Extracting dialogue from sample.wav with Whisper..."
 
 
 def test_full_transcript_reuses_cache_after_restart(tmp_path, monkeypatch):
@@ -59,5 +59,5 @@ def test_full_transcript_reuses_cache_after_restart(tmp_path, monkeypatch):
     second = engine.transcribe_local_video_file(source, lambda *event: events.append(event), "id")
     assert second == first
     assert len(calls) == 1
-    assert events[-1][0] == "Transcript loaded from cache"
+    assert events[-1][0] == "Running Whisper AI"
     assert events[-1][2] == 100
