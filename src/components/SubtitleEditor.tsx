@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {acquireClipSource} from '../services/clipSource';
+import {loadSubtitleWords} from '../services/subtitleWords';
 import type {AnalyzeResponse,CaptionWord,ViralClip} from '../types';
 import {captionValidation} from '../utils/captionWords';
 import {getErrorMessage} from '../utils/errors';
@@ -39,16 +39,12 @@ export function SubtitleEditor({result,clip,selectedClips,onSelectClip,onApply}:
         controller.signal.throwIfAborted();
         setMessage('Loading '+(index+1)+'/'+targets.length+': '+target.title);
         try {
-          const source=await acquireClipSource(result,target,undefined,controller.signal);
-          const response=await fetch('/api/client-render-plan',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,
-            body:JSON.stringify({audio_source:source.url,start_time:target.start_time,audio_start_time:source.start,end_time:target.end_time,
-              transcript:result.transcript || [],caption_style:'clean_minimal',frames:[]})});
-          const data=await response.json();if(!response.ok)throw new Error(data.detail || 'Could not load subtitles');
+          const original=await loadSubtitleWords(result,target,controller.signal);
           controller.signal.throwIfAborted();
           // Timings belong to this clip; keep them ordered and inside its duration.
           let end=0;
           const loaded:CaptionWord[]=[];
-          for(const item of data.words as CaptionWord[]) {
+          for(const item of original) {
             const start=Math.max(end,item.start,0),finish=Math.min(target.end_time-target.start_time,item.end);
             if(finish>start){loaded.push({word:item.word,start,end:finish});end=finish;}
           }

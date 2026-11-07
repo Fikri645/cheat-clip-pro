@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Initialize environment and configuration
 import backend.config
+from backend.routers.subtitles import router as subtitles_router, subtitle_worker
 from backend.config import logger
 from backend.routers import (
     analyze_router,
@@ -84,6 +85,7 @@ async def lifespan(app: FastAPI):
     cleanup_task = asyncio.create_task(background_storage_cleanup_worker())
     logger.info("[Auto-Cleanup] Storage daemon active (Interval: 30m, TTL: 1h, Quota: 5GB).")
     yield
+    await asyncio.to_thread(subtitle_worker.close)
     worker_stop.set()
     await asyncio.to_thread(worker.join, 5)
     if worker.is_alive():
@@ -154,6 +156,7 @@ async def sanitized_exception_handler(request: Request, exc: Exception):
 # Include Modular Routers
 from backend.routers.client_render import router as client_render_router
 app.include_router(client_render_router)
+app.include_router(subtitles_router)
 app.include_router(analyze_router)
 app.include_router(render_router)
 app.include_router(media_router)
