@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # Initialize environment and configuration
 import backend.config
 from backend.routers.subtitles import router as subtitles_router, subtitle_worker
+from backend.routers.recommendations import router as recommendations_router
 from backend.config import logger
 from backend.routers import (
     analyze_router,
@@ -157,6 +158,7 @@ async def sanitized_exception_handler(request: Request, exc: Exception):
 from backend.routers.client_render import router as client_render_router
 app.include_router(client_render_router)
 app.include_router(subtitles_router)
+app.include_router(recommendations_router)
 app.include_router(analyze_router)
 app.include_router(render_router)
 app.include_router(media_router)

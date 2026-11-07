@@ -13,6 +13,9 @@ import { ProjectLibrary } from './components/ProjectLibrary';
 import { RenderRecovery } from './components/RenderRecovery';
 import { useProjectWorkspace } from './hooks/useProjectWorkspace';
 import { useRenderQueue } from './hooks/useRenderQueue';
+import { useReanalysis } from './hooks/useReanalysis';
+import { ReanalysisPanel } from './components/app/ReanalysisPanel';
+import { appendRecommendations } from './utils/recommendations';
 import './project.css';
 import { renderClipClientSide,triggerBrowserDownload } from './services/clientRenderer';
 import { getRender,restoreRender,type SavedProject } from './services/workspaceStore';
@@ -2167,6 +2170,10 @@ Transcript:
     else setBatchProgress(null);
   },[setBatchProgress]);
   const workspace=useProjectWorkspace({result,marked:markedClips,file:uploadedVideoFile,batch:batchProgress,onOpen:openProject});
+  const reanalysis=useReanalysis(result,{api_provider:apiProvider,api_key:apiProvider==='gemini'?apiKey.trim():undefined,
+    openrouter_key:apiProvider==='openrouter'?openRouterKey.trim():undefined,model:apiProvider==='gemini'?selectedModel:openRouterModel,
+    duration:durationPref,target_clip_count:clipCountMode==='auto'?10:Math.max(1,Math.min(50,targetClipCount)),custom_prompt:customPrompt.trim()},
+    incoming=>setResult(previous=>previous?appendRecommendations(previous,incoming):previous));
 
   return (
     <>
@@ -3656,6 +3663,7 @@ Transcript:
             {/* Dashboard Grid for Active Video */}
             {result && (
               <>
+                <ReanalysisPanel t={t} job={reanalysis} hasTranscript={!!result.transcript?.length} hasKey={!!(apiProvider==='gemini'?apiKey.trim():openRouterKey.trim())}/>
                 <main className="dashboard-grid">
 <SourcePlayerPanel leftPanelRef={leftPanelRef} result={result} directVideoPlayerRef={directVideoPlayerRef} setCurrentTime={setCurrentTime} startTracking={startTracking} stopTracking={stopTracking} subtitlesSource={subtitlesSource} currentSubtitle={currentSubtitle} handleRefreshPlayer={handleRefreshPlayer} t={t} handleDownloadRawVideo={handleDownloadRawVideo} isDownloadingRaw={isDownloadingRaw} rawDownloadProgress={rawDownloadProgress} currentTime={currentTime} handleSeek={handleSeek} activeClip={activeClip} extractHashtagsAndText={extractHashtagsAndText} toggleTimestampMenu={toggleTimestampMenu} copyTimestampMenuTarget={copyTimestampMenuTarget} renderTimestampFormatMenu={renderTimestampFormatMenu} markedClips={markedClips} setActiveClip={setActiveClip} toggleMarkedClip={toggleMarkedClip} handleCopyTimestamp={handleCopyTimestamp} formatSeconds={formatSeconds}/>                  {/* Right panel: Suggested Clips scrollable list */}
                   <div

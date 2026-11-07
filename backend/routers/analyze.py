@@ -55,6 +55,7 @@ from backend.services.youtube_service import (
 from backend.utils.heatmap import get_average_heatmap_value
 from backend.utils.proxy import get_proxy_url
 from backend.utils.sse import _sse
+from backend.services.conversation_context import CONVERSATION_INSTRUCTION, conversation_metadata, format_dialogue_line
 from backend.utils.text import (
     detect_transcript_language,
     validate_transcript_language,
@@ -958,7 +959,8 @@ async def analyze_video(request: AnalyzeRequest):
                 "start":      round(ls, 2),
                 "end":        round(le, 2),
                 "text":       line.get("text", ""),
-                "engagement": round(score, 3)
+                "engagement": round(score, 3),
+                **conversation_metadata(line)
             })
 
         # ── Mock short-circuit ───────────────────────────────────────────────
@@ -1107,7 +1109,7 @@ async def analyze_video(request: AnalyzeRequest):
         transcript_dump = []
         for line in enriched_transcript:
             eng = f"|{line['engagement']:.2f}" if heatmap and line['engagement'] > 0 else ""
-            transcript_dump.append(f"{line['start']:.1f}|{line['end']:.1f}{eng} {line['text']}")
+            transcript_dump.append(format_dialogue_line(line) + (f" [interest={line['engagement']:.2f}]" if eng else ""))
 
         MAX_LINES = 3500 if is_long_video else 2000
         if len(transcript_dump) > MAX_LINES:
@@ -1192,6 +1194,7 @@ async def analyze_video(request: AnalyzeRequest):
             f"{duration_instruction}\n\n"
             f"{clip_count_instruction}\n\n"
             f"{focus_instruction}"
+            f"{CONVERSATION_INSTRUCTION}\n"
             f"CRITICAL TITLE & ATTRIBUTION RULES (NO FIRST-PERSON 'I' OR 'ME'):\n"
             f"1. NEVER write clip titles or title suggestions using first-person pronouns ('I', 'me', 'my', 'mine', 'myself', or equivalents in other languages such as 'saya', 'aku', 'gue')!\n"
             f"2. The user posting or curating these clips is a third-party editor, NOT the person speaking in the video. Titles must NEVER make it look like the clip is expressing the user's personal opinion, story, or reaction (e.g. NEVER write 'Why I think this is bad', 'How I made $100K', 'My biggest mistake', or 'I was shocked' / in Indonesian: NEVER 'Kenapa saya...', 'Cara aku...', 'Opini gue...').\n"
@@ -1753,7 +1756,8 @@ async def analyze_video(request: AnalyzeRequest):
                 start=float(line["start"]),
                 end=float(line["end"]),
                 text=line["text"],
-                engagement=line.get("engagement")
+                engagement=line.get("engagement"),
+                **conversation_metadata(line)
             )
             for line in enriched_transcript
         ]

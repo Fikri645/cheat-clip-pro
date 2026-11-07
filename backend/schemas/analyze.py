@@ -1,5 +1,5 @@
 from typing import List, Optional, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 class QualityScores(BaseModel):
     hook: int = Field(ge=0, le=100, description="Strength of the opening hook")
@@ -70,6 +70,19 @@ class TranscriptLine(BaseModel):
     end: float
     text: str
     engagement: Optional[float] = None
+    speaker: Optional[str] = Field(None, max_length=200)
+    speakers: List[str] = Field(default_factory=list, max_length=30)
+    overlap: bool = False
+
+class ClipInterval(BaseModel):
+    start_time: float = Field(ge=0, allow_inf_nan=False)
+    end_time: float = Field(gt=0, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def ordered(self):
+        if self.end_time <= self.start_time:
+            raise ValueError("End must be later than start")
+        return self
 
 class AnalyzeResponse(BaseModel):
     video_id: str
@@ -85,3 +98,16 @@ class AnalyzeResponse(BaseModel):
     model: Optional[str] = None
     video_url: Optional[str] = None
     source_type: Optional[str] = "youtube"
+    recommendation_round: int = Field(0, ge=0)
+    recommendation_excluded_ranges: List[ClipInterval] = Field(default_factory=list, max_length=10000)
+
+class ReanalyzeRequest(BaseModel):
+    analysis: AnalyzeResponse
+    api_provider: str = Field("gemini", pattern="^(gemini|openrouter)$")
+    api_key: Optional[str] = Field(None, repr=False)
+    openrouter_key: Optional[str] = Field(None, repr=False)
+    model: str = Field("gemini-2.5-flash", min_length=1, max_length=200)
+    duration: str = Field("auto", max_length=20)
+    target_clip_count: int = Field(10, ge=1, le=50)
+    custom_prompt: str = Field("", max_length=4000)
+    excluded_ranges: List[ClipInterval] = Field(default_factory=list, max_length=10000)

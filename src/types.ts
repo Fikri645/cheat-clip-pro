@@ -10,6 +10,20 @@ export interface TranscriptLine {
   end: number;
   text: string;
   engagement?: number;
+  speaker?: string | null;
+  speakers?: string[];
+  overlap?: boolean;
+}
+
+export interface ClipInterval {start_time:number;end_time:number}
+
+export interface NewRecommendations {
+  video_id:string;
+  clips:ViralClip[];
+  recommendation_round:number;
+  scanned_ranges:ClipInterval[];
+  exhausted?:boolean;
+  warning?:string;
 }
 
 export interface CaptionWord { word:string; start:number; end:number }
@@ -46,6 +60,8 @@ export interface AnalyzeResponse {
   model?: string;
   video_url?: string;
   source_type?: 'youtube' | 'upload' | 'gdrive';
+  recommendation_round?:number;
+  recommendation_excluded_ranges?:ClipInterval[];
 }
 
 export type AspectRatioOption = '9:16' | '1:1' | '4:3' | '16:9' | '16:9_landscape';
