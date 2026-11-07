@@ -3512,7 +3512,7 @@ Transcript:
                               width: 'fit-content'
                             }}>
                               <span className="spinner-icon" style={{ fontSize: '0.75rem' }}>[~]</span>
-                              <span>{aiStage || t.loading.step3Label}{aiStage === 'Running Whisper AI' ? ` · ${stepProgress[3] || 0}%` : ''}</span>
+                              <span>{aiStage || t.loading.step3Label}</span>
                             </div>
                             <span className="step-subtext" style={{ color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                               {aiDetail || loadingDetails || t.loading.step3Subtext}
