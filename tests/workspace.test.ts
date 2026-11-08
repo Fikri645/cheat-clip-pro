@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { exportProject, importProject } from '../src/services/projectArchive';
-import { getProject, getRender, restoreRender, saveProject, saveRender, type SavedProject } from '../src/services/workspaceStore';
+import { getProject, getRender, recoverRender, restoreRender, saveProject, saveRender, type SavedProject } from '../src/services/workspaceStore';
 import { captionValidation } from '../src/utils/captionWords';
 
 const project:SavedProject={version:1,id:'upload_test_project',updated:1,marked:{'0_2':true},
@@ -56,4 +56,43 @@ test('import rejects damaged subtitle timing before opening a project',async()=>
   const broken={...project,assets:[],result:{...project.result,clips:[{...project.result.clips[0],caption_words:[{word:'Bad',start:0,end:99}]}]}};
   const archive=await browserZip([{name:'project.json',blob:new Blob([JSON.stringify(broken)])}]);
   await assert.rejects(()=>importProject(new File([archive],'bad-timing.zip')),/subtitle timing/);
+});
+
+test('large render blobs use bounded records and survive replacement without stale chunks',async()=>{
+  const id='batch_chunked_storage';
+  const bytes=new Uint8Array(33*1024*1024);bytes[0]=17;bytes[bytes.length-1]=93;
+  const blob=new Blob([bytes],{type:'video/mp4'});
+  await saveRender({id,state:{...project.batch!,batch_id:id},files:{'0':blob,zip:new Blob(['original zip'])}});
+  const saved=await getRender(id);
+  assert.equal(saved!.files['0'].size,bytes.length);
+  assert.equal(saved!.files['0'].type,'video/mp4');
+  assert.equal(new Uint8Array(await saved!.files['0'].slice(-1).arrayBuffer())[0],93);
+  const request=indexedDB.open('cheat_clip_workspace',2);
+  const db=await new Promise<IDBDatabase>((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
+  const records=await new Promise<{id:(string|number)[];blob:Blob}[]>((resolve,reject)=>{
+    const transaction=db.transaction('renderFiles','readonly'),query=transaction.objectStore('renderFiles').getAll();
+    transaction.oncomplete=()=>resolve(query.result.filter(item=>item.id[0]===id));transaction.onerror=()=>reject(transaction.error);
+  });
+  assert.equal(records.length,3);assert.ok(records.every(item=>item.blob.size<=32*1024*1024));
+  await saveRender({id,state:{...project.batch!,batch_id:id},files:{'0':new Blob(['replacement'])}});
+  const replaced=await getRender(id);
+  assert.equal(await replaced!.files['0'].text(),'replacement');assert.equal(replaced!.files.zip,undefined);
+  const remaining=await new Promise<number>((resolve,reject)=>{
+    const transaction=db.transaction('renderFiles','readonly'),query=transaction.objectStore('renderFiles').getAllKeys();
+    transaction.oncomplete=()=>resolve(query.result.filter(key=>Array.isArray(key)&&key[0]===id).length);transaction.onerror=()=>reject(transaction.error);
+  });
+  assert.equal(remaining,1);db.close();
+});
+
+test('reopening a server batch prefers its finished state over a stale saved snapshot and still works offline',async()=>{
+  const state={...project.batch!,batch_id:'batch_recover_finished',overall_status:'running' as const};
+  await saveRender({id:state.batch_id,state,files:{'0':new Blob(['finished'])}});
+  const original=globalThis.fetch;
+  try {
+    globalThis.fetch=async()=>new Response(JSON.stringify({...state,overall_status:'completed',zip_url:'/api/download-batch-zip/finished'}));
+    const online=await recoverRender(state);assert.equal(online.overall_status,'completed');assert.equal(online.zip_url,'/api/download-batch-zip/finished');
+    globalThis.fetch=async()=>{throw new TypeError('Offline');};
+    const offline=await recoverRender(state);assert.equal(offline.overall_status,'cancelled');assert.equal(offline.clips[0].status,'completed');
+    assert.ok(offline.clips[0].download_url?.startsWith('blob:'));URL.revokeObjectURL(offline.clips[0].download_url!);
+  } finally {globalThis.fetch=original;}
 });

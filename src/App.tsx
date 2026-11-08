@@ -18,7 +18,7 @@ import { ReanalysisPanel } from './components/app/ReanalysisPanel';
 import { appendRecommendations } from './utils/recommendations';
 import './project.css';
 import { renderClipClientSide,triggerBrowserDownload } from './services/clientRenderer';
-import { getRender,restoreRender,type SavedProject } from './services/workspaceStore';
+import { recoverRender,type SavedProject } from './services/workspaceStore';
 import { analysisCacheKey,analysisTimestampKey,type AnalysisCacheContext } from './utils/analysisCache';
 import { readAnalysisHistory,type HistoryEntry } from './utils/analysisHistory';
 import { resilientFetch } from './utils/api';
@@ -2166,7 +2166,7 @@ Transcript:
     setSourceMode(project.result.source_type || 'youtube');setWorkflowTab('clipper');
     const source=project.assets.find(asset=>asset.kind==='source');
     setUploadedVideoFile(source?new File([source.blob],source.name,{type:source.blob.type}):null);
-    if(project.batch)void getRender(project.batch.batch_id).then(saved=>setBatchProgress(saved?restoreRender(saved):project.batch!));
+    if(project.batch)void recoverRender(project.batch).then(setBatchProgress);
     else setBatchProgress(null);
   },[setBatchProgress]);
   const workspace=useProjectWorkspace({result,marked:markedClips,file:uploadedVideoFile,batch:batchProgress,onOpen:openProject});
