@@ -17,6 +17,23 @@ def test_caption_chunks_do_not_bridge_pauses_and_have_shared_style_colors():
     assert ass_color(CAPTION_STYLES["viral_pop"]["highlight"])=="&H0000E6FF"
 
 
+def test_fast_speech_highlights_keep_exact_word_starts_without_accumulated_delay():
+    words=[{"word":f"w{i}","start":i*.05,"end":(i+1)*.05} for i in range(90)]
+    events=caption_events(words)
+    assert len(events)==len(words)
+    assert [event["start"] for event in events]==[word["start"] for word in words]
+    assert all(first["end"]<=second["start"] for first,second in zip(events,events[1:]))
+
+
+def test_caption_tail_and_short_sentences_do_not_delay_the_next_phrase():
+    words=[{"word":"Yes!","start":0,"end":.04},{"word":"Go.","start":.05,"end":.09},
+           {"word":"Now","start":.1,"end":.14},{"word":"Later","start":2,"end":2.3}]
+    events=caption_events(words)
+    assert [event["start"] for event in events]==[0,.05,.1,2]
+    assert events[0]["end"]==.05 and events[1]["end"]==.1
+    assert events[2]["end"]<2
+
+
 def test_acoustic_loudness_does_not_inflate_selection_score():
     clip={"start_time":0,"end_time":20,"transcript":"Why does this happen? Because the source has changed. So this is the result."}
     low=assess_clip(clip,[{"start_time":0,"end_time":20,"value":0}],"acoustic_energy")

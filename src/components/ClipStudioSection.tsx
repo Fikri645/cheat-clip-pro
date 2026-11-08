@@ -22,6 +22,7 @@ import { detectFaceClientSide } from '../utils/clientFaceDetector';
 import { getStoredCookies,hasStoredCookies } from '../utils/cookieUtils';
 import { isMobileDevice } from '../utils/deviceUtils';
 import { getErrorMessage } from '../utils/errors';
+import { formatHms } from '../utils/timecode';
 import { DEFAULT_STUDIO_PREFS,getSavedStudioPreferences,STUDIO_PREFS_KEY,type StudioDraft,type StudioPreferences } from './studio/preferences';
 import { RenderQueuePanel } from './studio/RenderQueuePanel';
 import { SubtitleEditor } from './SubtitleEditor';
@@ -3388,7 +3389,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                         <div className="batch-title-card-left">
                           <span className="batch-title-clip-badge">#{clipDisplayNum}</span>
                           <span className="batch-title-ts">
-                             {Math.floor(clip.start_time / 60)}:{(clip.start_time % 60).toFixed(0).padStart(2, '0')} - {Math.floor(clip.end_time / 60)}:{(clip.end_time % 60).toFixed(0).padStart(2, '0')} ({(clip.end_time - clip.start_time).toFixed(0)}s)
+                             {formatHms(clip.start_time)} - {formatHms(clip.end_time)} ({(clip.end_time - clip.start_time).toFixed(0)}s)
                           </span>
                           {typeof clip.virality_score === 'number' && (
                             <span className="batch-title-score-pill"> {clip.score_source==='manual_selection'?t.results.manualPickLabel:`${clip.virality_score}%`}</span>

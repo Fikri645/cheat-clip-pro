@@ -27,26 +27,15 @@ def caption_events(words):
             chunks.append(chunk);chunk=[];chars=0
         chunk.append(word);chars+=len(text)+1
     if chunk:chunks.append(chunk)
-    bounds=[]
-    for chunk in chunks:
-        start=chunk[0]["start"]
-        end=max(start+.35,chunk[-1]["end"]+.12)
-        if bounds:
-            start=max(start,bounds[-1][1]);end=max(end,start+.28)
-        bounds.append((start,end))
-    for i in range(len(bounds)-1):
-        if bounds[i][1]>bounds[i+1][0]:
-            split=max(bounds[i][0]+.28,bounds[i+1][0])
-            bounds[i]=(bounds[i][0],split)
-            bounds[i+1]=(split,max(split+.28,bounds[i+1][1]))
     events=[]
-    for chunk,(start,end) in zip(chunks,bounds):
-        points=[start];count=len(chunk)
-        for i in range(1,count):
-            lower,upper=points[-1]+.16,end-.16*(count-i)
-            point=points[-1]+(end-points[-1])/(count-i+1) if lower>upper else max(lower,min(upper,chunk[i]["start"]))
-            points.append(point)
-        points.append(end)
-        for i in range(count):
-            events.append({"start":points[i],"end":points[i+1],"words":chunk,"active_index":i})
+    for index,chunk in enumerate(chunks):
+        # Styling may extend the last word into a pause, but must never move
+        # speech timestamps or push a following phrase later in the clip.
+        end=max(chunk[-1]["start"]+.001,chunk[-1]["end"])+.12
+        if index+1<len(chunks):end=min(end,chunks[index+1][0]["start"])
+        for i,word in enumerate(chunk):
+            start=word["start"]
+            stop=chunk[i+1]["start"] if i+1<len(chunk) else end
+            if stop>start:
+                events.append({"start":start,"end":stop,"words":chunk,"active_index":i})
     return events

@@ -2167,8 +2167,12 @@ Transcript:
     const source=project.assets.find(asset=>asset.kind==='source');
     setUploadedVideoFile(source?new File([source.blob],source.name,{type:source.blob.type}):null);
     if(project.batch)void recoverRender(project.batch).then(setBatchProgress);
-    else setBatchProgress(null);
-  },[setBatchProgress]);
+    else {
+      batchEventSourceRef.current?.close();batchEventSourceRef.current=null;
+      localStorage.removeItem('cheat_clip_active_batch');localStorage.removeItem('cheat_clip_last_batch');
+      setBatchProgress(null);
+    }
+  },[setBatchProgress,batchEventSourceRef]);
   const workspace=useProjectWorkspace({result,marked:markedClips,file:uploadedVideoFile,batch:batchProgress,onOpen:openProject});
   const reanalysis=useReanalysis(result,{api_provider:apiProvider,api_key:apiProvider==='gemini'?apiKey.trim():undefined,
     openrouter_key:apiProvider==='openrouter'?openRouterKey.trim():undefined,model:apiProvider==='gemini'?selectedModel:openRouterModel,
