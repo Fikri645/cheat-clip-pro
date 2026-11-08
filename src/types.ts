@@ -29,6 +29,9 @@ export interface NewRecommendations {
 export interface CaptionWord { word:string; start:number; end:number }
 
 export interface ViralClip {
+  source_clip_url?:string;
+  source_clip_start_time?:number;
+  source_clip_end_time?:number;
   caption_words?: CaptionWord[];
   quality_scores?: {hook:number;context:number;payoff:number;signal?:number|null};
   selection_reason?: string;

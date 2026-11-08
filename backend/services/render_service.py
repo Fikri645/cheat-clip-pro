@@ -20,6 +20,7 @@ from backend.config import (
     transcribe_clip_words,
 )
 from backend.schemas.render import RenderBatchRequest, RenderSettingsModel
+from backend.services.prepared_sources import acquire_render_source
 
 RENDER_BATCHES: Dict[str, Dict[str, Any]] = {}
 BATCH_REQUESTS: Dict[str, RenderBatchRequest] = {}
@@ -66,10 +67,9 @@ async def render_single_batch_clip(
         seg_filename = f"{artifact_id}_clip_{idx}_raw.mp4"
 
         raw_path = await asyncio.to_thread(
-            download_clip_segment,
+            acquire_render_source,
+            clip,
             target_url,
-            start_t,
-            end_t,
             seg_filename,
             cookies_content
         )
@@ -351,10 +351,9 @@ async def render_merged_batch_clips(
             e_t = float(seg.get("end_time", s_t + 30.0))
             part_filename = f"{artifact_id}_part_{i}_raw.mp4"
             p_path = await asyncio.to_thread(
-                download_clip_segment,
+                acquire_render_source,
+                seg,
                 target_url,
-                s_t,
-                e_t,
                 part_filename,
                 cookies_content
             )

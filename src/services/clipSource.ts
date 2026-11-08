@@ -1,8 +1,17 @@
 import type { AnalyzeResponse,ViralClip } from '../types';
 import { getCookiesForRequest } from '../utils/cookieUtils';
+import {mediaAssetUrl} from '../utils/mediaAssets';
 
 export async function acquireClipSource(result:AnalyzeResponse, clip:ViralClip, fileUrl?:string, signal?:AbortSignal) {
   signal?.throwIfAborted();
+  if(clip.source_clip_url?.startsWith('/api/video/')&&Number.isFinite(clip.source_clip_start_time)&&Number.isFinite(clip.source_clip_end_time)&&clip.start_time>=clip.source_clip_start_time!&&clip.end_time<=clip.source_clip_end_time!) {
+    const url=mediaAssetUrl(clip.source_clip_url,'video')!;
+    try {
+      const cached=await fetch(url,{headers:{Range:'bytes=0-0'},signal});
+      await cached.body?.cancel();
+      if(cached.ok)return {url,start:clip.start_time-clip.source_clip_start_time!};
+    } catch(error){if(signal?.aborted)throw error;}
+  }
   const local=result.source_type==='upload' || result.source_type==='gdrive' || /^(upload_|gdrive_)/.test(result.video_id);
   if(local) return {url:fileUrl || result.video_url || `/api/video/${result.video_id}`,start:clip.start_time};
   // Do not abort the initial POST before receiving its job ID: cancellation must

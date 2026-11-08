@@ -1803,7 +1803,7 @@ export default function App() {
     e.stopPropagation(); // Prevent card trigger
     let copyText = `CLIP: ${clip.title}
 Timestamp: ${formatSeconds(clip.start_time)} - ${formatSeconds(clip.end_time)}
-Selection Score: ${clip.virality_score}/100
+Selection Score: ${clip.score_source==='manual_selection'?t.results.manualPickLabel:`${clip.virality_score}/100`}
 
 Transcript:
 "${clip.transcript}"`;
@@ -2054,7 +2054,7 @@ Transcript:
     let md = `# Viral Clips from "${result.title}"\n\n`;
     md += `**Overall Summary**: ${result.summary}\n\n`;
     result.clips.forEach((clip, index) => {
-      md += `## ${index + 1}. ${clip.title} (${clip.virality_score}/100 Selection Score)\n`;
+      md += `## ${index + 1}. ${clip.title} (${clip.score_source==='manual_selection'?t.results.manualPickLabel:`${clip.virality_score}/100 Selection Score`})\n`;
       md += `- **Timestamp**: ${formatSeconds(clip.start_time)} - ${formatSeconds(clip.end_time)} (Duration: ${formatSeconds(clip.end_time - clip.start_time)})\n`;
       if (clip.key_quotes && clip.key_quotes.length > 0) {
         md += `- **Key Quotes**:\n`;
@@ -2090,8 +2090,8 @@ Transcript:
         clip.transcript.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesVirality = viralityFilter === 'all' ||
-        (viralityFilter === 'high' && clip.virality_score >= 90) ||
-        (viralityFilter === 'medium' && clip.virality_score < 90) ||
+        (clip.score_source!=='manual_selection' && viralityFilter === 'high' && clip.virality_score >= 90) ||
+        (clip.score_source!=='manual_selection' && viralityFilter === 'medium' && clip.virality_score < 90) ||
         (viralityFilter === 'marked' && !!markedClips[`${clip.start_time}_${clip.end_time}`]);
 
       return matchesSearch && matchesVirality;
@@ -3663,7 +3663,7 @@ Transcript:
             {/* Dashboard Grid for Active Video */}
             {result && (
               <>
-                <ReanalysisPanel t={t} job={reanalysis} hasTranscript={!!result.transcript?.length} hasKey={!!(apiProvider==='gemini'?apiKey.trim():openRouterKey.trim())}/>
+                <ReanalysisPanel t={t} job={reanalysis} hasTranscript={!!result.transcript?.length} hasKey={!!(apiProvider==='gemini'?apiKey.trim():openRouterKey.trim())} focus={customPrompt} onFocusChange={setCustomPrompt}/>
                 <main className="dashboard-grid">
 <SourcePlayerPanel leftPanelRef={leftPanelRef} result={result} directVideoPlayerRef={directVideoPlayerRef} setCurrentTime={setCurrentTime} startTracking={startTracking} stopTracking={stopTracking} subtitlesSource={subtitlesSource} currentSubtitle={currentSubtitle} handleRefreshPlayer={handleRefreshPlayer} t={t} handleDownloadRawVideo={handleDownloadRawVideo} isDownloadingRaw={isDownloadingRaw} rawDownloadProgress={rawDownloadProgress} currentTime={currentTime} handleSeek={handleSeek} activeClip={activeClip} extractHashtagsAndText={extractHashtagsAndText} toggleTimestampMenu={toggleTimestampMenu} copyTimestampMenuTarget={copyTimestampMenuTarget} renderTimestampFormatMenu={renderTimestampFormatMenu} markedClips={markedClips} setActiveClip={setActiveClip} toggleMarkedClip={toggleMarkedClip} handleCopyTimestamp={handleCopyTimestamp} formatSeconds={formatSeconds}/>                  {/* Right panel: Suggested Clips scrollable list */}
                   <div
@@ -3925,8 +3925,8 @@ Transcript:
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.35rem' }}>
                                   {clip.selection_reason && <details style={{fontSize:'0.8rem'}}><summary>{t.results.scoreDetails}</summary><p>{clip.selection_reason}</p><small>{clip.score_note}</small></details>}
-                                  <div className={`score-badge ${clip.virality_score >= 85 ? 'score-high' : clip.virality_score >= 70 ? 'score-medium' : 'score-low'}`}>
-                                    <span title={clip.score_note}>{t.results.viralityBadge(clip.virality_score)}</span>
+                                  <div className={`score-badge ${clip.score_source==='manual_selection'?'':clip.virality_score >= 85 ? 'score-high' : clip.virality_score >= 70 ? 'score-medium' : 'score-low'}`}>
+                                    <span title={clip.score_note}>{clip.score_source==='manual_selection'?t.results.manualPickLabel:t.results.viralityBadge(clip.virality_score)}</span>
                                   </div>
                                   {!!markedClips[`${clip.start_time}_${clip.end_time}`] && (
                                     <div style={{

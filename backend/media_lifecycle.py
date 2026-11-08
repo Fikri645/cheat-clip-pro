@@ -65,7 +65,9 @@ def protected_media():
     prefixes = []
     for batch_id, request in protected_requests():
         prefixes.append(batch_id)
-        references = [request.get("video_url", ""), *[v for k, v in request.get("settings", {}).items() if k.endswith("_path")]]
+        references = [request.get("video_url", ""),
+                      *[clip.get("source_clip_url", "") for clip in request.get("clips", [])],
+                      *[v for k, v in request.get("settings", {}).items() if k.endswith("_path")]]
         for reference in references:
             if not reference or not isinstance(reference, str) or reference.startswith(("http:", "https:")):
                 continue

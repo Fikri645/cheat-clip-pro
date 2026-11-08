@@ -8,6 +8,9 @@ class QualityScores(BaseModel):
     signal: Optional[int] = Field(None, ge=0, le=100)
 
 class ViralClip(BaseModel):
+    source_clip_url: Optional[str] = None
+    source_clip_start_time: Optional[float] = Field(None,ge=0,allow_inf_nan=False)
+    source_clip_end_time: Optional[float] = Field(None,gt=0,allow_inf_nan=False)
     quality_scores: Optional[QualityScores] = None
     score_source: str = "legacy"
     selection_reason: str = ""

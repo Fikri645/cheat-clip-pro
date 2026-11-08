@@ -335,8 +335,8 @@ export function SourcePlayerPanel({leftPanelRef,result,directVideoPlayerRef,setC
                                   </span>
                                 </div>
                                 <div className="sidebar-clip-item-right">
-                                  <span className={`virality-mini-badge ${clip.virality_score >= 85 ? 'score-high' : clip.virality_score >= 70 ? 'score-mid' : 'score-low'}`}>
-                                    {clip.virality_score}/100
+                                  <span className={`virality-mini-badge ${clip.score_source==='manual_selection'?'':clip.virality_score >= 85 ? 'score-high' : clip.virality_score >= 70 ? 'score-mid' : 'score-low'}`}>
+                                    {clip.score_source==='manual_selection'?t.results.manualPickLabel:`${clip.virality_score}/100`}
                                   </span>
                                   {clip.selection_reason && <details style={{fontSize:'0.8rem',color:'var(--text-muted)'}}><summary>{t.results.scoreDetails}</summary><p>{clip.selection_reason}</p><small>{clip.score_note}</small></details>}
                                   <span

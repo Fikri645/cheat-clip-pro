@@ -3391,7 +3391,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                              {Math.floor(clip.start_time / 60)}:{(clip.start_time % 60).toFixed(0).padStart(2, '0')} - {Math.floor(clip.end_time / 60)}:{(clip.end_time % 60).toFixed(0).padStart(2, '0')} ({(clip.end_time - clip.start_time).toFixed(0)}s)
                           </span>
                           {typeof clip.virality_score === 'number' && (
-                            <span className="batch-title-score-pill"> {clip.virality_score}%</span>
+                            <span className="batch-title-score-pill"> {clip.score_source==='manual_selection'?t.results.manualPickLabel:`${clip.virality_score}%`}</span>
                           )}
                         </div>
 
@@ -3609,7 +3609,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                       <span className="batch-clip-ts">
                          {Math.floor(clip.start_time / 60)}:{(clip.start_time % 60).toFixed(0).padStart(2, '0')} -{' '}
                         {Math.floor(clip.end_time / 60)}:{(clip.end_time % 60).toFixed(0).padStart(2, '0')} (
-                        {(clip.end_time - clip.start_time).toFixed(0)}s) · Score: {clip.virality_score}%
+                        {(clip.end_time - clip.start_time).toFixed(0)}s) · {clip.score_source==='manual_selection'?t.results.manualPickLabel:`Score: ${clip.virality_score}%`}
                       </span>
                     </div>
                   </div>

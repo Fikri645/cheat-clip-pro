@@ -1,4 +1,4 @@
-export function mediaAssetUrl(path: string | undefined, kind: 'audio' | 'watermark'): string | undefined {
+export function mediaAssetUrl(path: string | undefined, kind: 'audio' | 'watermark' | 'video'): string | undefined {
   if (!path) return;
   if (path.startsWith('blob:') || path.startsWith('/api/render-asset/')) return path;
   const name = decodeURIComponent(path.split('?')[0].replace(/\\/g, '/').split('/').pop() || '');
