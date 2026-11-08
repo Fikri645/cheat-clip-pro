@@ -25,7 +25,7 @@ def prepared_source(clip):
     return None
 
 
-def acquire_render_source(clip,target_url,filename,cookies=None):
+def acquire_render_source(clip,target_url,filename,cookies=None,hardware_accel="auto"):
     from backend.config import TEMP_DIR,download_clip_segment
     from backend.media_lifecycle import media_lease
     source=prepared_source(clip)
@@ -36,5 +36,5 @@ def acquire_render_source(clip,target_url,filename,cookies=None):
             output=TEMP_DIR/filename
             with media_lease(path,output):shutil.copyfile(path,output)
             return str(output)
-        return download_clip_segment("/api/video/"+path.name,offset,offset+requested,filename,cookies)
-    return download_clip_segment(target_url,float(clip["start_time"]),float(clip["end_time"]),filename,cookies)
+        return download_clip_segment("/api/video/"+path.name,offset,offset+requested,filename,cookies,hardware_accel)
+    return download_clip_segment(target_url,float(clip["start_time"]),float(clip["end_time"]),filename,cookies,hardware_accel)

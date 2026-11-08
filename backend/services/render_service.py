@@ -35,6 +35,38 @@ def render_source_identity(target_url, raw_path):
     return source_identity(original or raw_path)
 
 
+def _mark_downloading(batch: Dict[str, Any], idx: int) -> None:
+    clip_status = batch["clips"][idx]
+    clip_status["status"] = "downloading"
+    clip_status["progress_percent"] = 15
+    clip_status["error_message"] = None
+    clip_status["error"] = None
+
+
+async def acquire_batch_clip_source(
+    batch_id: str,
+    idx: int,
+    clip: Dict[str, Any],
+    settings: RenderSettingsModel,
+    target_url: str,
+    cookies_content: Optional[str] = None
+):
+    """Downloads/slices one clip's raw source. Returns (artifact_id, raw_path)."""
+    artifact_id = f"{batch_id}_{uuid.uuid4().hex[:8]}"
+    batch = RENDER_BATCHES.get(batch_id)
+    if batch:
+        _mark_downloading(batch, idx)
+    raw_path = await asyncio.to_thread(
+        acquire_render_source,
+        clip,
+        target_url,
+        f"{artifact_id}_clip_{idx}_raw.mp4",
+        cookies_content,
+        getattr(settings, "hardware_accel", None) or "auto"
+    )
+    return artifact_id, raw_path
+
+
 async def render_single_batch_clip(
     batch_id: str,
     idx: int,
@@ -43,36 +75,31 @@ async def render_single_batch_clip(
     target_url: str,
     transcript: Optional[List[Dict[str, Any]]] = None,
     total_clips: int = 1,
-    cookies_content: Optional[str] = None
+    cookies_content: Optional[str] = None,
+    source_task: Optional["asyncio.Task"] = None
 ):
+    """Renders one clip. ``source_task`` is an already-started (prefetched) source download."""
     batch = RENDER_BATCHES.get(batch_id)
     if not batch:
+        if source_task:
+            source_task.cancel()
         return
 
-    artifact_id = f"{batch_id}_{uuid.uuid4().hex[:8]}"
     clip_status = batch["clips"][idx]
-    clip_status["status"] = "downloading"
-    clip_status["progress_percent"] = 15
-    clip_status["error_message"] = None
-    clip_status["error"] = None
-
     raw_path = None
     ass_path = None
     title_overlay_path = None
 
     try:
-        # 1. Download
+        # 1. Download (possibly already prefetched while the previous clip rendered)
         start_t = float(clip.get("start_time", 0.0))
         end_t = float(clip.get("end_time", start_t + 30.0))
-        seg_filename = f"{artifact_id}_clip_{idx}_raw.mp4"
 
-        raw_path = await asyncio.to_thread(
-            acquire_render_source,
-            clip,
-            target_url,
-            seg_filename,
-            cookies_content
-        )
+        if source_task is None:
+            source_task = asyncio.ensure_future(acquire_batch_clip_source(
+                batch_id, idx, clip, settings, target_url, cookies_content
+            ))
+        artifact_id, raw_path = await source_task
 
         if not raw_path or not os.path.exists(raw_path) or not is_valid_mp4(raw_path):
             raise RuntimeError(
@@ -355,7 +382,8 @@ async def render_merged_batch_clips(
                 seg,
                 target_url,
                 part_filename,
-                cookies_content
+                cookies_content,
+                getattr(settings, "hardware_accel", None) or "auto"
             )
             if not p_path or not os.path.exists(p_path) or not is_valid_mp4(p_path):
                 raise RuntimeError(
@@ -608,19 +636,31 @@ async def process_batch_rendering(batch_id: str, request: RenderBatchRequest):
             )
             batch["current_clip_index"] = 1
         else:
-            for idx, clip in enumerate(clips):
-                if batch["clips"][idx]["status"] in {"completed", "error"}:
-                    continue
+            pending = [idx for idx in range(len(clips)) if batch["clips"][idx]["status"] not in {"completed", "error"}]
+
+            def start_source(idx: int) -> "asyncio.Task":
+                return asyncio.ensure_future(acquire_batch_clip_source(
+                    batch_id, idx, clips[idx], settings, target_url, cookies_content
+                ))
+
+            # Pipeline: once clip N's source is downloaded, start downloading clip N+1
+            # while clip N transcribes and renders, so the network and GPU overlap.
+            next_source = start_source(pending[0]) if pending else None
+            for pos, idx in enumerate(pending):
+                current_source = next_source
+                await asyncio.wait({current_source})
+                next_source = start_source(pending[pos + 1]) if pos + 1 < len(pending) else None
                 batch["current_clip_index"] = idx
                 await render_single_batch_clip(
                     batch_id=batch_id,
                     idx=idx,
-                    clip=clip,
+                    clip=clips[idx],
                     settings=settings,
                     target_url=target_url,
                     transcript=request.transcript,
                     total_clips=len(clips),
-                    cookies_content=cookies_content
+                    cookies_content=cookies_content,
+                    source_task=current_source
                 )
                 batch["current_clip_index"] = idx + 1
 

@@ -464,6 +464,21 @@ def resolve_encoder(user_selection: Optional[str] = "auto") -> Tuple[str, List[s
 ACTIVE_ENCODER_NAME, ACTIVE_ENCODER_ARGS = get_preferred_video_encoder()
 USE_NVENC = (ACTIVE_ENCODER_NAME == "h264_nvenc")
 
+# Raw clip slices are re-encoded again by the final render. NVENC cq 23 measured
+# the same SSIM as cq 20 at 2/3 the size; the CPU fallback has no thread cap.
+SLICE_ENCODER_ARGS: Dict[str, List[str]] = {
+    "h264_nvenc": ["-c:v", "h264_nvenc", "-preset", "p4", "-cq", "23", "-b:v", "0"],
+    "h264_amf": ["-c:v", "h264_amf", "-quality", "speed", "-rc", "cqp", "-qp_i", "20", "-qp_p", "22"],
+    "h264_qsv": ["-c:v", "h264_qsv", "-preset", "veryfast", "-global_quality", "20", "-look_ahead", "0"],
+    "libx264": ["-c:v", "libx264", "-preset", "veryfast", "-crf", "18"],
+}
+
+
+def resolve_slice_encoder(hardware_accel: Optional[str] = "auto") -> Tuple[str, List[str]]:
+    """Encoder for intermediate raw slices, following the user's Hardware Acceleration choice."""
+    codec, _ = resolve_encoder(hardware_accel)
+    return codec, SLICE_ENCODER_ARGS.get(codec, SLICE_ENCODER_ARGS["libx264"])
+
 
 def format_section_time(seconds: float) -> str:
     """Format seconds into HH:MM:SS.cs for yt-dlp section cutting."""
@@ -834,14 +849,22 @@ def download_clip_segment(
     start_time: float,
     end_time: float,
     output_filename: str,
-    cookies_content: Optional[str] = None
+    cookies_content: Optional[str] = None,
+    hardware_accel: Optional[str] = "auto"
 ) -> str:
     """
     Downloads or slices the requested time slice in high definition (1080p).
     If video_url is a local file (uploaded video), uses direct FFmpeg slicing.
-    Otherwise downloads using yt-dlp.
+    Otherwise fetches only the needed byte ranges from YouTube (falling back to yt-dlp).
+    Re-encoding uses the encoder chosen in Hardware Acceleration (GPU when available).
     """
     output_path = TEMP_DIR / output_filename
+    slice_codec, slice_args = resolve_slice_encoder(hardware_accel)
+    cpu_slice_args = SLICE_ENCODER_ARGS["libx264"]
+    slice_audio_args = ["-c:a", "aac", "-b:a", "192k"]
+    # yt-dlp's ffmpeg downloader re-encodes when cutting at exact timestamps; without
+    # these args it silently uses libx264 at default settings on the CPU.
+    ytdlp_encoder_args = ["--downloader-args", "ffmpeg_o:" + " ".join([*slice_args, *slice_audio_args])]
     if output_path.exists():
         try:
             output_path.unlink()
@@ -915,18 +938,24 @@ def download_clip_segment(
     if local_source and local_source.exists():
         logger.info(f"Slicing local/gdrive video: {local_source} [{start_time:.2f}s -> {end_time:.2f}s] to {output_path}")
         slice_timeout = max(300, min(1200, int(clip_duration * 6) + 90))
-        slice_cmd = [
-            "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-            "-ss", str(start_time),
-            "-to", str(end_time),
-            "-i", str(local_source),
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
-            "-c:a", "aac", "-b:a", "192k",
-            "-avoid_negative_ts", "make_zero",
-            "-movflags", "+faststart",
-            str(output_path)
-        ]
-        res = subprocess.run(slice_cmd, capture_output=True, text=True, timeout=slice_timeout)
+
+        def local_slice_cmd(encoder_args: List[str]) -> List[str]:
+            return [
+                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                "-ss", str(start_time),
+                "-to", str(end_time),
+                "-i", str(local_source),
+                *encoder_args,
+                *slice_audio_args,
+                "-avoid_negative_ts", "make_zero",
+                "-movflags", "+faststart",
+                str(output_path)
+            ]
+
+        res = subprocess.run(local_slice_cmd(slice_args), capture_output=True, text=True, timeout=slice_timeout)
+        if (res.returncode != 0 or not is_valid_mp4(output_path)) and slice_args != cpu_slice_args:
+            logger.warning(f"{slice_codec} slice failed ({(res.stderr or '').strip()[:200]}); retrying with libx264")
+            res = subprocess.run(local_slice_cmd(cpu_slice_args), capture_output=True, text=True, timeout=slice_timeout)
         if output_path.exists() and is_valid_mp4(output_path):
             return str(output_path)
         if output_path.exists():
@@ -967,13 +996,51 @@ def download_clip_segment(
         for use_cookies in attempts:
             mode_label = "with cookies" if use_cookies else "guest mode (without cookies)"
             base_cmd = get_yt_dlp_base_cmd(include_cookies=use_cookies, cookies_path=temp_cookies if use_cookies else None)
-            logger.info(f"Downloading HD section ({clip_duration:.1f}s) {t_start_fmt} -> {t_end_fmt} for {clean_url} ({mode_label}, timeout: {timeout_sec}s)")
+            logger.info(f"Downloading HD section ({clip_duration:.1f}s) {t_start_fmt} -> {t_end_fmt} for {clean_url} ({mode_label}, encoder: {slice_codec}, timeout: {timeout_sec}s)")
+
+            # Method 0: fetch only the needed fragments with parallel ranged requests.
+            # A single ffmpeg connection to googlevideo is throttled to ~playback speed;
+            # ranged requests run at full line speed. Stream URLs are cached per video.
+            try:
+                from backend.services import youtube_sections
+                av1_decoder_args = ["-hwaccel", "cuda", "-c:v", "av1"] if slice_codec == "h264_nvenc" else (
+                    ["-hwaccel", "d3d11va", "-c:v", "av1"] if sys.platform.startswith("win") else [])
+                for resolve_attempt in range(2):
+                    formats = youtube_sections.resolve_streams(clean_url, base_cmd, use_cookies)
+                    try:
+                        youtube_sections.download_section(
+                            formats, start_time, end_time, output_path,
+                            slice_args, cpu_slice_args, timeout=timeout_sec,
+                            av1_decoder_args=av1_decoder_args,
+                        )
+                        break
+                    except youtube_sections.SectionUnsupported:
+                        raise
+                    except Exception as range_err:
+                        # Cached stream URLs may have expired or been revoked: resolve once more.
+                        youtube_sections.invalidate(clean_url, use_cookies)
+                        if resolve_attempt:
+                            raise
+                        logger.warning(f"Ranged section failed ({range_err}); refreshing stream URLs and retrying.")
+                if is_valid_mp4(output_path):
+                    logger.info(f"Successfully downloaded ranged section ({mode_label}): {output_path} ({output_path.stat().st_size} bytes)")
+                    return str(output_path)
+                last_err_snippet = "ranged section produced an invalid file"
+            except Exception as e:
+                logger.warning(f"Ranged section download unavailable ({e}) ({mode_label}); falling back to yt-dlp sections.")
+                last_err_snippet = str(e)[:300]
+            if output_path.exists():
+                try:
+                    output_path.unlink()
+                except Exception:
+                    pass
 
             # Method 1: yt-dlp --download-sections with multi-fragment acceleration, socket timeout, & retries
             cmd = [
                 *base_cmd,
                 "--download-sections", f"*{t_start_fmt}-{t_end_fmt}",
                 "--force-keyframes-at-cuts",
+                *ytdlp_encoder_args,
                 "-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best",
                 "-N", "4",
                 "--socket-timeout", "20",
@@ -1048,7 +1115,7 @@ def download_clip_segment(
                         "-i", audio_stream,
                         "-t", str(clip_duration),
                         "-map", "0:v:0", "-map", "1:a:0?",
-                        *ACTIVE_ENCODER_ARGS,
+                        *slice_args,
                         "-c:a", "aac",
                         "-b:a", "192k",
                         "-avoid_negative_ts", "make_zero",
@@ -1087,6 +1154,7 @@ def download_clip_segment(
                     *base_cmd,
                     "--download-sections", f"*{t_start_fmt}-{t_end_fmt}",
                     "--force-keyframes-at-cuts",
+                    *ytdlp_encoder_args,
                     "-f", "bestvideo[height<=720]+bestaudio/best[height<=720]/best",
                     "-N", "4",
                     "--socket-timeout", "20",
@@ -1130,6 +1198,7 @@ def download_clip_segment(
                     *base_cmd,
                     "--download-sections", f"*{t_start_fmt}-{t_end_fmt}",
                     "--force-keyframes-at-cuts",
+                    *ytdlp_encoder_args,
                     "-f", "bestvideo[height<=480]+bestaudio/best[height<=480]/18/best",
                     "-N", "2",
                     "--socket-timeout", "20",
