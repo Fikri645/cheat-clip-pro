@@ -50,15 +50,26 @@ def tracking_expression(points, axis="cx", max_points=80):
         for index,point in enumerate(points):
             if point.get("cut") or point.get("speaker_switch"):keep.update((max(0,index-1),index))
         points=[points[index] for index in sorted(keep)]
-    expression = f"{points[-1][axis]:.5f}"
-    # Linear interpolation within a shot; cut directly at a scene boundary.
-    for previous, current in reversed(list(zip(points, points[1:]))):
+    # A balanced decision tree keeps FFmpeg parser depth logarithmic even
+    # when long clips contain hundreds of cuts that must be preserved.
+    intervals = []
+    for previous, current in zip(points, points[1:]):
         t0, t1 = previous["time"], current["time"]
         if t1 <= t0:
             continue
         value = f"{previous[axis]:.5f}" if current.get("cut") else f"({previous[axis]:.5f}+({current[axis]-previous[axis]:.5f})*(t-{t0:.4f})/{t1-t0:.4f})"
-        expression = f"if(lt(t,{t1:.4f}),{value},{expression})"
-    return expression
+        intervals.append((t1, value))
+    intervals.append((None, f"{points[-1][axis]:.5f}"))
+
+    def decision(begin, end):
+        if end-begin == 1:
+            return intervals[begin][1]
+        middle = (begin+end)//2
+        boundary = intervals[middle-1][0]
+        return f"if(lt(t,{boundary:.4f}),{decision(begin,middle)},{decision(middle,end)})"
+
+    return decision(0, len(intervals))
+
 
 
 class SpeakerLock:
