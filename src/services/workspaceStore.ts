@@ -43,7 +43,7 @@ export const saveProject=(project:SavedProject)=>access('projects','readwrite',s
 export const getProject=(id:string)=>access<SavedProject|undefined>('projects','readonly',store=>store.get(id));
 export const listProjects=()=>access<SavedProject[]>('projects','readonly',store=>store.getAll());
 export const deleteProject=(id:string)=>access('projects','readwrite',store=>store.delete(id));
-export async function saveRender(render:SavedRender):Promise<void> {
+export async function saveRender(render:SavedRender,options:{reuseUnchanged?:boolean}={}):Promise<void> {
   const db=await database();
   return new Promise((resolve,reject)=>{
     const transaction=db.transaction(['renders','renderFiles'],'readwrite');
@@ -52,12 +52,25 @@ export async function saveRender(render:SavedRender):Promise<void> {
     previous.onsuccess=()=>{
       const old=previous.result as StoredRender|undefined;
       const storedFiles:NonNullable<StoredRender['storedFiles']>={};
+      const unchanged=new Set<string>();
+      if(options.reuseUnchanged && old?.storedFiles) {
+        for(const [key,blob] of Object.entries(render.files))if(key!=='zip') {
+          const source=render.state.clips.find(clip=>String(clip.clip_index)===key);
+          const previousClip=old.state.clips.find(clip=>String(clip.clip_index)===key);
+          const file=old.storedFiles[key];
+          if(file && file.size===blob.size && file.type===blob.type && source?.download_url && source.download_url===previousClip?.download_url)unchanged.add(key);
+        }
+        const keys=Object.keys(render.files).filter(key=>key!=='zip');
+        if(keys.every(key=>unchanged.has(key)) && keys.length===Object.keys(old.storedFiles).filter(key=>key!=='zip').length &&
+          render.state.clips.every(clip=>clip.title===old.state.clips.find(previousClip=>previousClip.clip_index===clip.clip_index)?.title) &&
+          old.storedFiles.zip?.size===render.files.zip?.size && old.storedFiles.zip?.type===render.files.zip?.type)unchanged.add('zip');
+      }
       // Each Blob is written in bounded records. A large batch and its ZIP must
       // never become one multi-gigabyte IndexedDB value or one huge Blob write.
       for(const [key,blob] of Object.entries(render.files)) {
         const chunks=Math.ceil(blob.size/CHUNK_BYTES);
         storedFiles[key]={chunks,size:blob.size,type:blob.type};
-        for(let part=0;part<chunks;part++)files.put({id:[render.id,key,part],blob:blob.slice(part*CHUNK_BYTES,(part+1)*CHUNK_BYTES)});
+        if(!unchanged.has(key))for(let part=0;part<chunks;part++)files.put({id:[render.id,key,part],blob:blob.slice(part*CHUNK_BYTES,(part+1)*CHUNK_BYTES)});
       }
       for(const [key,file] of Object.entries(old?.storedFiles || {}))
         for(let part=storedFiles[key]?.chunks || 0;part<file.chunks;part++)files.delete([render.id,key,part]);

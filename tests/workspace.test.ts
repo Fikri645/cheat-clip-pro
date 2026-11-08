@@ -96,3 +96,17 @@ test('reopening a server batch prefers its finished state over a stale saved sna
     assert.ok(offline.clips[0].download_url?.startsWith('blob:'));URL.revokeObjectURL(offline.clips[0].download_url!);
   } finally {globalThis.fetch=original;}
 });
+
+test('autosave reuses immutable media chunks while imports and new output URLs replace their bytes',async()=>{
+  const id='batch_immutable_files';
+  const state={...project.batch!,batch_id:id,clips:[{clip_index:0,title:'Done',status:'completed' as const,progress_percent:100,download_url:'/api/download-rendered/unique-one.mp4'}]};
+  await saveRender({id,state,files:{'0':new Blob(['old']),zip:new Blob(['ZIP'])}});
+  const original=IDBObjectStore.prototype.put;let writes=0;
+  IDBObjectStore.prototype.put=function(value:unknown,key?:IDBValidKey){if(this.name==='renderFiles')writes++;return key===undefined?original.call(this,value):original.call(this,value,key);};
+  try {
+    await saveRender({id,state,files:{'0':new Blob(['old']),zip:new Blob(['ZIP'])}},{reuseUnchanged:true});assert.equal(writes,0);
+    await saveRender({id,state,files:{'0':new Blob(['new']),zip:new Blob(['ZIP'])}});assert.equal(await (await getRender(id))!.files['0'].text(),'new');assert.equal(writes,2);
+    const changed={...state,clips:[{...state.clips[0],download_url:'/api/download-rendered/unique-two.mp4'}]};
+    await saveRender({id,state:changed,files:{'0':new Blob(['two']),zip:new Blob(['ZIP'])}},{reuseUnchanged:true});assert.equal(writes,4);assert.equal(await (await getRender(id))!.files['0'].text(),'two');
+  } finally {IDBObjectStore.prototype.put=original;}
+});

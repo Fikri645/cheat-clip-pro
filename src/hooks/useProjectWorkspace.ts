@@ -79,8 +79,13 @@ export function useProjectWorkspace({result,marked,file,batch,onOpen}:WorkspaceO
           else try {files[String(clip.clip_index)]=await fetchMediaBlob(mediaAssetUrl(clip.download_url,'video')!);}
           catch(error){throw new Error(`Could not save rendered clip ${clip.clip_index+1}: ${getErrorMessage(error)}`,{cause:error});}
         }
-        if(Object.keys(files).length){files.zip=await browserZip(batch.clips.filter(c=>files[String(c.clip_index)]).map(c=>({name:`${c.title.replace(/[\\/*?:"<>|]/g,'') || 'clip'}.mp4`,blob:files[String(c.clip_index)]})));}
-        await saveRender({id:batch.batch_id,state:batch,files});
+        const finished=batch.clips.filter(clip=>files[String(clip.clip_index)]);
+        const sameOutputs=previousRender?.files.zip && finished.length===Object.keys(previousRender.files).filter(key=>key!=='zip').length && finished.every(clip=>{
+          const previousClip=previousRender.state.clips.find(item=>item.clip_index===clip.clip_index);
+          return previousClip?.download_url===clip.download_url && previousClip?.title===clip.title;
+        });
+        if(finished.length)files.zip=sameOutputs?previousRender.files.zip:await browserZip(finished.map(clip=>({name:`${clip.title.replace(/[\\/*?:"<>|]/g,'') || 'clip'}.mp4`,blob:files[String(clip.clip_index)]})));
+        await saveRender({id:batch.batch_id,state:batch,files},{reuseUnchanged:true});
       }
       await refresh();setStatus('Saved on this device.');
     } while(pendingSave.current);};
