@@ -112,7 +112,15 @@ class SpeakerLock:
         return dict(self.selected),False
 
 
-def track_frames(frames, position="auto", streamer_preset="none"):
+def is_scene_cut(pixel_change, histogram_change, previous_count=0, current_count=0):
+    # Different camera angles in the same studio can share almost identical
+    # luminance histograms. A large face-layout change supplies the missing cue.
+    layout_change = abs(current_count-previous_count) >= max(3, min(current_count, previous_count)*1.5)
+    return (pixel_change > .32 or (pixel_change > .12 and histogram_change > .55)
+            or (pixel_change > .12 and layout_change))
+
+
+def track_frames(frames, position="auto", streamer_preset="none", records=None):
     """Consume (seconds, BGR frame) pairs; no full-video array is retained."""
     import cv2
     import numpy as np
@@ -122,7 +130,7 @@ def track_frames(frames, position="auto", streamer_preset="none"):
         detector = cv2.FaceDetectorYN.create(str(YUNET_MODEL_PATH), "", (320, 180), 0.65)
     cascade = cv2.CascadeClassifier(str(CASCADE_PATH))
     points, previous_gray, previous_hist = [], None, None
-    selector=SpeakerLock();previous_mouths=[]
+    selector=SpeakerLock();previous_mouths=[];previous_count=0
     manual = {"left": (0.25, 0.4), "right": (0.75, 0.4), "center": (0.5, 0.4),
               "top_left": (0.2, 0.2), "top_right": (0.8, 0.2),
               "bottom_left": (0.2, 0.8), "bottom_right": (0.8, 0.8)}
@@ -132,7 +140,7 @@ def track_frames(frames, position="auto", streamer_preset="none"):
         hist = cv2.calcHist([gray], [0], None, [32], [0, 256])
         cv2.normalize(hist, hist)
         pixel_change=float(np.mean(cv2.absdiff(gray,previous_gray)))/255 if previous_gray is not None else 0
-        cut = previous_hist is not None and (pixel_change>.32 or (pixel_change>.12 and cv2.compareHist(previous_hist,hist,cv2.HISTCMP_BHATTACHARYYA)>.55))
+        histogram_change = cv2.compareHist(previous_hist,hist,cv2.HISTCMP_BHATTACHARYYA) if previous_hist is not None else 0
         faces = []
         if detector is not None:
             detector.setInputSize((640, 360))
@@ -141,6 +149,7 @@ def track_frames(frames, position="auto", streamer_preset="none"):
                 faces = [tuple(map(float, f[:4])) for f in detections]
         elif not cascade.empty():
             faces = list(cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(24, 24)))
+        cut = previous_hist is not None and is_scene_cut(pixel_change, histogram_change, previous_count, len(faces))
         candidates = [];mouths=[]
         for x, y, w, h in faces:
             x, y, w, h = map(int, (x, y, w, h))
@@ -163,6 +172,8 @@ def track_frames(frames, position="auto", streamer_preset="none"):
                 target_x, target_y = manual[position]
                 score = -math.hypot(cx-target_x, cy-target_y)
             candidates.append((score, {"cx": cx, "cy": cy, "w": w/640, "h": h/360}))
+        if records is not None:
+            records.append({"time": float(timestamp), "candidates": candidates, "cut": bool(cut)})
         chosen,switched=selector.choose(candidates,timestamp,cut,position in manual)
         if chosen is None:
             weights = cv2.magnitude(cv2.Sobel(gray, cv2.CV_32F, 1, 0), cv2.Sobel(gray, cv2.CV_32F, 0, 1))
@@ -181,30 +192,69 @@ def track_frames(frames, position="auto", streamer_preset="none"):
         points.append({"time": round(float(timestamp), 4), **chosen, "cut": bool(cut),"speaker_switch":switched})
         previous_gray, previous_hist = gray, hist
         previous_mouths=mouths
+        previous_count=len(faces)
     return smooth_trajectory(points)
 
 
-def _detect_crop_trajectory_uncached(video_path, facecam_position="auto", streamer_preset="none", interval=.5):
+def apply_speaker_scores(records, scores, visual_points):
+    """Use audio/visual ranking with the existing lock and camera smoothing.
+
+    Negative logits are not probabilities: keep the visible subject when neither
+    face has positive speaking evidence, instead of chasing a relative winner.
+    """
+    import numpy as np
+    selector = SpeakerLock()
+    points = []
+    for row, ranked, fallback in zip(records, scores, visual_points):
+        confident = bool(ranked and max(score for score, _ in ranked) >= 0)
+        if ranked:
+            values = np.asarray([score for score, _ in ranked])
+            values = np.exp(values - values.max())
+            values /= values.sum()
+            if not confident and selector.selected is not None and not row["cut"]:
+                values[:] = 0  # No confident speaker: update position, hold identity.
+            candidates = [(float(value), face) for value, (_, face) in zip(values, ranked)]
+        else:
+            candidates = row["candidates"]
+        chosen, switched = selector.choose(candidates, row["time"], cut=row["cut"])
+        point = {"time": row["time"], **(chosen or {key: fallback[key] for key in ("cx", "cy", "w", "h")}),
+                 "cut": row["cut"], "speaker_switch": switched,
+                 "speaker_source": "light-asd" if ranked else "visual",
+                 "speaker_confident": confident}
+        points.append(point)
+    return smooth_trajectory(points)
+
+
+def _detect_crop_trajectory_uncached(video_path, facecam_position="auto", streamer_preset="none", interval=.5, start_time=0., end_time=None):
     import cv2
     cap = cv2.VideoCapture(str(video_path))
     try:
         fps = cap.get(cv2.CAP_PROP_FPS) or 30
-        duration = cap.get(cv2.CAP_PROP_FRAME_COUNT) / fps
+        source_duration = cap.get(cv2.CAP_PROP_FRAME_COUNT) / fps
+        duration = max(0., min(end_time if end_time is not None else source_duration, source_duration)-start_time)
         def frames():
             timestamp = 0.0
             while timestamp < duration:
-                cap.set(cv2.CAP_PROP_POS_MSEC, timestamp*1000)
+                cap.set(cv2.CAP_PROP_POS_MSEC, (start_time+timestamp)*1000)
                 ok, frame = cap.read()
                 if not ok:
                     break
                 yield timestamp, frame
                 timestamp += interval
-        return track_frames(frames(), facecam_position, streamer_preset)
+        records = []
+        visual_points = track_frames(frames(), facecam_position, streamer_preset, records)
     finally:
         cap.release()
+    # Explicit framing and streamer layouts keep their intentional target.
+    if facecam_position != "auto" or streamer_preset != "none" or not records:
+        return visual_points
+    from backend.services.active_speaker import score_video_speakers
+    scores = score_video_speakers(video_path, records, start_time=start_time, duration=duration)
+    return apply_speaker_scores(records, scores, visual_points) if scores is not None else visual_points
 
 
-def detect_crop_trajectory(video_path, facecam_position="auto", streamer_preset="none", interval=.5):
+def detect_crop_trajectory(video_path, facecam_position="auto", streamer_preset="none", interval=.5, start_time=0., end_time=None):
     from backend.services.render_cache import cached, source_identity
-    return cached("tracking-v2-stable", [source_identity(video_path), facecam_position, streamer_preset, interval],
-        lambda: _detect_crop_trajectory_uncached(video_path, facecam_position, streamer_preset, interval))
+    from backend.services.active_speaker import speaker_identity
+    return cached("tracking-v3-audiovisual", [source_identity(video_path), facecam_position, streamer_preset, interval, start_time, end_time, speaker_identity()],
+        lambda: _detect_crop_trajectory_uncached(video_path, facecam_position, streamer_preset, interval, start_time, end_time))

@@ -102,6 +102,8 @@ export async function prepareBrowserPlan(options: BrowserRenderOptions): Promise
     const response = await fetch('/api/client-render-plan', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: options.signal,
       body: JSON.stringify({ frames, audio_source: options.audioSource || options.videoSourceUrl,
+        video_source: options.videoSourceUrl.startsWith('blob:') ? (options.audioSource || options.videoSourceUrl) : options.videoSourceUrl,
+        video_start_time: start,
         start_time: options.timelineStart ?? start, audio_start_time: options.audioSourceStart, end_time: (options.timelineStart ?? start)+duration,
         caption_words: options.clip?.caption_words, transcript: options.transcript || [], text_case: settings.textCase, caption_style: settings.subtitlesEnabled === false ? 'none' : settings.captionStyle,
         facecam_position: settings.facecamPosition || 'auto', streamer_preset: settings.streamerPreset }),

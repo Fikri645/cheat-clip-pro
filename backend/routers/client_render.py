@@ -20,6 +20,8 @@ class SampleFrame(BaseModel):
 
 class ClientPlanRequest(BaseModel):
     audio_source: str = ""
+    video_source: str = ""
+    video_start_time: Optional[float] = Field(None, ge=0)
     start_time: float = Field(0, ge=0)
     audio_start_time: Optional[float] = Field(None, ge=0)
     end_time: float = Field(ge=0)
@@ -37,7 +39,7 @@ def prepare_plan(request: ClientPlanRequest, scratch_id=None):
     import numpy as np
     from backend.config import TEMP_DIR, FONTS_DIR
     from backend.routers.media import _find_video_file_on_disk, _is_safe_path
-    from backend.services.face_tracking import track_frames
+    from backend.services.face_tracking import track_frames, detect_crop_trajectory
     from backend.media_lifecycle import media_lease
     from backend.video_engine import transcribe_clip_words, apply_text_case, clean_caption_text
     from backend.utils.captions import CAPTION_STYLES, caption_events
@@ -50,8 +52,23 @@ def prepare_plan(request: ClientPlanRequest, scratch_id=None):
             if image is None or image.shape[0] * image.shape[1] > 2_000_000:
                 raise HTTPException(status_code=422, detail="Invalid tracking image")
             yield item.time, image
-    trajectory = cached("browser-tracking-v1", [[f.model_dump() for f in request.frames], request.facecam_position, request.streamer_preset],
-        lambda: track_frames(frames(), request.facecam_position, request.streamer_preset)) if request.frames else []
+    trajectory = []
+    if request.frames:
+        video_url = request.video_source or request.audio_source
+        name = video_url.split("?")[0].replace("\\", "/").split("/")[-1]
+        video = _find_video_file_on_disk(name) if name and not video_url.startswith("blob:") else None
+        if video and video.exists() and _is_safe_path(video):
+            # The original source is needed at 25 fps for audiovisual inference;
+            # sparse browser JPEGs alone cannot provide lip synchronization.
+            start = request.video_start_time if request.video_start_time is not None else (
+                request.audio_start_time if request.audio_start_time is not None else request.start_time)
+            with media_lease(video):
+                trajectory = detect_crop_trajectory(video, request.facecam_position, request.streamer_preset,
+                    start_time=start, end_time=start+request.end_time-request.start_time)
+        if not trajectory:
+            # Legacy clients/remote-only sources still retain visual framing.
+            trajectory = cached("browser-tracking-v2-visual", [[f.model_dump() for f in request.frames], request.facecam_position, request.streamer_preset],
+                lambda: track_frames(frames(), request.facecam_position, request.streamer_preset))
     words = []
     if request.caption_style != "none":
         name = request.audio_source.split("?")[0].replace("\\", "/").split("/")[-1]

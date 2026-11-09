@@ -62,7 +62,8 @@ def cached(kind, identity, compute):
 
 
 def word_identity(identity, start, end, transcript, language):
-    return [identity, start, end, transcript or [], language, os.environ.get("WHISPER_MODEL", "small")]
+    from backend.whisper_runtime import transcription_identity
+    return [identity, start, end, transcript or [], language, transcription_identity()]
 
 
 def word_cache(identity, start, end, transcript, language, compute):

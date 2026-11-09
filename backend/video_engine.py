@@ -1,4 +1,4 @@
-from backend.whisper_runtime import use_fp16, transcription_progress
+from backend.whisper_runtime import use_fp16, transcription_progress, transcription_identity
 import os
 import sys
 import re
@@ -285,7 +285,7 @@ def ensure_ffmpeg_in_path():
 
 ensure_ffmpeg_in_path()
 
-# Global lazy-loaded whisper model and thread lock for PyTorch attention safety
+# Lazy-loaded faster-whisper adapter; serialize access and scoped progress callbacks.
 _WHISPER_MODEL = None
 _WHISPER_LOCK = threading.Lock()
 
@@ -295,21 +295,11 @@ def get_whisper_model():
     with _WHISPER_LOCK:
         if _WHISPER_MODEL is None:
             try:
-                import whisper
-                import torch
-                from backend.whisper_runtime import select_device
-                device = select_device(torch)
-                # Prefer 'small' model (better vocabulary & multi-lingual accuracy, esp. Indonesian speech)
-                # Falls back to 'base' if 'small' cannot be loaded
-                try:
-                    logger.info("Loading Whisper 'small' model for high-accuracy word-level timestamps...")
-                    _WHISPER_MODEL = whisper.load_model(os.environ.get("WHISPER_MODEL", "small"), device=device)
-                    logger.info("Whisper ready: model=%s device=%s precision=%s", os.environ.get("WHISPER_MODEL", "small"), _WHISPER_MODEL.device, "FP16" if device.startswith("cuda") else "FP32")
-                except Exception as e_small:
-                    if device.startswith("cuda"):
-                        raise
-                    logger.warning(f"Could not load Whisper 'small' model ({e_small}). Falling back to 'base'...")
-                    _WHISPER_MODEL = whisper.load_model("base", device=device)
+                from backend.whisper_runtime import FasterWhisperAdapter
+                _WHISPER_MODEL = FasterWhisperAdapter()
+                logger.info("Whisper ready: engine=faster-whisper model=%s device=%s precision=%s",
+                            os.environ.get("WHISPER_MODEL", "large-v3"),
+                            _WHISPER_MODEL.device.type, _WHISPER_MODEL.compute_type)
             except Exception as e:
                 logger.warning(f"Could not load Whisper model: {e}")
                 _WHISPER_MODEL = False
@@ -317,7 +307,7 @@ def get_whisper_model():
 
 
 def release_whisper_model():
-    """Explicitly frees Whisper PyTorch model from RAM to preserve memory on low-spec servers."""
+    """Release the speech model and its CTranslate2 GPU allocations."""
     global _WHISPER_MODEL
     with _WHISPER_LOCK:
         if _WHISPER_MODEL is not None and _WHISPER_MODEL is not False:
@@ -751,7 +741,7 @@ def transcribe_local_video_file(file_path, progress_callback=None, target_langua
         nonlocal computed
         computed = True
         return _transcribe_local_video_file(file_path, progress_callback, target_language)
-    result = cached("full-transcript-v1", [source_identity(file_path), os.environ.get("WHISPER_MODEL", "small"), target_language], compute)
+    result = cached("full-transcript-v2", [source_identity(file_path), transcription_identity(), target_language], compute)
     if not computed and progress_callback:
         progress_callback("Running Whisper AI", f"Extracting dialogue from {Path(file_path).name} with Whisper...", 100)
     return result
@@ -776,7 +766,7 @@ def _transcribe_local_video_file(
     if whisper_model is None:
         raise RuntimeError(
             "Whisper speech recognition model could not be loaded on this system. "
-            "Please ensure `openai-whisper` is installed and FFmpeg is in PATH."
+            "Please ensure faster-whisper and its CUDA libraries are installed."
         )
 
     if progress_callback:

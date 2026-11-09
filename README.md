@@ -225,6 +225,50 @@ The integration suite uses real FFmpeg output, terminates a worker, starts a rep
 Optional server defaults can be configured as `GEMINI_API_KEY` or `OPENROUTER_API_KEY` in `backend/.env` (see `backend/.env.template`).
 
 
+## Local transcription and active-speaker focus
+
+Local transcription now uses **faster-whisper large-v3** for both analysis and
+acoustic word timestamps. CUDA defaults to `int8_float16`; CPU uses `int8`.
+Install the CUDA build of PyTorch for GPU inference: on Windows its CUDA 12 and
+cuDNN 9 libraries are reused by CTranslate2. A requested CUDA device fails clearly
+if unavailable; it does not silently substitute a smaller speech model.
+
+Automatic podcast framing in both server and browser exports uses **Light-ASD** audio/visual scores with YuNet face
+detections, identity association across frames, the existing speaker lock, and
+smooth crop motion. The checkpoint is downloaded with a pinned SHA-256 check.
+Video preprocessing is bounded to six seconds of face crops at a time. Manual
+focus and streamer layouts retain their chosen framing. Sources without audio
+and shots without competing faces retain visual framing. When both speaker
+scores are negative, the current visible subject is held rather than switched
+just because one negative score is higher.
+
+Browser rendering passes the original video's source and clip-relative offset
+to the backend for audiovisual tracking. Older clients or remote-only sources
+that are unavailable on the backend retain their visual-only framing.
+
+Configure `backend/.env` (see `backend/.env.template`):
+
+```dotenv
+ML_MODEL_DIR=E:/ML-Models
+WHISPER_MODEL=large-v3
+WHISPER_DEVICE=auto
+WHISPER_COMPUTE_TYPE=auto
+WHISPER_BEAM_SIZE=5
+LIGHT_ASD_DEVICE=auto
+```
+
+`ML_MODEL_DIR` defaults to `backend/data/models`; it controls both model download
+locations. `WHISPER_MODEL_PATH` optionally points to an existing **CTranslate2**
+checkpoint directory (a PyTorch `.pt` file is not interchangeable).
+`LIGHT_ASD_MODEL_PATH` optionally points to the released Light-ASD checkpoint.
+Restart the backend after changing these settings. Model/decoding changes use
+new transcript/subtitle cache identities; Light-ASD uses a separate tracking
+cache version. Existing saved projects, edited subtitles, custom titles and
+completed exports are preserved.
+
+The Light-ASD architecture and MIT license are included under
+`backend/vendor/light_asd`; see its README for upstream attribution.
+
 ## Editing and saving projects
 
 - Open **Auto Clipper**, choose the preview clip, and use **Subtitle editor**. Load the acoustic words, edit text/start/end (seconds relative to the clip), then **Apply subtitles**. Add/delete words as needed. Edited words take precedence over transcription in browser and server exports, including merged videos. Overlapping or out-of-range edits are rejected.
